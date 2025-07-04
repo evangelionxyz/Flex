@@ -10,7 +10,10 @@ struct VERTEX
 
 layout (location = 0) in VERTEX inVertex;
 
+uniform sampler2D texture0;
+
 void main()
 {
-    fragColor = vec4(inVertex.color, 1.0f);
+    vec4 texColor = texture(texture0, inVertex.texCoord);
+    fragColor = texColor;
 }

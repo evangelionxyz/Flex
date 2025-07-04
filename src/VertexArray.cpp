@@ -30,6 +30,5 @@ VertexArray::~VertexArray()
 
 void VertexArray::Bind()
 {
-    m_VertexBuffer->Bind();
     glBindVertexArray(m_Handle);
 }

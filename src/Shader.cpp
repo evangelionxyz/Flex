@@ -4,6 +4,8 @@
 #include <fstream>
 #include <iostream>
 
+#include <glm/gtc/type_ptr.hpp>
+
 Shader::Shader()
     : m_Program(0)
 {
@@ -137,4 +139,65 @@ void Shader::Use(uint32_t program)
 {
     if (glIsProgram(program))
         glUseProgram(program);
+}
+
+void Shader::SetUniform(std::string_view name, int value)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniform1i(location, value);
+    }
+}
+
+void Shader::SetUniform(std::string_view name, const glm::vec3 &vec)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniform3f(location, vec.x, vec.y, vec.z);
+    }
+}
+
+void Shader::SetUniform(std::string_view name, const glm::vec4 &vec)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniform4f(location, vec.x, vec.y, vec.z, vec.w);
+    }
+}
+
+void Shader::SetUniform(std::string_view name, const glm::mat3 &mat)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
+    }
+}
+
+void Shader::SetUniform(std::string_view name, const glm::mat4 &mat)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
+    }
+}
+
+int Shader::GetUniformLocation(const std::string_view name)
+{
+    auto it = m_UniformLocations.find(name);
+    if (it != m_UniformLocations.end())
+        return it->second;
+
+    int location = glGetUniformLocation(m_Program, name.data());
+    if (location == -1)
+    {
+        std::cerr << "Warning: Uniform '" << name << "' not found in shader program.\n";
+    }
+    
+    m_UniformLocations[name] = location;
+    return location;
 }
