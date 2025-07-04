@@ -32,6 +32,8 @@ public:
     void SetUniform(std::string_view name, const glm::mat3 &mat);
     void SetUniform(std::string_view name, const glm::mat4 &mat);
 
+    void SetUniformArray(std::string_view name, int *value, int count);
+
 private:
     bool CompileShader(ShaderData *shaderData);
     int GetUniformLocation(const std::string_view name);

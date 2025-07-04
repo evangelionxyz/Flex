@@ -6,19 +6,23 @@
 #include <cstdint>
 #include <map>
 
+#include <glm/glm.hpp>
+
 struct FontVertex
 {
-    float position[2]; // x, y
-    float texCoord[2]; // u, v
-    float color[3];    // r, g, b
+    glm::vec2 position; // x, y
+    glm::vec2 texCoord; // u, v
+    glm::vec3 color;    // r, g, b
+    float textureIndex;
 };
 
 struct FontCharacter
 {
-    uint32_t textureHandle;
     uint32_t advance;
-    int size[2];
-    int bearing[2];
+    glm::vec2 uvBottomLeft;
+    glm::vec2 uvTopRight;
+    glm::ivec2 size;
+    glm::ivec2 bearing;
 };
 
 class Font
@@ -27,18 +31,32 @@ public:
     Font(const std::string &filename, int fontSize = 16);
     ~Font();
 
-    void DrawText(const std::string &text, int x, int y, float scale, float color[3]);
     int GetFontSize() const { return m_FontSize; }
+    uint32_t GetTextureHandle() const { return m_TextureHandle; }
+    std::map<char, FontCharacter> GetCharacters() const { return m_Characters; }
     
 private:
     std::map<char, FontCharacter> m_Characters;
-    std::shared_ptr<VertexArray> m_VertexArray;
-    std::shared_ptr<VertexBuffer> m_VertexBuffer;
+    uint32_t m_TextureHandle;
     int m_FontSize;
+};
+
+struct TextParameter
+{
+    float lineSpacing = 1.0f;
+    float kerning = 0.0f;
 };
 
 class TextRenderer
 {
 public:
-    static void DrawText(Font *font, int x, int y, float scale, float color[3]);
+    static void Init();
+    static void Shutdown();
+
+    static void Begin(const glm::mat4 &viewProjection);
+    static void End();
+
+    static void DrawText(Font *font, const std::string &text, const int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params);
+    static int GetFontTextureIndex(Font *font);
+
 };

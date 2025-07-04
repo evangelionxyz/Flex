@@ -31,7 +31,6 @@ int main()
 {
 	const int WINDOW_WIDTH = 800;
 	const int WINDOW_HEIGHT = 650;
-	int fontScaleFactor = 1;
 
 	Window window("Hello OpenGL", WINDOW_WIDTH, WINDOW_HEIGHT);
 	Camera camera;
@@ -51,62 +50,28 @@ int main()
 
 	std::shared_ptr<Texture2D> texture = std::make_shared<Texture2D>("resources/textures/image.jpg");
 
-	Shader shader = Shader()
-		.AddFromFile("resources/shaders/default.vertex.glsl", GL_VERTEX_SHADER)
-		.AddFromFile("resources/shaders/default.frag.glsl", GL_FRAGMENT_SHADER)
-		.Compile();
-
-	Shader textShader = Shader()
-		.AddFromFile("resources/shaders/text.vertex.glsl", GL_VERTEX_SHADER)
-		.AddFromFile("resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER)
-		.Compile();
-
-	
-	struct Vertex
-	{
-		float position[3];
-		float color[3];
-		float texCoord[2];
-	};
-
-	float scale = 50.0f;
-	Vertex vertices[] = 
-	{
-		{ { 0.0f * scale,  0.0f * scale, 0.0f }, { 1.0f, 0.5, 0.0f }, {0.0f, 0.0f} }, // bottom left
-		{ { 1.0f * scale,  0.0f * scale, 0.0f }, { 1.0f, 0.5, 0.0f }, {1.0f, 0.0f} }, // top left
-		{ { 1.0f * scale,  1.0f * scale, 0.0f }, { 1.0f, 0.5, 0.0f }, {1.0f, 1.0f} }, // top right 
-		{ { 0.0f * scale,  1.0f * scale, 0.0f }, { 1.0f, 0.5, 0.0f }, {0.0f, 1.0f} }, // bottom right
-	};
-
-	uint32_t indices[]
-	{
-		0, 1, 2,
-		2, 3, 0
-	};
-
-	std::shared_ptr<VertexArray> vertexArray = std::make_shared<VertexArray>();
-	std::shared_ptr<IndexBuffer> indexBuffer = std::make_shared<IndexBuffer>(indices, sizeof(indices), std::size(indices));
-	std::shared_ptr<VertexBuffer> vertexBuffer = std::make_shared<VertexBuffer>(vertices, sizeof(vertices));
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof(Vertex, position));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof(Vertex, color));
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void *)offsetof(Vertex, texCoord));
-	glEnableVertexAttribArray(2);
-
-	vertexArray->SetVertexBuffer(vertexBuffer);
-	vertexArray->SetIndexBuffer(indexBuffer);
-
 	double currentTime = 0.0;
 	double prevTime = 0.0;
 	double deltaTime = 0.0;
 	double FPS = 0.0;
 
-	std::shared_ptr<Font> font = std::make_shared<Font>("resources/fonts/Montserrat-Regular.ttf", 16);
+	std::shared_ptr<Font> boldFont = std::make_shared<Font>("resources/fonts/Montserrat-Bold.ttf", 16);
+	std::shared_ptr<Font> regularFont = std::make_shared<Font>("resources/fonts/Montserrat-Regular.ttf", 12);
 
 	double statusUpdateInterval = 0.0;
 	std::string statInfo = std::format("FPS {:.3} - {:.4} s", FPS, deltaTime * 1000.0);
+	TextParameter textParameter;
+	textParameter.lineSpacing = 1.0f;
+	textParameter.kerning = 0.0f;
+
+	TextRenderer::Init();
+
+	std::string testText = R"(TOP MOST
+Line 1
+Line 2
+Line 3
+Line 4
+BOTTOM MOST)";
 
 	while (window.IsLooping())
 	{
@@ -132,32 +97,27 @@ int main()
 		{
 		 	glEnable(GL_BLEND);
 		 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			
-		 	textShader.Use();
-			textShader.SetUniform("viewProjection", camera.projection * camera.view);
-		 	textShader.SetUniform("texture0", 0);
-		 	float color[3] = {1.0f, 1.0f, 1.0f};
+			TextRenderer::Begin(camera.projection * camera.view);
 
-		 	// Position text from top-left corner (accounting for OpenGL's bottom-left origin)
-			for (int i = 1; i <= 1; ++i)
-			{
-				const int yPos = WINDOW_HEIGHT - font->GetFontSize() * i * fontScaleFactor; 
-				font->DrawText(std::format("Text {}", i), 5, yPos, fontScaleFactor, color);
-			}
-		}
+			glm::vec3 color = glm::vec3(1.0f);
+			TextRenderer::DrawText(boldFont.get(), testText, 5, WINDOW_HEIGHT - boldFont->GetFontSize(), 1.0f, color, textParameter);
 
-		// Geometry
-		{
-			texture->Bind(0);
+			// const float yOffset = boldFont->GetFontSize();
+			// for (int i = 0; i < 2; ++i)
+			// {
+			// 	float fontSize = (float)regularFont->GetFontSize();
+			// 	float yPos = fontSize * i;
+			// 	TextRenderer::DrawText(regularFont.get(), std::format("Text {}", i), 5, WINDOW_HEIGHT - yOffset - yPos, 1.0f, color);
+			// }
 
-			shader.Use();
-			shader.SetUniform("viewProjection", camera.projection * camera.view);
-			shader.SetUniform("texture0", 0);
-			Renderer::DrawIndexed(vertexArray);
+			TextRenderer::End();
 		}
 
 		window.SwapBuffers();
 	}
+
+
+	TextRenderer::Shutdown();
 
 	return 0;
 }

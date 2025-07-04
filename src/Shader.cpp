@@ -87,17 +87,18 @@ bool Shader::CompileShader(ShaderData *shaderData)
 	// Failed to compile shader
 	if (status == GL_FALSE)
 	{
-		std::cerr << "Failed to compile" << ((shaderData->type == GL_VERTEX_SHADER) ? "VERTEX" : "FRAGMENT") << " shader \n";
+		std::cerr << "Failed to compile " << ((shaderData->type == GL_VERTEX_SHADER) ? "VERTEX" : "FRAGMENT") << " shader \n";
 
 		// Get shader info log
 		int logSize = 0;
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logSize);
 		std::vector<char> messageLog(logSize);
 		glGetShaderInfoLog(shader, logSize, &logSize, messageLog.data());
-
 		std::cerr << messageLog.data() << '\n';;
 
 		glDeleteShader(shader);
+
+        assert(false);
 		return false;
 	}
 
@@ -183,6 +184,15 @@ void Shader::SetUniform(std::string_view name, const glm::mat4 &mat)
     if (location != -1)
     {
         glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(mat));
+    }
+}
+
+void Shader::SetUniformArray(std::string_view name, int *value, int count)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniform1iv(location, count, value);
     }
 }
 
