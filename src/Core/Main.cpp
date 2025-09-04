@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <memory>
@@ -20,7 +21,9 @@
 #include "Renderer/Mesh.h"
 #include "Math/Math.hpp"
 
-#include "Camera.hpp"
+#include "Renderer/Gizmo.h"
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #define RENDER_MODE_COLOR 0
 #define RENDER_MODE_NORMALS 1
@@ -232,6 +235,11 @@ int main()
 	Window window("Hello OpenGL", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	Camera camera;
+	Gizmo gizmo;
+	
+	// Initialize gizmo at origin
+	gizmo.SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+	gizmo.SetMode(GizmoMode::TRANSLATE);
 	// Initialize camera with proper spherical coordinates
 	camera.target = glm::vec3(0.0f);
 	camera.distance = 5.5f;
@@ -242,6 +250,10 @@ int main()
 	float initialAspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
 	camera.UpdateSphericalPosition();
 	camera.UpdateMatrices(initialAspect);
+
+	// Initialize font and text renderer
+	Font font("resources/fonts/Montserrat-Medium.ttf", 24);
+	TextRenderer::Init();
 
 	window.SetScrollCallback([&](int xOffset, int yOffset)
 	{
@@ -264,6 +276,15 @@ int main()
 	double deltaTime = 0.0;
 	double FPS = 0.0;
 	double statusUpdateInterval = 0.0;
+	double debugTextUpdateInterval = 0.0;
+	int frameCount = 0;
+	std::string debugText[10];
+	
+	// Initialize debug text
+	for (int i = 0; i < 10; ++i)
+	{
+		debugText[i] = std::format("Initializing... {}", i);
+	}
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -321,6 +342,28 @@ int main()
 			statusUpdateInterval = 1.0;
 		}
 
+		// Update debug text every second with chaos
+		debugTextUpdateInterval -= deltaTime;
+		if (debugTextUpdateInterval <= 0.0)
+		{
+			frameCount++;
+			std::string chaosSymbols = "!@#$%^&*()[]{}|\\:;\"'<>?/~`";
+			char randomSymbol = chaosSymbols[frameCount % chaosSymbols.length()];
+			
+			debugText[0] = std::format("FPS: {:.1f} | Frame: {} {}", FPS, frameCount, randomSymbol);
+			debugText[1] = std::format("Delta Time: {:.3f} ms | Chaos: {}", deltaTime * 1000.0, (rand() % 100));
+			debugText[2] = std::format("Camera Pos: ({:.2f}, {:.2f}, {:.2f}) {}", camera.position.x, camera.position.y, camera.position.z, (frameCount % 3 == 0) ? "!!!" : "");
+			debugText[3] = std::format("Camera Target: ({:.2f}, {:.2f}, {:.2f}) [{}]", camera.target.x, camera.target.y, camera.target.z, rand() % 1000);
+			debugText[4] = std::format("Camera Yaw: {:.2f} | Pitch: {:.2f} | {}", glm::degrees(camera.yaw), glm::degrees(camera.pitch), (frameCount % 2) ? "SPINNING" : "STABLE");
+			debugText[5] = std::format("Distance: {:.2f} | Render Mode: {} | {}", camera.distance, debug.renderMode, std::string(frameCount % 5, '*'));
+			debugText[6] = std::format("Window: {}x{} | Time: {:.1f}s | {}", WINDOW_WIDTH, WINDOW_HEIGHT, currentTime, (rand() % 2) ? "ALERT" : "NORMAL");
+			debugText[7] = std::format("Gizmo Mode: {} | Chaos Level: {} | {}", (int)gizmo.GetMode(), frameCount % 10, std::string((frameCount % 4) + 1, '!'));
+			debugText[8] = std::format("Memory Usage: {} KB | CPU: {}% | {}", (frameCount * 42) % 10000, (frameCount * 7) % 100, (frameCount % 3 == 0) ? "CRITICAL" : "OK");
+			debugText[9] = std::format("Random Data: {} | Status: {} | {}", rand() % 1000, (frameCount % 2 == 0) ? "OK" : "WARNING", std::string((rand() % 5) + 1, '?'));
+			
+			debugTextUpdateInterval = 1.0; // Update every 1 second
+		}
+
 		if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && glfwGetKey(window.GetHandle(), GLFW_KEY_R))
 			defaultShader.Reload();
 
@@ -333,12 +376,23 @@ int main()
 		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_4) == GLFW_PRESS)
 			debug.renderMode = RENDER_MODE_ROUGHNESS;
 
+		// Gizmo mode switching
+		if (glfwGetKey(window.GetHandle(), GLFW_KEY_Q) == GLFW_PRESS)
+			gizmo.SetMode(GizmoMode::TRANSLATE);
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_W) == GLFW_PRESS)
+			gizmo.SetMode(GizmoMode::ROTATE);
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_E) == GLFW_PRESS)
+			gizmo.SetMode(GizmoMode::SCALE);
+
 		UpdateMouseState(camera, window.GetHandle());
 		HandleOrbit(camera, deltaTime);
 		HandlePan(camera, deltaTime);
 		HandleZoom(camera, deltaTime, window.GetHandle());
 		ApplyInertia(camera, deltaTime);
 		UpdateCameraPosition(camera);
+		
+		// Update gizmo
+		gizmo.Update(camera, window.GetHandle(), deltaTime);
 		
 		// Update camera matrices with current aspect ratio
 		float aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
@@ -348,6 +402,46 @@ int main()
 		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+
+		glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
+		TextRenderer::Begin(orthoProjection);
+
+		// Render multiline debug text with chaos
+		int lineHeight = 25;
+		int startY = WINDOW_HEIGHT - 30;
+		
+		for (int i = 0; i < 10; ++i)
+		{
+			// Skip some lines randomly for chaos effect
+			if ((frameCount + i) % 7 == 0 && rand() % 3 == 0)
+				continue;
+			
+			// Create chaotic colors based on frame count and line index
+			float hue = fmod((frameCount * 0.1f + i * 0.5f), 1.0f);
+			glm::vec3 textColor;
+			
+			// Convert HSV to RGB for rainbow effect
+			if (hue < 0.166f) {
+				textColor = glm::vec3(1.0f, hue * 6.0f, 0.0f);
+			} else if (hue < 0.333f) {
+				textColor = glm::vec3((0.333f - hue) * 6.0f, 1.0f, 0.0f);
+			} else if (hue < 0.5f) {
+				textColor = glm::vec3(0.0f, 1.0f, (hue - 0.333f) * 6.0f);
+			} else if (hue < 0.666f) {
+				textColor = glm::vec3(0.0f, (0.666f - hue) * 6.0f, 1.0f);
+			} else if (hue < 0.833f) {
+				textColor = glm::vec3((hue - 0.666f) * 6.0f, 0.0f, 1.0f);
+			} else {
+				textColor = glm::vec3(1.0f, 0.0f, (1.0f - hue) * 6.0f);
+			}
+			
+			// Add some scale variation for chaos
+			float scale = 0.7f + 0.3f * sin(frameCount * 0.1f + i * 0.5f);
+			
+			TextRenderer::DrawString(&font, debugText[i].c_str(), 10, startY - (i * lineHeight), scale, textColor, {});
+		}
+
+		TextRenderer::End();
 
 		// Update camera data
 		cameraData.viewProjection = camera.projection * camera.view;
@@ -396,6 +490,9 @@ int main()
 		}
 		
 
+		// Render gizmo
+		gizmo.Render(camera.projection * camera.view);
+
 		// Render skybox last (no depth writes, pass when depth equals far plane)
 		glDepthMask(GL_FALSE);
 		GLint prevDepthFunc; glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
@@ -419,6 +516,8 @@ int main()
 
 		window.SwapBuffers();
 	}
+
+	TextRenderer::Shutdown();
 
 	return 0;
 }

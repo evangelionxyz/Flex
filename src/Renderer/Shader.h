@@ -1,3 +1,5 @@
+#pragma once
+
 #include <glad/glad.h>
 #include <cstdint>
 #include <vector>
@@ -19,6 +21,7 @@ public:
     Shader();
 
     Shader &AddFromFile(const std::string &filepath, GLenum type);
+    Shader &AddFromString(const std::string &source, GLenum type);
     Shader &Compile();
     void Reload();
 
@@ -36,6 +39,7 @@ public:
 
 private:
     bool CompileShader(ShaderData *shaderData);
+    bool CompileShaderFromString(ShaderData *shaderData, const std::string &source);
     int GetUniformLocation(const std::string_view name);
 
     uint32_t m_Program;

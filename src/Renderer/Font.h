@@ -4,7 +4,7 @@
 #include "VertexBuffer.h"
 #include <string>
 #include <cstdint>
-#include <map>
+#include <unordered_map>
 
 #include <glm/glm.hpp>
 
@@ -13,7 +13,7 @@ struct FontVertex
     glm::vec2 position; // x, y
     glm::vec2 texCoord; // u, v
     glm::vec3 color;    // r, g, b
-    float textureIndex;
+    int textureIndex;
 };
 
 struct FontCharacter
@@ -33,10 +33,10 @@ public:
 
     int GetFontSize() const { return m_FontSize; }
     uint32_t GetTextureHandle() const { return m_TextureHandle; }
-    std::map<char, FontCharacter> GetCharacters() const { return m_Characters; }
+    const std::unordered_map<uint32_t, FontCharacter>& GetCharacters() { return m_Characters; }
     
 private:
-    std::map<char, FontCharacter> m_Characters;
+    std::unordered_map<uint32_t, FontCharacter> m_Characters;
     uint32_t m_TextureHandle;
     int m_FontSize;
 };
@@ -56,7 +56,7 @@ public:
     static void Begin(const glm::mat4 &viewProjection);
     static void End();
 
-    static void DrawText(Font *font, const std::string &text, const int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params);
+    static void DrawString(Font *font, const std::string &text, const int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params);
     static int GetFontTextureIndex(Font *font);
 
 };

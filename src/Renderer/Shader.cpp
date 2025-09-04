@@ -38,6 +38,20 @@ Shader &Shader::AddFromFile(const std::string &filepath, GLenum type)
     return *this;
 }
 
+Shader &Shader::AddFromString(const std::string &source, GLenum type)
+{
+    ShaderData shaderData;
+    shaderData.type = type;
+    shaderData.filepath = ""; // No filepath for string shaders
+    
+    if (CompileShaderFromString(&shaderData, source))
+    {
+        m_Shaders.push_back(std::move(shaderData));
+    } 
+
+    return *this;
+}
+
 Shader &Shader::Compile()
 {
     GLuint program = glCreateProgram();
@@ -117,6 +131,43 @@ bool Shader::CompileShader(ShaderData *shaderData)
     shaderData->shader = shader;
     
     std::cout << "Shader " << GetShaderStageString(shaderData->type) << " Success to compile: \"" << shaderData->filepath << '\n';
+    return true;
+}
+
+bool Shader::CompileShaderFromString(ShaderData *shaderData, const std::string &source)
+{
+    const char *shaderCode = source.c_str();
+
+    uint32_t shader = glCreateShader(shaderData->type);
+    glShaderSource(shader, 1, &shaderCode, nullptr);
+
+	// Compile shader and get compile status
+	glCompileShader(shader);
+	int status = GL_FALSE;
+
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+
+	// Failed to compile shader
+	if (status == GL_FALSE)
+	{
+		std::cerr << "Failed to compile " << GetShaderStageString(shaderData->type) << " from string\n";
+
+		// Get shader info log
+		int logSize = 0;
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logSize);
+		std::vector<char> messageLog(logSize);
+		glGetShaderInfoLog(shader, logSize, &logSize, messageLog.data());
+		std::cerr << messageLog.data() << '\n';;
+
+		glDeleteShader(shader);
+
+        assert(false);
+		return false;
+	}
+
+    shaderData->shader = shader;
+    
+    std::cout << "Shader " << GetShaderStageString(shaderData->type) << " Success to compile from string\n";
     return true;
 }
 

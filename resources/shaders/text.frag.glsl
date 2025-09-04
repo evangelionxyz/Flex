@@ -14,6 +14,12 @@ layout (location = 1) in VERTEX inVertex;
 
 void main()
 {
-    vec4 texColor = vec4(vec3(1.0), texture(textures[inTexIndex], inVertex.texCoord).r);
-    fragColor = vec4(inVertex.color, 1.0) * texColor;
+    float alpha = texture(textures[inTexIndex], inVertex.texCoord).r;
+    
+    // Use a small threshold to avoid rendering very faint pixels
+    if (alpha < 0.01)
+        discard;
+    
+    // Modulate both color and alpha by the texture value
+    fragColor = vec4(inVertex.color * alpha, alpha);
 }

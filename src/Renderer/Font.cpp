@@ -10,6 +10,17 @@
 #include <filesystem>
 #include <array>
 
+static uint32_t NextPowerOf2(uint32_t v) {
+    if (v == 0) return 1;
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    return v + 1;
+}
+
 Font::Font(const std::string &filename, int fontSize)
     : m_FontSize(fontSize)
 {
@@ -38,7 +49,7 @@ Font::Font(const std::string &filename, int fontSize)
     uint32_t atlasHeight = 0;
 
     // First pass, calculate the required atlas dimensions
-    for (uint32_t c = 0; c < 128; ++c)
+    for (uint32_t c = 0; c < 256; ++c)
     {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER))
         {
@@ -49,6 +60,9 @@ Font::Font(const std::string &filename, int fontSize)
         atlasHeight = std::max(atlasHeight, face->glyph->bitmap.rows);
     }
 
+    atlasWidth = NextPowerOf2(atlasWidth);
+    atlasHeight = NextPowerOf2(atlasHeight);
+
     // Create atlas texture
     glGenTextures(1, &m_TextureHandle);
     glBindTexture(GL_TEXTURE_2D, m_TextureHandle);
@@ -58,12 +72,12 @@ Font::Font(const std::string &filename, int fontSize)
     // Set texture options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Second pass, load glyphs and upload them to the atlas texture
     uint32_t xOffset = 0;
-    for (uint32_t c = 0; c < 128; ++c)
+    for (uint32_t c = 0; c < 256; ++c)
     {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER))
         {
@@ -102,6 +116,8 @@ Font::Font(const std::string &filename, int fontSize)
         // Advance the x offset for the next character
         xOffset += glyphWidth;
     }
+
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -161,7 +177,7 @@ void TextRenderer::Init()
 
     glEnableVertexAttribArray(3);
     // Use glVertexAttribIPointer for integers
-    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(FontVertex), (const void *)offsetof(FontVertex, textureIndex));
+    glVertexAttribIPointer(3, 1, GL_INT, sizeof(FontVertex), (const void *)offsetof(FontVertex, textureIndex));
 
     s_TextData.vertexArray->SetVertexBuffer(s_TextData.vertexBuffer);
 }
@@ -179,6 +195,9 @@ void TextRenderer::Begin(const glm::mat4 &viewProjection)
 
     s_TextData.shader->Use();
     s_TextData.shader->SetUniform("viewProjection", viewProjection);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void TextRenderer::End()
@@ -194,21 +213,35 @@ void TextRenderer::End()
         {
             if (s_TextData.fonts[i])
             {
-                glBindTextureUnit(i, s_TextData.fonts[i]->GetTextureHandle());
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, s_TextData.fonts[i]->GetTextureHandle());
             }
         }
 
         glDrawArrays(GL_TRIANGLES, 0, s_TextData.vertexCount);
+
+        glDisable(GL_BLEND);
     }
 }
 
-void TextRenderer::DrawText(Font *font, const std::string &text, const  int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params)
+void TextRenderer::DrawString(Font *font, const std::string &text, const  int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params)
 {
+    if (s_TextData.vertexCount + 6 * text.size() > s_TextData.MAX_VERTICES)
+    {
+        // Overflow, skip this draw call
+        return;
+    }
+
     int textureIndex = GetFontTextureIndex(font);
 
     // load store new font
     if (textureIndex == -1)
     {
+        if (s_TextData.fontTextureIndex >= s_TextData.MAX_FONTS)
+        {
+            // No more font slots
+            return;
+        }
         textureIndex = s_TextData.fontTextureIndex++;
         s_TextData.fonts[textureIndex] = font;
     }
@@ -218,24 +251,24 @@ void TextRenderer::DrawText(Font *font, const std::string &text, const  int x, c
 
     for (size_t i = 0; i < text.size(); ++i)
     {
-        char c = text[i];
-        FontCharacter &ch = font->GetCharacters()[c];
+        uint32_t codepoint = (unsigned char)text[i];
+        const FontCharacter &ch = font->GetCharacters().at(codepoint);
 
         // Return
-        if (c == '\r')
+        if (codepoint == '\r')
         {
             continue;
         }
 
         // New Character
-        if (c == '\n')
+        if (codepoint == '\n')
         {
             POSITION_X = x;
             POSITION_Y -= scale * (float)font->GetFontSize() + params.lineSpacing;
             continue;
         }
 
-        if (c == ' ')
+        if (codepoint == ' ')
         {
             POSITION_X += params.kerning + scale;
         }
@@ -251,13 +284,6 @@ void TextRenderer::DrawText(Font *font, const std::string &text, const  int x, c
         glm::vec2 pos_tr = {xPos + w, yPos + h};
         glm::vec2 pos_tl = {xPos, yPos + h};
 
-        // Define the 4 corresponding UV coordinates from the atlas
-        // glm::vec2 uv_bl = { ch.uvBottomLeft.x, ch.uvBottomLeft.y };
-        // glm::vec2 uv_br = { ch.uvTopRight.x,   ch.uvBottomLeft.y };
-        // glm::vec2 uv_tr = { ch.uvTopRight.x,   ch.uvTopRight.y };
-        // glm::vec2 uv_tl = { ch.uvBottomLeft.x, ch.uvTopRight.y };
-
-        // Define the 4 corresponding UV coordinates, swapping the Y to fix the orientation
         glm::vec2 uv_bl = {ch.uvBottomLeft.x, ch.uvTopRight.y};
         glm::vec2 uv_br = {ch.uvTopRight.x, ch.uvTopRight.y};
         glm::vec2 uv_tr = {ch.uvTopRight.x, ch.uvBottomLeft.y};
@@ -267,37 +293,38 @@ void TextRenderer::DrawText(Font *font, const std::string &text, const  int x, c
         s_TextData.vertexPointer->position = pos_bl;
         s_TextData.vertexPointer->texCoord = uv_bl;
         s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = (float)textureIndex;
+        s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
         s_TextData.vertexPointer->position = pos_br;
         s_TextData.vertexPointer->texCoord = uv_br;
         s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = (float)textureIndex;
+        s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
         s_TextData.vertexPointer->position = pos_tr;
         s_TextData.vertexPointer->texCoord = uv_tr;
         s_TextData.vertexPointer->color = color;
+        s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
         // Triangle 2
         s_TextData.vertexPointer->position = pos_bl;
         s_TextData.vertexPointer->texCoord = uv_bl;
         s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = (float)textureIndex;
+        s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
         s_TextData.vertexPointer->position = pos_tr;
         s_TextData.vertexPointer->texCoord = uv_tr;
         s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = (float)textureIndex;
+        s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
         s_TextData.vertexPointer->position = pos_tl;
         s_TextData.vertexPointer->texCoord = uv_tl;
         s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = (float)textureIndex;
+        s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
         s_TextData.vertexCount += 6;

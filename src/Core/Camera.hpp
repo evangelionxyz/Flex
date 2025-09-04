@@ -81,14 +81,14 @@ struct Camera
 };
 
 // Legacy functions for backward compatibility
-glm::vec3 GetCameraRight(const Camera &camera) {
+inline glm::vec3 GetCameraRight(const Camera &camera) {
 	return camera.GetRight();
 }
 
-glm::vec3 GetCameraForward(const Camera &camera) {
+inline glm::vec3 GetCameraForward(const Camera &camera) {
 	return camera.GetForward();
 }
 
-glm::vec3 GetCameraUp(const Camera &camera) {
+inline glm::vec3 GetCameraUp(const Camera &camera) {
 	return camera.GetUp();
 }
