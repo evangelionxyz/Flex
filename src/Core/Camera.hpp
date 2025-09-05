@@ -33,7 +33,7 @@ struct Camera
 	// Projection properties
 	float fov = 45.0f;
 	float nearPlane = 0.1f;
-	float farPlane = 1000.0f;
+	float farPlane = 550.0f;
 	
 	// Mouse state
 	MouseState mouse;
@@ -63,14 +63,16 @@ struct Camera
 	glm::mat4 projection;
 	
 	// Update camera with new position based on spherical coordinates
-	void UpdateSphericalPosition() {
+	void UpdateSphericalPosition()
+	{
 		position.x = target.x + distance * cos(pitch) * cos(yaw);
 		position.y = target.y + distance * sin(pitch);
 		position.z = target.z + distance * cos(pitch) * sin(yaw);
 	}
 	
 	// Update view and projection matrices
-	void UpdateMatrices(float aspectRatio) {
+	void UpdateMatrices(float aspectRatio)
+	{
 		view = glm::lookAt(position, target, up);
 		projection = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
 	}

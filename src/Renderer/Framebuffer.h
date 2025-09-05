@@ -45,6 +45,8 @@ public:
     
     uint32_t GetColorAttachment(int index);
 
+    uint32_t GetDepthAttachment() const { return m_DepthAttachment; }
+
     uint32_t GetHandle() const { return m_Handle; }
     uint32_t GetWidth() const { return m_CreateInfo.width; }
     uint32_t GetHeight() const { return m_CreateInfo.height; }

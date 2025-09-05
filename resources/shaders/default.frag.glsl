@@ -148,17 +148,16 @@ void main()
 
     vec3 reflectDirection = reflect(-viewDirection, normals);
 
+    vec3 baseColorTex = texture(u_BaseColorTexture, _input.uv).rgb;
+    vec3 emissiveColorTex = texture(u_EmissiveTexture, _input.uv).rgb;
+    vec3 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv).rgb;
+    vec3 normalMapTex = texture(u_NormalTexture, _input.uv).rgb;
+    float occlusionTex = texture(u_OcclusionTexture, _input.uv).r;
+    float metallic = metallicRoughnessColorTex.b;
+    float roughness = metallicRoughnessColorTex.g;
+
     if (u_Debug.renderMode == RENDER_MODE_COLOR)
     {
-        vec3 baseColorTex = texture(u_BaseColorTexture, _input.uv).rgb;
-        vec3 emissiveColorTex = texture(u_EmissiveTexture, _input.uv).rgb;
-        vec3 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv).rgb;
-        vec3 normalMapTex = texture(u_NormalTexture, _input.uv).rgb;
-        float occlusionTex = texture(u_OcclusionTexture, _input.uv).r;
-
-        float metallic = metallicRoughnessColorTex.b;
-        float roughness = metallicRoughnessColorTex.g;
-
         float minRoughness = clamp(sqrt(sunSolidAngle / M_PI) * 0.5, 0.0, 1.0);
         float filteredRoughness = max(roughness, minRoughness);
 
@@ -204,7 +203,12 @@ void main()
     else if (u_Debug.renderMode == RENDER_MODE_NORMALS)
     {
         vec3 n = normals * 0.5 + 0.5;
-        fragColor = vec4(n, 1.0);
+        vec3 finalNormal = n;
+        if (length(normalMapTex) > 0.01) // Check if normal map has meaningful data
+        {
+            finalNormal = GetNormalFromMap(n, tangent, bitangent, _input.uv, u_NormalTexture);
+        }
+        fragColor = vec4(finalNormal, 1.0);
     }
     else if (u_Debug.renderMode == RENDER_MODE_METALLIC)
     {

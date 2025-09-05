@@ -33,7 +33,11 @@ Shader &Shader::AddFromFile(const std::string &filepath, GLenum type)
     if (CompileShader(&shaderData))
     {
         m_Shaders.push_back(std::move(shaderData));
-    } 
+    }
+    else
+    {
+        assert(false);
+    }
 
     return *this;
 }
@@ -124,7 +128,6 @@ bool Shader::CompileShader(ShaderData *shaderData)
 
 		glDeleteShader(shader);
 
-        assert(false);
 		return false;
 	}
 

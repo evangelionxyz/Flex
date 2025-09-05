@@ -39,11 +39,18 @@ public:
 		Create();
 	}
 
-	void Render(uint32_t texture)
+	void Render(uint32_t texture, uint32_t depthTex)
 	{
 		shader.Use();
 		glBindTextureUnit(0, texture);
 		shader.SetUniform("texture0", 0);
+		glBindTextureUnit(1, depthTex);
+		shader.SetUniform("depthTex", 1);
+		shader.SetUniform("focalLength", focalLength);
+		shader.SetUniform("focalDistance", focalDistance);
+		shader.SetUniform("fStop", fStop);
+		shader.SetUniform("focusRange", focusRange);
+		shader.SetUniform("inverseProjection", inverseProjection);
 
 		vertexArray->Bind();
 		// Ensure the index buffer is bound for glDrawElements
@@ -51,12 +58,6 @@ public:
     	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 	}
 
-private:
-	std::shared_ptr<VertexArray> vertexArray;
-	std::shared_ptr<VertexBuffer> vertexBuffer;
-	std::shared_ptr<IndexBuffer> indexBuffer;
-
-	Shader shader;
 	void Create()
 	{
 		std::vector<glm::vec2> vertices =
@@ -88,6 +89,26 @@ private:
 		shader.AddFromFile("resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER);
 		shader.Compile();
 	}
+
+	void SetDOFParameters(float fl, float fd, float fs, const glm::mat4& invProj)
+	{
+		focalLength = fl;
+		focalDistance = fd;
+		fStop = fs;
+		inverseProjection = invProj;
+	}
+
+	std::shared_ptr<VertexArray> vertexArray;
+	std::shared_ptr<VertexBuffer> vertexBuffer;
+	std::shared_ptr<IndexBuffer> indexBuffer;
+
+	Shader shader;
+
+	float focalLength = 120.0f;
+	float focalDistance = 5.5f;
+	float fStop = 1.4f;
+	float focusRange = 5.0f;
+	glm::mat4 inverseProjection = glm::mat4(1.0f);
 };
 
 struct DebugData
@@ -394,9 +415,11 @@ int main()
 	{
 		WINDOW_WIDTH = width;
 		WINDOW_HEIGHT = height;
+
+		screen.inverseProjection = glm::inverse(camera.projection);
 		
 		// Resize framebuffer
-		// framebuffer->Resize(width, height);
+		framebuffer->Resize(width, height);
 	});
 
 	window.SetScrollCallback([&](int xOffset, int yOffset)
@@ -413,6 +436,7 @@ int main()
 		
 		// Resize framebuffer
 		framebuffer->Resize(width, height);
+		screen.inverseProjection = glm::inverse(camera.projection);
 	});
 
 	window.SetKeyboardCallback([&](int key, int scancode, int action, int mods)
@@ -425,7 +449,10 @@ int main()
 					window.ToggleFullScreen();
 
 				if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && key == GLFW_KEY_R)
+				{
 					PBRShader.Reload();
+					screen.shader.Reload();
+				}
 
 				if (key == GLFW_KEY_1 )
 					debug.renderMode = RENDER_MODE_COLOR;
@@ -435,6 +462,10 @@ int main()
 					debug.renderMode = RENDER_MODE_METALLIC;
 				else if (key == GLFW_KEY_4 )
 					debug.renderMode = RENDER_MODE_ROUGHNESS;
+
+				else if (key == GLFW_KEY_ESCAPE)
+					glfwSetWindowShouldClose(window.GetHandle(), 1);
+
 				break;
 			}
 			case GLFW_REPEAT:
@@ -468,6 +499,17 @@ int main()
 			gizmo.SetMode(GizmoMode::ROTATE);
 		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_E) == GLFW_PRESS)
 			gizmo.SetMode(GizmoMode::SCALE);
+		// DOF controls
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_F) == GLFW_PRESS)
+			screen.focalDistance = camera.distance; // Focus on current distance
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_G) == GLFW_PRESS)
+			screen.fStop -= 0.1f; // Decrease f-stop (more blur)
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_H) == GLFW_PRESS)
+			screen.fStop += 0.1f; // Increase f-stop (less blur)
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_J) == GLFW_PRESS)
+			screen.focusRange -= 0.1f;
+		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_K) == GLFW_PRESS)
+			screen.focusRange += 0.1f;
 
 		UpdateMouseState(camera, window.GetHandle());
 		HandleOrbit(camera, deltaTime);
@@ -475,7 +517,12 @@ int main()
 		HandleZoom(camera, deltaTime, window.GetHandle());
 		ApplyInertia(camera, deltaTime);
 		UpdateCameraPosition(camera);
-		
+
+		// float fstop = 1.4f;
+		// float focalLength = 120.0f;
+		// screen.SetDOFParameters(focalLength, camera.distance, fstop, invProj);
+		screen.inverseProjection = glm::inverse(camera.projection);
+
 		// Update gizmo
 		gizmo.Update(camera, window.GetHandle(), deltaTime);
 		
@@ -490,7 +537,7 @@ int main()
 		// framebuffer->CheckSize((uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT);
 		framebuffer->Bind(viewport);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 		// Update camera data
 		cameraData.viewProjection = camera.projection * camera.view;
@@ -508,35 +555,38 @@ int main()
 		PBRShader.Use();
 		
 		// Render all loaded meshes with their respective textures
-		for (const auto& mesh : meshes)
+		for (int i = 0; i < 5; ++i)
 		{
-			if (mesh->material)
+			for (const auto& mesh : meshes)
 			{
-				mesh->material->occlusionTexture->Bind(4);
-				PBRShader.SetUniform("u_OcclusionTexture", 4);
+				if (mesh->material)
+				{
+					mesh->material->occlusionTexture->Bind(4);
+					PBRShader.SetUniform("u_OcclusionTexture", 4);
 
-				mesh->material->normalTexture->Bind(3);
-				PBRShader.SetUniform("u_NormalTexture", 3);
+					mesh->material->normalTexture->Bind(3);
+					PBRShader.SetUniform("u_NormalTexture", 3);
 
-				mesh->material->metallicRoughnessTexture->Bind(2);
-				PBRShader.SetUniform("u_MetallicRoughnessTexture", 2);
+					mesh->material->metallicRoughnessTexture->Bind(2);
+					PBRShader.SetUniform("u_MetallicRoughnessTexture", 2);
 
-				mesh->material->emissiveTexture->Bind(1);
-				PBRShader.SetUniform("u_EmissiveTexture", 1);
+					mesh->material->emissiveTexture->Bind(1);
+					PBRShader.SetUniform("u_EmissiveTexture", 1);
 
-				mesh->material->baseColorTexture->Bind(0);
-				PBRShader.SetUniform("u_BaseColorTexture", 0);
+					mesh->material->baseColorTexture->Bind(0);
+					PBRShader.SetUniform("u_BaseColorTexture", 0);
+				}
+
+				// Bind environment last to guarantee it stays on unit 5
+				environmentTex->Bind(5);
+				PBRShader.SetUniform("u_EnvironmentTexture", 5);
+				
+				PBRShader.SetUniform("u_Transform", glm::translate(glm::mat4(1.0f), {0.25f * i, 0.0f, -5.0f * i}) * rotation);
+				mesh->vertexArray->Bind();
+				Renderer::DrawIndexed(mesh->vertexArray);
 			}
-
-			// Bind environment last to guarantee it stays on unit 5
-			environmentTex->Bind(5);
-			PBRShader.SetUniform("u_EnvironmentTexture", 5);
-			
-			PBRShader.SetUniform("u_Transform", rotation);
-			mesh->vertexArray->Bind();
-			Renderer::DrawIndexed(mesh->vertexArray);
 		}
-
+		
 		{
 			// Render skybox last (no depth writes, pass when depth equals far plane)
 			glDepthMask(GL_FALSE);
@@ -571,7 +621,7 @@ int main()
 		glDisable(GL_CULL_FACE);
 		if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
 		{
-			screen.Render(screenTexture);
+			screen.Render(screenTexture, framebuffer->GetDepthAttachment());
 		}
 		// Restore depth testing and culling
 		glEnable(GL_DEPTH_TEST);
