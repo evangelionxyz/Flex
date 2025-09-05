@@ -218,6 +218,15 @@ void Shader::SetUniform(std::string_view name, int value)
     }
 }
 
+void Shader::SetUniform(std::string_view name, float value)
+{
+    int location = GetUniformLocation(name);
+    if (location != -1)
+    {
+        glUniform1f(location, value);
+    }
+}
+
 void Shader::SetUniform(std::string_view name, const glm::vec3 &vec)
 {
     int location = GetUniformLocation(name);

@@ -9,6 +9,7 @@ add_subdirectory("thirdparty/glfw")
 include("thirdparty/msdfgen.cmake")
 include("thirdparty/msdfatlasgen.cmake")
 include("thirdparty/freetype.cmake")
+include("thirdparty/imgui.cmake")
 
 file(GLOB_RECURSE app_src_file
     ${CMAKE_SOURCE_DIR}/src/*.c
@@ -34,7 +35,7 @@ target_include_directories(opengl_app PRIVATE
     "thirdparty/tinygltf/include"
 )
 
-target_link_libraries(opengl_app PRIVATE glfw FREETYPE MSDFGEN MSDF_ATLAS_GEN)
+target_link_libraries(opengl_app PRIVATE glfw FREETYPE MSDFGEN MSDF_ATLAS_GEN imgui)
 
 add_custom_command(TARGET opengl_app POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources $<TARGET_FILE_DIR:opengl_app>/resources

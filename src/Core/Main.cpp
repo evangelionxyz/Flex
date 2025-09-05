@@ -9,6 +9,11 @@
 #include <format>
 #include <memory>
 
+// Dear ImGui
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_opengl3.h>
+
 #include <glad/glad.h>
 #include <stb_image_write.h>
 
@@ -46,11 +51,15 @@ public:
 		shader.SetUniform("texture0", 0);
 		glBindTextureUnit(1, depthTex);
 		shader.SetUniform("depthTex", 1);
+
 		shader.SetUniform("focalLength", focalLength);
 		shader.SetUniform("focalDistance", focalDistance);
 		shader.SetUniform("fStop", fStop);
 		shader.SetUniform("focusRange", focusRange);
+		shader.SetUniform("maxBlur", maxBlur);
 		shader.SetUniform("inverseProjection", inverseProjection);
+		shader.SetUniform("exposure", exposure); // pass exposure
+		shader.SetUniform("gamma", gamma); // pass exposure
 
 		vertexArray->Bind();
 		// Ensure the index buffer is bound for glDrawElements
@@ -108,6 +117,9 @@ public:
 	float focalDistance = 5.5f;
 	float fStop = 1.4f;
 	float focusRange = 5.0f;
+	float maxBlur = 4.0f;
+	float exposure = 1.0f; // Added exposure control
+	float gamma = 1.4f;
 	glm::mat4 inverseProjection = glm::mat4(1.0f);
 };
 
@@ -320,6 +332,18 @@ int main()
 	windowCreateInfo.height = WINDOW_HEIGHT;
 	Window window(windowCreateInfo);
 
+	// Initialize ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Docking
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Keyboard controls
+	// Style
+	ImGui::StyleColorsDark();
+	// Backend init
+	ImGui_ImplGlfw_InitForOpenGL(window.GetHandle(), true);
+	ImGui_ImplOpenGL3_Init("#version 460");
+
 	Camera camera;
 	Gizmo gizmo;
 	Screen screen;
@@ -499,29 +523,22 @@ int main()
 			gizmo.SetMode(GizmoMode::ROTATE);
 		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_E) == GLFW_PRESS)
 			gizmo.SetMode(GizmoMode::SCALE);
-		// DOF controls
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_F) == GLFW_PRESS)
-			screen.focalDistance = camera.distance; // Focus on current distance
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_G) == GLFW_PRESS)
-			screen.fStop -= 0.1f; // Decrease f-stop (more blur)
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_H) == GLFW_PRESS)
-			screen.fStop += 0.1f; // Increase f-stop (less blur)
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_J) == GLFW_PRESS)
-			screen.focusRange -= 0.1f;
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_K) == GLFW_PRESS)
-			screen.focusRange += 0.1f;
 
-		UpdateMouseState(camera, window.GetHandle());
-		HandleOrbit(camera, deltaTime);
-		HandlePan(camera, deltaTime);
-		HandleZoom(camera, deltaTime, window.GetHandle());
-		ApplyInertia(camera, deltaTime);
-		UpdateCameraPosition(camera);
+		if (!ImGui::GetIO().WantCaptureMouse)
+		{
+			UpdateMouseState(camera, window.GetHandle());
+			HandleOrbit(camera, deltaTime);
+			HandlePan(camera, deltaTime);
+			HandleZoom(camera, deltaTime, window.GetHandle());
+			ApplyInertia(camera, deltaTime);
+			UpdateCameraPosition(camera);
+		}
 
 		// float fstop = 1.4f;
 		// float focalLength = 120.0f;
 		// screen.SetDOFParameters(focalLength, camera.distance, fstop, invProj);
 		screen.inverseProjection = glm::inverse(camera.projection);
+		screen.focalDistance = camera.distance;
 
 		// Update gizmo
 		gizmo.Update(camera, window.GetHandle(), deltaTime);
@@ -636,8 +653,69 @@ int main()
 			glm::vec3(1.0f), {});
 		TextRenderer::End();
 
+		// Start ImGui frame
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// Dockspace window (invisible host)
+		{
+			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_MenuBar;
+			const ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(viewport->WorkSize);
+			ImGui::SetNextWindowViewport(viewport->ID);
+			ImGui::SetNextWindowBgAlpha(0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+			ImGui::Begin("DockSpaceHost", nullptr, window_flags);
+			ImGui::PopStyleVar(3);
+			ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+			ImGui::End();
+		}
+
+		// Example stats window
+		if (ImGui::Begin("Stats"))
+		{
+			ImGui::Text("FPS: %.1f", FPS);
+			ImGui::Text("Delta ms: %.3f", deltaTime * 1000.0);
+			ImGui::Separator();
+			ImGui::Text("Camera");
+			ImGui::SliderFloat("Yaw", &camera.yaw, -glm::pi<float>(), glm::pi<float>());
+			ImGui::SliderFloat("Pitch", &camera.pitch, -1.5f, 1.5f);
+			ImGui::SliderFloat("Distance", &camera.distance, 0.1f, 50.0f);
+			ImGui::Separator();
+			ImGui::Text("Render Mode");
+			int mode = debug.renderMode;
+			if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
+			ImGui::SameLine(); if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
+			ImGui::SameLine(); if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
+			ImGui::SameLine(); if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
+			debug.renderMode = mode;
+			ImGui::Separator();
+			ImGui::Text("DOF");
+			ImGui::SliderFloat("Focal Length", &screen.focalLength, 10.0f, 200.0f);
+			ImGui::SliderFloat("fStop", &screen.fStop, 0.7f, 16.0f);
+			ImGui::SliderFloat("Focus Range", &screen.focusRange, 0.7f, 16.0f);
+			ImGui::SliderFloat("Max Blur", &screen.maxBlur, 0.5f, 20.0f);
+			ImGui::SliderFloat("Exposure", &screen.exposure, 0.1f, 5.0f, "%.2f"); // exposure slider
+			ImGui::SliderFloat("Gamma", &screen.gamma, 0.1f, 5.0f, "%.2f"); // exposure slider
+			ImGui::End();
+		}
+
+		// Render ImGui after swap preparation but before loop ends
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 		window.SwapBuffers();
 	}
+
+	// Shutdown ImGui
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	TextRenderer::Shutdown();
 

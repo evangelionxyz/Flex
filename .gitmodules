@@ -10,3 +10,7 @@
 [submodule "thirdparty/msdfatlasgen"]
 	path = thirdparty/msdfatlasgen
 	url = https://github.com/evangelionxyz/msdf-atlas-gen.git
+[submodule "thirdparty/imgui"]
+	path = thirdparty/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking

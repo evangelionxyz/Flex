@@ -30,6 +30,7 @@ public:
     static void Use(uint32_t program);
 
     void SetUniform(std::string_view name, int value);
+    void SetUniform(std::string_view name, float value);
     void SetUniform(std::string_view name, const glm::vec3 &vec);
     void SetUniform(std::string_view name, const glm::vec4 &vec);
     void SetUniform(std::string_view name, const glm::mat3 &mat);
