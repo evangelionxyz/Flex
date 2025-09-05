@@ -25,19 +25,19 @@ struct VERTEX
     vec2 uv;
 };
 
-layout (location = 0) out VERTEX outVertex;
+layout (location = 0) out VERTEX _output;
 
 void main()
 {
     // World position with translation
-    outVertex.worlPosition = (u_Transform * vec4(position, 1.0)).xyz;
-    outVertex.position = position;
+    _output.worlPosition = (u_Transform * vec4(position, 1.0)).xyz;
+    _output.position = position;
     // Transform normals to world space (approximate; assumes uniform scale)
-    outVertex.normals = normalize(mat3(u_Transform) * normals);
-    outVertex.tangent = normalize(mat3(u_Transform) * tangent);
-    outVertex.bitangent = normalize(mat3(u_Transform) * bitangent);
-    outVertex.color = color;
-    outVertex.uv = uv;
+    _output.normals = normalize(mat3(u_Transform) * normals);
+    _output.tangent = normalize(mat3(u_Transform) * tangent);
+    _output.bitangent = normalize(mat3(u_Transform) * bitangent);
+    _output.color = color;
+    _output.uv = uv;
 
     gl_Position = u_Camera.viewProjection * u_Transform * vec4(position, 1.0);
 }

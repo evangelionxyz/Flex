@@ -5,15 +5,16 @@ project(OpenGL)
 set(CMAKE_CXX_STANDARD 23)
 
 add_subdirectory("thirdparty/glfw")
-add_subdirectory("thirdparty/freetype")
+
+include("thirdparty/msdfgen.cmake")
+include("thirdparty/msdfatlasgen.cmake")
+include("thirdparty/freetype.cmake")
 
 file(GLOB_RECURSE app_src_file
     ${CMAKE_SOURCE_DIR}/src/*.c
     ${CMAKE_SOURCE_DIR}/src/*.h
     ${CMAKE_SOURCE_DIR}/src/*.cpp
     ${CMAKE_SOURCE_DIR}/src/*.hpp
-    #${CMAKE_SOURCE_DIR}/src/Renderer/*.cpp
-    #${CMAKE_SOURCE_DIR}/src/Renderer/*.hpp
 )
 
 add_executable(opengl_app
@@ -31,10 +32,9 @@ target_include_directories(opengl_app PRIVATE
     "thirdparty/glm"
     "thirdparty/json"
     "thirdparty/tinygltf/include"
-    "thirdparty/freetype/include"
 )
 
-target_link_libraries(opengl_app PRIVATE glfw freetype)
+target_link_libraries(opengl_app PRIVATE glfw FREETYPE MSDFGEN MSDF_ATLAS_GEN)
 
 add_custom_command(TARGET opengl_app POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources $<TARGET_FILE_DIR:opengl_app>/resources

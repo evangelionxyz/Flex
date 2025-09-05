@@ -39,7 +39,8 @@ struct Camera
 	MouseState mouse;
 	
 	// Control settings
-	struct Controls {
+	struct Controls
+	{
 		float mouseSensitivity = 0.003f;
 		float zoomSensitivity = 2.0f;
 		float panSensitivity = 0.001f;
@@ -48,8 +49,8 @@ struct Camera
 		float minPitch = -glm::radians(89.0f);
 		float maxPitch = glm::radians(89.0f);
 		bool enableInertia = true;
-		float inertiaDamping = 0.85f;
-		float zoomDamping = 0.3f;
+		float inertiaDamping = 0.9f;
+		float zoomDamping = 0.65f;
 	} controls;
 	
 	// Inertia variables

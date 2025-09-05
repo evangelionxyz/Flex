@@ -5,7 +5,7 @@
 class IndexBuffer
 {
 public:
-    IndexBuffer(const void *data, uint64_t size, uint32_t count);
+    IndexBuffer(const void *data, uint32_t count);
 
     ~IndexBuffer();
 

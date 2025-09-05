@@ -3,6 +3,10 @@
 #include "Renderer.h"
 #include "Shader.h"
 
+#include "VertexArray.h"
+#include "IndexBuffer.h"
+#include "VertexBuffer.h"
+
 #include <cassert>
 #include <ft2build.h>
 #include <freetype/freetype.h>
@@ -10,119 +14,114 @@
 #include <filesystem>
 #include <array>
 
-static uint32_t NextPowerOf2(uint32_t v) {
-    if (v == 0) return 1;
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    return v + 1;
-}
-
 Font::Font(const std::string &filename, int fontSize)
     : m_FontSize(fontSize)
 {
-    assert(std::filesystem::exists(filename) && "Font file dould not found");
+    assert(std::filesystem::exists(filename) && "Font file could not be found");
 
-    // Init Freetype Library
-    FT_Library ft;
-    if (FT_Init_FreeType(&ft))
+    msdfgen::FreetypeHandle *ft = msdfgen::initializeFreetype();
+    if (!ft)
     {
         assert(false && "Failed to initialize FreeType library");
         return;
     }
 
-    // Load Font
-    FT_Face face;
-    if (FT_New_Face(ft, filename.c_str(), 0, &face))
+    msdfgen::FontHandle *font = msdfgen::loadFont(ft, filename.c_str());
+    if (!font)
     {
         assert(false && "Failed to load font");
+        msdfgen::deinitializeFreetype(ft);
         return;
     }
 
-    FT_Set_Pixel_Sizes(face, 0, fontSize);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-    uint32_t atlasWidth = 0;
-    uint32_t atlasHeight = 0;
-
-    // First pass, calculate the required atlas dimensions
-    for (uint32_t c = 0; c < 256; ++c)
+    struct CharsetRange
     {
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER))
-        {
-            continue;
-        }
+        uint32_t Begin, End;
+    };
 
-        atlasWidth += face->glyph->bitmap.width;
-        atlasHeight = std::max(atlasHeight, face->glyph->bitmap.rows);
+    // From imgui_draw.cpp
+    static const CharsetRange charsetRanges[] =
+    {
+        {0x0020, 0x00FF}
+    };
+    msdf_atlas::Charset charset;
+    for (CharsetRange range : charsetRanges)
+    {
+        for (uint32_t c = range.Begin; c <= range.End; c++)
+            charset.add(c);
+    }
+    m_FontGeometry = msdf_atlas::FontGeometry(&m_Glyphs);
+    const double fontScale = 1.0;
+    const int glyphsLoaded = m_FontGeometry.loadCharset(font, fontScale, charset);
+    printf("Font loaded %d glyphs\n", glyphsLoaded);
+
+    const double emSize = 40.0;
+    const int width = 1024;
+    const int height = 1024;
+
+    m_AtlasSize.x = (float)width;
+    m_AtlasSize.y = (float)height;
+
+    msdf_atlas::TightAtlasPacker atlasPacker;
+    atlasPacker.setDimensions(width, height);
+    atlasPacker.setPadding(1);
+    atlasPacker.setPixelRange(4.0);
+    atlasPacker.setScale(emSize);
+    int remaining = atlasPacker.pack(m_Glyphs.data(), m_Glyphs.size());
+    assert(remaining == 0);
+
+#define DEFAULT_ANGLE_THRESHOLD 3.0
+#define LCG_MULTIPLIER 6364136223846793005ull
+#define LCG_INCREMENT 1442695040888963407ull
+#define THREAD_COUNT 8
+
+    uint64_t coloringSeed = 0;
+    bool expesiveColoring = false;
+    if (expesiveColoring)
+    {
+            msdf_atlas::Workload([&glyphs = m_Glyphs, &coloringSeed](int i, int threadNo)->bool
+			{
+				unsigned long long glyphSeed = (LCG_MULTIPLIER * (coloringSeed ^ i) + LCG_INCREMENT) * !!coloringSeed;
+				glyphs[i].edgeColoring(msdfgen::edgeColoringInkTrap, DEFAULT_ANGLE_THRESHOLD, glyphSeed);
+				return true;
+			},
+			static_cast<int>(m_Glyphs.size())).finish(THREAD_COUNT);
+    }
+    else
+    {
+        unsigned long long glyphSeed = coloringSeed;
+        for (msdf_atlas::GlyphGeometry &glyph : m_Glyphs)
+        {
+            glyphSeed *= LCG_MULTIPLIER;
+            glyph.edgeColoring(msdfgen::edgeColoringInkTrap, DEFAULT_ANGLE_THRESHOLD, glyphSeed);
+        }
     }
 
-    atlasWidth = NextPowerOf2(atlasWidth);
-    atlasHeight = NextPowerOf2(atlasHeight);
+    msdf_atlas::ImmediateAtlasGenerator<float, 3, msdf_atlas::msdfGenerator, msdf_atlas::BitmapAtlasStorage<float, 3>> generator(width, height);
+    msdf_atlas::GeneratorAttributes attribs;
+    attribs.config.overlapSupport = true;
+    generator.setAttributes(attribs);
+    generator.setThreadCount(THREAD_COUNT);
+    generator.generate(m_Glyphs.data(), m_Glyphs.size());
+
+    msdfgen::BitmapConstRef<float, 3> bitmap = generator.atlasStorage();
+    uint8_t *data = (uint8_t *)bitmap.pixels;
 
     // Create atlas texture
     glGenTextures(1, &m_TextureHandle);
     glBindTexture(GL_TEXTURE_2D, m_TextureHandle);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, atlasWidth, atlasHeight, 0,
-                 GL_RED, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 
     // Set texture options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // Second pass, load glyphs and upload them to the atlas texture
-    uint32_t xOffset = 0;
-    for (uint32_t c = 0; c < 256; ++c)
-    {
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER))
-        {
-            continue;
-        }
-
-        // Get glyph dimensions
-        uint32_t glyphWidth = face->glyph->bitmap.width;
-        uint32_t glyphHeight = face->glyph->bitmap.rows;
-
-        // Upload the glyph bitmap to the atlas texture using glTexSubImage2D
-        if (glyphWidth > 0 && glyphHeight > 0)
-        {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, xOffset, 0,
-                            glyphWidth, glyphHeight, GL_RED, GL_UNSIGNED_BYTE,
-                            face->glyph->bitmap.buffer);
-        }
-
-        // Calculate uv coordinates
-        glm::vec2 uvBL = {(float)xOffset / atlasWidth, 0.0f};
-        glm::vec2 uvTR = {(float)(xOffset + glyphWidth) / atlasWidth,
-                          (float)glyphHeight / atlasHeight};
-
-        FontCharacter character =
-            {
-                .advance = (uint32_t)face->glyph->advance.x,
-                .uvBottomLeft = uvBL,
-                .uvTopRight = uvTR,
-                .size = {face->glyph->bitmap.width,
-                         face->glyph->bitmap.rows},
-                .bearing = {face->glyph->bitmap_left,
-                            face->glyph->bitmap_top}};
-
-        m_Characters[c] = character;
-
-        // Advance the x offset for the next character
-        xOffset += glyphWidth;
-    }
-
-    glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    FT_Done_Face(face);
-    FT_Done_FreeType(ft);
+    msdfgen::destroyFont(font);
+    msdfgen::deinitializeFreetype(ft);
 }
 
 Font::~Font()
@@ -132,18 +131,18 @@ Font::~Font()
 
 // ------------------------
 // Text Renderer
-
 struct TextRendererData
 {
     const uint32_t MAX_VERTICES = 1024 * 3;
     const uint32_t MAX_INDICES = 1024 * 6;
 
     const uint32_t MAX_FONTS = 32;
-    uint32_t vertexCount = 0;
+    uint32_t indexCount = 0;
     std::array<Font *, 32> fonts;
 
     std::shared_ptr<VertexArray> vertexArray;
     std::shared_ptr<VertexBuffer> vertexBuffer;
+    std::shared_ptr<IndexBuffer> indexBuffer;
     uint32_t fontTextureIndex = 0;
 
     FontVertex *vertexPointer = nullptr;
@@ -165,21 +164,34 @@ void TextRenderer::Init()
 
     s_TextData.vertexArray = std::make_shared<VertexArray>();
     s_TextData.vertexBuffer = std::make_shared<VertexBuffer>(sizeof(FontVertex) * s_TextData.MAX_VERTICES);
+    s_TextData.vertexBuffer->SetAttributes(
+    {
+        {VertexAttribType::VECTOR_FLOAT_3, false},
+        {VertexAttribType::VECTOR_FLOAT_3, false},
+        {VertexAttribType::VECTOR_FLOAT_2, false},
+        {VertexAttribType::INT, false},
+    }, sizeof(FontVertex));
 
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(FontVertex), (const void *)offsetof(FontVertex, position));
+    uint32_t* quadIndices = new uint32_t[s_TextData.MAX_INDICES];
+	uint32_t offset = 0;
+	for (uint32_t i = 0; i < s_TextData.MAX_INDICES; i += 6)
+	{
+		quadIndices[i + 0] = offset + 0;
+		quadIndices[i + 1] = offset + 1;
+		quadIndices[i + 2] = offset + 2;
 
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(FontVertex), (const void *)offsetof(FontVertex, texCoord));
+		quadIndices[i + 3] = offset + 2;
+		quadIndices[i + 4] = offset + 3;
+		quadIndices[i + 5] = offset + 0;
 
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(FontVertex), (const void *)offsetof(FontVertex, color));
-
-    glEnableVertexAttribArray(3);
-    // Use glVertexAttribIPointer for integers
-    glVertexAttribIPointer(3, 1, GL_INT, sizeof(FontVertex), (const void *)offsetof(FontVertex, textureIndex));
+		offset += 4;
+	}
+    
+    s_TextData.indexBuffer = std::make_shared<IndexBuffer>(quadIndices, s_TextData.MAX_INDICES);
+	delete[] quadIndices;
 
     s_TextData.vertexArray->SetVertexBuffer(s_TextData.vertexBuffer);
+    s_TextData.vertexArray->SetIndexBuffer(s_TextData.indexBuffer);
 }
 
 void TextRenderer::Shutdown()
@@ -191,7 +203,7 @@ void TextRenderer::Shutdown()
 void TextRenderer::Begin(const glm::mat4 &viewProjection)
 {
     s_TextData.vertexPointer = s_TextData.vertexPointerBase;
-    s_TextData.vertexCount = 0;
+    s_TextData.indexCount = 0;
 
     s_TextData.shader->Use();
     s_TextData.shader->SetUniform("viewProjection", viewProjection);
@@ -202,7 +214,7 @@ void TextRenderer::Begin(const glm::mat4 &viewProjection)
 
 void TextRenderer::End()
 {
-    if (s_TextData.vertexCount)
+    if (s_TextData.indexCount)
     {
         s_TextData.vertexArray->Bind();
 
@@ -218,17 +230,14 @@ void TextRenderer::End()
             }
         }
 
-        glDrawArrays(GL_TRIANGLES, 0, s_TextData.vertexCount);
-
-        glDisable(GL_BLEND);
+        glDrawElements(GL_TRIANGLES, s_TextData.indexCount, GL_UNSIGNED_BYTE, nullptr);
     }
 }
 
-void TextRenderer::DrawString(Font *font, const std::string &text, const  int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params)
+void TextRenderer::DrawString(Font *font, const std::string &text, const glm::mat4 &transform, const glm::vec3 &color, const TextParameter &params)
 {
-    if (s_TextData.vertexCount + 6 * text.size() > s_TextData.MAX_VERTICES)
+    if (s_TextData.indexCount + 6 * text.size() > s_TextData.MAX_VERTICES)
     {
-        // Overflow, skip this draw call
         return;
     }
 
@@ -239,99 +248,126 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const  int x,
     {
         if (s_TextData.fontTextureIndex >= s_TextData.MAX_FONTS)
         {
-            // No more font slots
             return;
         }
         textureIndex = s_TextData.fontTextureIndex++;
         s_TextData.fonts[textureIndex] = font;
     }
 
-    float POSITION_X = x;
-    float POSITION_Y = y;
+    const auto &fontGeometry = font->GetGeometry();
+	const auto &metrics = fontGeometry.getMetrics();
 
-    for (size_t i = 0; i < text.size(); ++i)
-    {
-        uint32_t codepoint = (unsigned char)text[i];
-        const FontCharacter &ch = font->GetCharacters().at(codepoint);
+    double x = 0.0;
+	double y = 0.0;
+	double max_x = 0.0; // to track the maximum width
+	double min_y = 0.0; // to track the minimum y position (since y decrease with line breaks)
 
-        // Return
-        if (codepoint == '\r')
-        {
-            continue;
-        }
+	double fontScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+	const double spaceGlyphAdvance = fontGeometry.getGlyph(' ')->getAdvance();
 
-        // New Character
-        if (codepoint == '\n')
-        {
-            POSITION_X = x;
-            POSITION_Y -= scale * (float)font->GetFontSize() + params.lineSpacing;
-            continue;
-        }
+	for (size_t i = 0; i < text.size(); i++)
+	{
+		char character = text[i];
+		if (character == '\r')
+		{
+			continue;
+		}
 
-        if (codepoint == ' ')
-        {
-            POSITION_X += params.kerning + scale;
-        }
+		if (character == '\n')
+		{
+			max_x = std::max(max_x, x);
 
-        float xPos = POSITION_X + ch.bearing.x * scale;
-        float yPos = POSITION_Y - (ch.size.y - ch.bearing.y) * scale;
-        float w = ch.size.x * scale;
-        float h = ch.size.y * scale;
+			x = 0.0;
+			y -= fontScale * metrics.lineHeight + params.lineSpacing;
+			continue;
+		}
 
-        // Define the 4 corners of the quad
-        glm::vec2 pos_bl = {xPos, yPos};
-        glm::vec2 pos_br = {xPos + w, yPos};
-        glm::vec2 pos_tr = {xPos + w, yPos + h};
-        glm::vec2 pos_tl = {xPos, yPos + h};
+		if (character == ' ')
+		{
+			float advance = (float)spaceGlyphAdvance;
+			if (i < text.size() - 1)
+			{
+				char nextCharacter = text[i + 1];
+				double dAdvance;
+				fontGeometry.getAdvance(dAdvance, character, nextCharacter);
+				advance = (float)advance;
+			}
 
-        glm::vec2 uv_bl = {ch.uvBottomLeft.x, ch.uvTopRight.y};
-        glm::vec2 uv_br = {ch.uvTopRight.x, ch.uvTopRight.y};
-        glm::vec2 uv_tr = {ch.uvTopRight.x, ch.uvBottomLeft.y};
-        glm::vec2 uv_tl = {ch.uvBottomLeft.x, ch.uvBottomLeft.y};
+			x += fontScale * advance + params.kerning;
+			continue;
+		}
 
-        // Triangle 1
-        s_TextData.vertexPointer->position = pos_bl;
-        s_TextData.vertexPointer->texCoord = uv_bl;
+		if (character == '\t')
+		{
+			x += 4.0f * (fontScale * spaceGlyphAdvance + params.kerning);
+			continue;
+		}
+
+		auto glyph = fontGeometry.getGlyph(character);
+		if (!glyph)
+		{
+			glyph = fontGeometry.getGlyph('?');
+		}
+
+		double atlasLeft, atlasBottom, atlasRight, atlasTop;
+		glyph->getQuadAtlasBounds(atlasLeft, atlasBottom, atlasRight, atlasTop);
+		glm::vec2 texCoordMin((float)atlasLeft, (float)atlasBottom);
+		glm::vec2 texCoordMax((float)atlasRight, (float)atlasTop);
+
+		double planeLeft, planeBottom, planeRight, planeTop;
+		glyph->getQuadPlaneBounds(planeLeft, planeBottom, planeRight, planeTop);
+		glm::vec2 quadMin((float)planeLeft, (float)planeBottom);
+		glm::vec2 quadMax((float)planeRight, (float)planeTop);
+
+		quadMin *= fontScale;
+		quadMax *= fontScale;
+
+		quadMin += glm::vec2(x, y);
+		quadMax += glm::vec2(x, y);
+
+		float texel_width = 1.0f / font->GetAtlasSize().x;
+		float texel_height = 1.0f / font->GetAtlasSize().y;
+
+		texCoordMin *= glm::vec2(texel_width, texel_height);
+		texCoordMax *= glm::vec2(texel_width, texel_height);
+
+        s_TextData.vertexPointer->position = transform * glm::vec4(quadMin, 0.0f, 1.0f);
         s_TextData.vertexPointer->color = color;
+        s_TextData.vertexPointer->uv = texCoordMin;
         s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
-        s_TextData.vertexPointer->position = pos_br;
-        s_TextData.vertexPointer->texCoord = uv_br;
+        s_TextData.vertexPointer->position = transform * glm::vec4(quadMin.x, quadMax.y, 0.0f, 1.0f);
         s_TextData.vertexPointer->color = color;
+        s_TextData.vertexPointer->uv = { texCoordMin.x, texCoordMax.y };
         s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
-        s_TextData.vertexPointer->position = pos_tr;
-        s_TextData.vertexPointer->texCoord = uv_tr;
+        s_TextData.vertexPointer->position = transform * glm::vec4(quadMax, 0.0f, 1.0f);
         s_TextData.vertexPointer->color = color;
+        s_TextData.vertexPointer->uv = texCoordMax;
         s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
-        // Triangle 2
-        s_TextData.vertexPointer->position = pos_bl;
-        s_TextData.vertexPointer->texCoord = uv_bl;
+        s_TextData.vertexPointer->position = transform * glm::vec4(quadMax.x, quadMin.y, 0.0f, 1.0f);
         s_TextData.vertexPointer->color = color;
+        s_TextData.vertexPointer->uv = { texCoordMax.x, texCoordMin.y };
         s_TextData.vertexPointer->textureIndex = textureIndex;
         s_TextData.vertexPointer++;
 
-        s_TextData.vertexPointer->position = pos_tr;
-        s_TextData.vertexPointer->texCoord = uv_tr;
-        s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = textureIndex;
-        s_TextData.vertexPointer++;
+        s_TextData.indexCount += 6;
 
-        s_TextData.vertexPointer->position = pos_tl;
-        s_TextData.vertexPointer->texCoord = uv_tl;
-        s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->textureIndex = textureIndex;
-        s_TextData.vertexPointer++;
+		if (i < text.size())
+		{
+			double advance = glyph->getAdvance();
+			char nextCharacter = text[i + 1];
+			fontGeometry.getAdvance(advance, character, nextCharacter);
+			x += fontScale * advance + params.kerning;
+		}
 
-        s_TextData.vertexCount += 6;
-
-        // Advance cursor for next glyph
-        POSITION_X += (ch.advance >> 6) * scale; // Note: FreeType's advance is 1/64 pixels
-    }
+		max_x = std::max(max_x, x);
+		min_y = std::min(min_y, y);
+	}
 }
 
 int TextRenderer::GetFontTextureIndex(Font *font)

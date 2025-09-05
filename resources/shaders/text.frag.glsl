@@ -10,16 +10,30 @@ struct VERTEX
 };
 
 layout (location = 0) flat in int inTexIndex;
-layout (location = 1) in VERTEX inVertex;
+layout (location = 1) in VERTEX _input;
+
+float ScreenPxRange(sampler2D atlas) {
+    const float pxRange = 2.0; // set to distance field's pixel range
+    vec2 unitRange = vec2(pxRange)/vec2(textureSize(atlas, 0));
+    vec2 screenTexSize = vec2(1.0)/fwidth(_input.texCoord);
+    return max(0.5*dot(unitRange, screenTexSize), 1.0);
+}
+
+float median(float r, float g, float b)
+{
+   return max(min(r, g), min(max(r, g), b));
+}
 
 void main()
 {
-    float alpha = texture(textures[inTexIndex], inVertex.texCoord).r;
+    vec4 texColor = texture(textures[inTexIndex], _input.texCoord) * vec4(_input.color, 1.0);
+    vec3 msd = texture(textures[inTexIndex], _input.texCoord).rgb;
+    float screenPxDistance = ScreenPxRange(textures[inTexIndex]) * (median(msd.r, msd.g, msd.b) - 0.5);
     
-    // Use a small threshold to avoid rendering very faint pixels
-    if (alpha < 0.01)
+    float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
+    if (opacity == 0.0)
         discard;
-    
-    // Modulate both color and alpha by the texture value
-    fragColor = vec4(inVertex.color * alpha, alpha);
+
+    vec4 background = vec4(0.0);
+    fragColor = mix(background, vec4(_input.color, 1.0), opacity);
 }

@@ -118,7 +118,7 @@ struct VERTEX
     vec2 uv;
 };
 
-layout (location = 0) in VERTEX inVertex;
+layout (location = 0) in VERTEX _input;
 
 layout (binding = 0) uniform sampler2D u_BaseColorTexture;
 layout (binding = 1) uniform sampler2D u_EmissiveTexture;
@@ -129,10 +129,10 @@ layout (binding = 5) uniform sampler2D u_EnvironmentTexture;
 
 void main()
 {
-    vec3 normals = normalize(inVertex.normals.xyz);
-    vec3 tangent = normalize(inVertex.tangent);
-    vec3 bitangent = normalize(inVertex.bitangent);
-    vec3 viewDirection = normalize(u_Camera.position.xyz - inVertex.worlPosition);
+    vec3 normals = normalize(_input.normals.xyz);
+    vec3 tangent = normalize(_input.tangent);
+    vec3 bitangent = normalize(_input.bitangent);
+    vec3 viewDirection = normalize(u_Camera.position.xyz - _input.worlPosition);
     
     // Rotate sun around the object based on time
     float sunRotationSpeed = 0.5; // Adjust speed as needed
@@ -150,11 +150,11 @@ void main()
 
     if (u_Debug.renderMode == RENDER_MODE_COLOR)
     {
-        vec3 baseColorTex = texture(u_BaseColorTexture, inVertex.uv).rgb;
-        vec3 emissiveColorTex = texture(u_EmissiveTexture, inVertex.uv).rgb;
-        vec3 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, inVertex.uv).rgb;
-        vec3 normalMapTex = texture(u_NormalTexture, inVertex.uv).rgb;
-        float occlusionTex = texture(u_OcclusionTexture, inVertex.uv).r;
+        vec3 baseColorTex = texture(u_BaseColorTexture, _input.uv).rgb;
+        vec3 emissiveColorTex = texture(u_EmissiveTexture, _input.uv).rgb;
+        vec3 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv).rgb;
+        vec3 normalMapTex = texture(u_NormalTexture, _input.uv).rgb;
+        float occlusionTex = texture(u_OcclusionTexture, _input.uv).r;
 
         float metallic = metallicRoughnessColorTex.b;
         float roughness = metallicRoughnessColorTex.g;
@@ -169,7 +169,7 @@ void main()
         vec3 finalNormal = normals;
         if (length(normalMapTex) > 0.01) // Check if normal map has meaningful data
         {
-            finalNormal = GetNormalFromMap(normals, tangent, bitangent, inVertex.uv, u_NormalTexture);
+            finalNormal = GetNormalFromMap(normals, tangent, bitangent, _input.uv, u_NormalTexture);
         }
         
         vec3 reflectRadiance = SampleSphericalMap(u_EnvironmentTexture, reflectDirection);
@@ -208,19 +208,19 @@ void main()
     }
     else if (u_Debug.renderMode == RENDER_MODE_METALLIC)
     {
-        vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, inVertex.uv);
+        vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv);
         float metallic = metallicRoughnessColorTex.b;
         fragColor = vec4(metallic, metallic, metallic, 1.0);
     }
     else if (u_Debug.renderMode == RENDER_MODE_ROUGHNESS)
     {
-        vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, inVertex.uv);
+        vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv);
         float roughness = metallicRoughnessColorTex.g;
         fragColor = vec4(roughness, roughness, roughness, 1.0);
     }
     else
     {
-        vec4 baseColorTex = texture(u_BaseColorTexture, inVertex.uv);
+        vec4 baseColorTex = texture(u_BaseColorTexture, _input.uv);
         fragColor = baseColorTex;
     }
 }

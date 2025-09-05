@@ -1,28 +1,20 @@
 #pragma once
 
-#include "VertexArray.h"
-#include "VertexBuffer.h"
 #include <string>
 #include <cstdint>
 #include <unordered_map>
 
 #include <glm/glm.hpp>
 
+#include <msdf-atlas-gen.h>
+#include <msdfgen.h>
+
 struct FontVertex
 {
-    glm::vec2 position; // x, y
-    glm::vec2 texCoord; // u, v
+    glm::vec3 position; // x, y
     glm::vec3 color;    // r, g, b
+    glm::vec2 uv; // u, v
     int textureIndex;
-};
-
-struct FontCharacter
-{
-    uint32_t advance;
-    glm::vec2 uvBottomLeft;
-    glm::vec2 uvTopRight;
-    glm::ivec2 size;
-    glm::ivec2 bearing;
 };
 
 class Font
@@ -33,10 +25,15 @@ public:
 
     int GetFontSize() const { return m_FontSize; }
     uint32_t GetTextureHandle() const { return m_TextureHandle; }
-    const std::unordered_map<uint32_t, FontCharacter>& GetCharacters() { return m_Characters; }
     
+    msdf_atlas::FontGeometry GetGeometry() { return m_FontGeometry; }
+    const std::vector<msdf_atlas::GlyphGeometry> &GetGlyphs() { return m_Glyphs; }
+    const glm::vec2 &GetAtlasSize() { return m_AtlasSize; }
+
 private:
-    std::unordered_map<uint32_t, FontCharacter> m_Characters;
+    msdf_atlas::FontGeometry m_FontGeometry;
+    std::vector<msdf_atlas::GlyphGeometry> m_Glyphs;
+    glm::vec2 m_AtlasSize;
     uint32_t m_TextureHandle;
     int m_FontSize;
 };
@@ -56,7 +53,7 @@ public:
     static void Begin(const glm::mat4 &viewProjection);
     static void End();
 
-    static void DrawString(Font *font, const std::string &text, const int x, const int y, const float scale, const glm::vec3 &color, const TextParameter &params);
+    static void DrawString(Font *font, const std::string &text, const glm::mat4 &transform, const glm::vec3 &color, const TextParameter &params);
     static int GetFontTextureIndex(Font *font);
 
 };

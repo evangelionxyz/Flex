@@ -7,7 +7,7 @@ Mesh::Mesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &ind
 {
     this->vertexArray = std::make_shared<VertexArray>();
     this->vertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex));
-    this->indexBuffer = std::make_shared<IndexBuffer>(indices.data(), indices.size() * sizeof(uint32_t), static_cast<uint32_t>(indices.size()));
+    this->indexBuffer = std::make_shared<IndexBuffer>(indices.data(), static_cast<uint32_t>(indices.size()));
     this->material = std::make_shared<Material>();
 }
 
@@ -302,9 +302,12 @@ std::vector<std::shared_ptr<Texture2D>> MeshLoader::LoadTexturesFromGLTF(const t
             
             // Create texture from image data
             TextureCreateInfo createInfo;
-            createInfo.format = TextureFormat::RGBA8;
             createInfo.width = image.width;
             createInfo.height = image.height;
+            createInfo.flip = true;
+            createInfo.clampMode = ClampMode::REPEAT;
+            createInfo.filter = FilterMode::LINEAR;
+            createInfo.format = Format::RGBA8;
 
             std::shared_ptr<Texture2D> texture;
             

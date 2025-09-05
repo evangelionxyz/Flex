@@ -84,6 +84,7 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "set": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "queue": "cpp"
     }
 }

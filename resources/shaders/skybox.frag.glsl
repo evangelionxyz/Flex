@@ -1,7 +1,7 @@
 #version 460
 
-in vec3 TexCoords;
-out vec4 FragColor;
+layout (location = 0) in vec3 inUV;
+layout (location = 0) out vec4 FragColor;
 
 uniform sampler2D u_EnvironmentMap;
 
@@ -15,7 +15,7 @@ vec2 SampleSphericalMap(vec3 v)
 
 void main()
 {
-    vec2 uv = SampleSphericalMap(normalize(TexCoords));
+    vec2 uv = SampleSphericalMap(normalize(inUV));
     uv.y = 1.0 - uv.y;
     vec3 color = texture(u_EnvironmentMap, uv).rgb;
     

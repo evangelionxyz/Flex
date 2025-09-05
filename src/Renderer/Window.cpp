@@ -9,7 +9,7 @@ void GLFWErrorCallback(int error_code, const char* description)
     assert(false);
 }
 
-Window::Window(const std::string &title, int width, int height, bool maximized)
+Window::Window(const WindowCreateInfo &createInfo)
 {
     // Set error callback as early as possible
     glfwSetErrorCallback(GLFWErrorCallback);
@@ -25,18 +25,22 @@ Window::Window(const std::string &title, int width, int height, bool maximized)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
     // glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE); // optional
     
-    m_Handle = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
+    m_Handle = glfwCreateWindow(createInfo.width, createInfo.height, createInfo.title.c_str(), nullptr, nullptr);
     if (!m_Handle)
     {
         std::cerr << "Failed to create Window\n";
         assert(false);
     }
 
-    m_Data.width = width;
-    m_Data.height = height;
-    m_Data.title = title;
+    m_Data.width = createInfo.width;
+    m_Data.height = createInfo.height;
+    m_Data.title = createInfo.title;
+    m_Data.initialFullscreen = createInfo.fullscreen;
+    m_Data.maximize = createInfo.maximize;
 
 	glfwMakeContextCurrent(m_Handle);
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -51,6 +55,23 @@ Window::Window(const std::string &title, int width, int height, bool maximized)
     
     glfwSwapInterval(1); // 1: enable vertical sync
 	glfwSetWindowUserPointer(m_Handle, &m_Data);
+
+    if (createInfo.fullscreen)
+    {
+        m_Data.x = 0;
+        m_Data.y = 0;
+    }
+    else
+    {
+        GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+        int monitorWidth, monitorHeight;
+        glfwGetMonitorWorkarea(monitor, nullptr, nullptr, &monitorWidth, &monitorHeight);
+    
+        // Center window
+        m_Data.x = monitorWidth / 2 - m_Data.width / 2;
+        m_Data.y = monitorHeight / 2 - m_Data.height / 2;
+        glfwSetWindowPos(m_Handle, m_Data.x, m_Data.y);
+    }
 }
 
 Window::~Window()
@@ -99,4 +120,60 @@ void Window::SetScrollCallback(const std::function<void(int, int)> &scrollCb)
         if (data.scrollCb)
             data.scrollCb((int)xOffset, (int)yOffset);
     });
+}
+
+void Window::SetFullscreenCallback(const std::function<void(int, int, bool)> &fullscreenCb)
+{
+    m_Data.fullscreenCb = fullscreenCb;
+}
+
+void Window::Show()
+{
+    glfwShowWindow(m_Handle);
+
+    if (m_Data.initialFullscreen)
+    {
+        ToggleFullScreen();
+    }
+    else if (m_Data.maximize)
+    {
+        glfwMaximizeWindow(m_Handle);
+    }
+}
+
+void Window::SetKeyboardCallback(const std::function<void(int, int, int, int)> &keyCallback)
+{
+    m_Data.keyCb = keyCallback;
+    glfwSetKeyCallback(m_Handle, [](GLFWwindow* window, int key, int scancode, int action, int mods)
+    {
+        WindowData &data = *static_cast<WindowData *>(glfwGetWindowUserPointer(window));
+        if (data.keyCb)
+            data.keyCb(key, scancode, action, mods);
+    });
+}
+
+void Window::ToggleFullScreen()
+{
+    m_Data.fullscreen = !m_Data.fullscreen;
+    GLFWmonitor *monitor = glfwGetWindowMonitor(m_Handle) ? glfwGetWindowMonitor(m_Handle) : glfwGetPrimaryMonitor();
+    const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+
+    if (m_Data.fullscreen)
+    {
+        // Save current window position and size before going fullscreen
+        glfwGetWindowPos(m_Handle, &m_Data.x, &m_Data.y);
+        glfwSetWindowSize(m_Handle, m_Data.width, m_Data.height);
+
+        // Enter fullscreen
+        glfwSetWindowMonitor(m_Handle, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+        if (m_Data.fullscreenCb)
+            m_Data.fullscreenCb(mode->width, mode->height, true);
+    }
+    else
+    {
+        // Exit fullscreen - restore window position and size
+        glfwSetWindowMonitor(m_Handle, nullptr, m_Data.x, m_Data.y, m_Data.width, m_Data.height, 0);
+        if (m_Data.fullscreenCb)
+            m_Data.fullscreenCb(m_Data.width, m_Data.height, false);
+    }
 }

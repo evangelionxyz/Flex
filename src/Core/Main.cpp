@@ -19,6 +19,7 @@
 #include "Renderer/Font.h"
 #include "Renderer/Texture.h"
 #include "Renderer/Mesh.h"
+#include "Renderer/Framebuffer.h"
 #include "Math/Math.hpp"
 
 #include "Renderer/Gizmo.h"
@@ -29,6 +30,65 @@
 #define RENDER_MODE_NORMALS 1
 #define RENDER_MODE_METALLIC 2
 #define RENDER_MODE_ROUGHNESS 3
+
+class Screen
+{
+public:
+	Screen()
+	{
+		Create();
+	}
+
+	void Render(uint32_t texture)
+	{
+		shader.Use();
+		glBindTextureUnit(0, texture);
+		shader.SetUniform("texture0", 0);
+
+		vertexArray->Bind();
+		// Ensure the index buffer is bound for glDrawElements
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer->GetHandle());
+    	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+	}
+
+private:
+	std::shared_ptr<VertexArray> vertexArray;
+	std::shared_ptr<VertexBuffer> vertexBuffer;
+	std::shared_ptr<IndexBuffer> indexBuffer;
+
+	Shader shader;
+	void Create()
+	{
+		std::vector<glm::vec2> vertices =
+		{
+			{-1.0f,-1.0f },
+			{-1.0f, 1.0f },
+			{ 1.0f, 1.0f },
+			{ 1.0f,-1.0f },
+		};
+
+		uint32_t indices[] = 
+		{
+			0, 1, 2,
+			0, 2, 3,
+		};
+
+		vertexArray = std::make_shared<VertexArray>();
+		vertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(glm::vec2));
+		vertexBuffer->SetAttributes({{VertexAttribType::VECTOR_FLOAT_2}}, sizeof(glm::vec2));
+		indexBuffer = std::make_shared<IndexBuffer>(indices, (uint32_t)std::size(indices));
+		
+		vertexArray->SetVertexBuffer(vertexBuffer);
+		vertexArray->SetIndexBuffer(indexBuffer);
+
+		int error = glGetError();
+		assert(error == GL_NO_ERROR);
+
+		shader.AddFromFile("resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER);
+		shader.AddFromFile("resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER);
+		shader.Compile();
+	}
+};
 
 struct DebugData
 {
@@ -198,13 +258,13 @@ void ApplyInertia(Camera &camera, float deltaTime)
 	}
 	
 	// Apply pan inertia
-	if (glm::length(camera.panVelocity) > 0.001f) {
+	if (glm::length(camera.panVelocity) > 0.001f)
+	{
 		glm::vec3 right = camera.GetRight();
 		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 		
 		float panSpeed = camera.distance;
-		glm::vec3 panVector = right * (-camera.panVelocity.x * panSpeed) + 
-							 worldUp * (camera.panVelocity.y * panSpeed);
+		glm::vec3 panVector = right * (-camera.panVelocity.x * panSpeed) + worldUp * (camera.panVelocity.y * panSpeed);
 		
 		camera.target += panVector * deltaTime;
 		
@@ -232,11 +292,17 @@ int main()
 	int WINDOW_WIDTH = 800;
 	int WINDOW_HEIGHT = 650;
 
-	Window window("Hello OpenGL", WINDOW_WIDTH, WINDOW_HEIGHT);
+	WindowCreateInfo windowCreateInfo;
+	windowCreateInfo.fullscreen = true;
+	windowCreateInfo.title = "PBR";
+	windowCreateInfo.width = WINDOW_WIDTH;
+	windowCreateInfo.height = WINDOW_HEIGHT;
+	Window window(windowCreateInfo);
 
 	Camera camera;
 	Gizmo gizmo;
-	
+	Screen screen;
+
 	// Initialize gizmo at origin
 	gizmo.SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
 	gizmo.SetMode(GizmoMode::TRANSLATE);
@@ -252,24 +318,8 @@ int main()
 	camera.UpdateMatrices(initialAspect);
 
 	// Initialize font and text renderer
-	Font font("resources/fonts/Montserrat-Medium.ttf", 24);
+	Font font("resources/fonts/Montserrat-Medium.ttf", 12);
 	TextRenderer::Init();
-
-	window.SetScrollCallback([&](int xOffset, int yOffset)
-	{
-		// Store scroll delta for processing in the update loop
-		camera.mouse.scroll.x = xOffset;
-		camera.mouse.scroll.y = yOffset;
-	});
-
-	window.SetResizeCallback([&](int width, int height)
-	{
-		WINDOW_WIDTH = width;
-		WINDOW_HEIGHT = height;
-
-		float aspect = (float)width / (float)height;
-		// Camera matrices will be updated in the main loop
-	});
 
 	double currentTime = 0.0;
 	double prevTime = 0.0;
@@ -290,10 +340,10 @@ int main()
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	Shader defaultShader;
-	defaultShader.AddFromFile("resources/shaders/default.vertex.glsl", GL_VERTEX_SHADER);
-	defaultShader.AddFromFile("resources/shaders/default.frag.glsl", GL_FRAGMENT_SHADER);
-	defaultShader.Compile();
+	Shader PBRShader;
+	PBRShader.AddFromFile("resources/shaders/default.vertex.glsl", GL_VERTEX_SHADER);
+	PBRShader.AddFromFile("resources/shaders/default.frag.glsl", GL_FRAGMENT_SHADER);
+	PBRShader.Compile();
 
 	Shader skyboxShader;
 	skyboxShader.AddFromFile("resources/shaders/skybox.vertex.glsl", GL_VERTEX_SHADER);
@@ -301,7 +351,10 @@ int main()
 	skyboxShader.Compile();
 
 	TextureCreateInfo createInfo;
-	createInfo.format = TextureFormat::RGBAF32;
+	createInfo.flip = false;
+	createInfo.format = Format::RGB32F;
+	createInfo.clampMode = ClampMode::REPEAT;
+	createInfo.filter = FilterMode::LINEAR;
 	std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, "resources/hdr/klippad_sunrise_2_2k.hdr");
 
 	// Create skybox mesh
@@ -327,6 +380,72 @@ int main()
 	std::shared_ptr<UniformBuffer> debugUbo = UniformBuffer::Create(sizeof(DebugData), 1);
 	std::shared_ptr<UniformBuffer> timeUbo = UniformBuffer::Create(sizeof(TimeData), 2);
 
+	FramebufferCreateInfo framebufferCreateInfo;
+	framebufferCreateInfo.width = window.GetWidth();
+	framebufferCreateInfo.height = window.GetHeight();
+	framebufferCreateInfo.attachments = 
+	{
+		{Format::RGBA8, FilterMode::LINEAR, ClampMode::REPEAT }, // Main Color
+		{Format::DEPTH24STENCIL8}, // Depth Attachment
+	};
+	std::shared_ptr<Framebuffer> framebuffer = Framebuffer::Create(framebufferCreateInfo);
+
+	window.SetFullscreenCallback([&](int width, int height, bool fullscreen)
+	{
+		WINDOW_WIDTH = width;
+		WINDOW_HEIGHT = height;
+		
+		// Resize framebuffer
+		// framebuffer->Resize(width, height);
+	});
+
+	window.SetScrollCallback([&](int xOffset, int yOffset)
+	{
+		// Store scroll delta for processing in the update loop
+		camera.mouse.scroll.x = xOffset;
+		camera.mouse.scroll.y = yOffset;
+	});
+
+	window.SetResizeCallback([&](int width, int height)
+	{
+		WINDOW_WIDTH = width;
+		WINDOW_HEIGHT = height;
+		
+		// Resize framebuffer
+		framebuffer->Resize(width, height);
+	});
+
+	window.SetKeyboardCallback([&](int key, int scancode, int action, int mods)
+	{
+		switch (action)
+		{
+			case GLFW_PRESS:
+			{
+				if (key == GLFW_KEY_F11)
+					window.ToggleFullScreen();
+
+				if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && key == GLFW_KEY_R)
+					PBRShader.Reload();
+
+				if (key == GLFW_KEY_1 )
+					debug.renderMode = RENDER_MODE_COLOR;
+				else if (key == GLFW_KEY_2 )
+					debug.renderMode = RENDER_MODE_NORMALS;
+				else if (key == GLFW_KEY_3 )
+					debug.renderMode = RENDER_MODE_METALLIC;
+				else if (key == GLFW_KEY_4 )
+					debug.renderMode = RENDER_MODE_ROUGHNESS;
+				break;
+			}
+			case GLFW_REPEAT:
+			{
+				break;
+			}
+		}
+	});
+
+	window.Show();
+
 	while (window.IsLooping())
 	{
 		currentTime = glfwGetTime();
@@ -341,40 +460,6 @@ int main()
 			window.SetWindowTitle(statInfo);
 			statusUpdateInterval = 1.0;
 		}
-
-		// Update debug text every second with chaos
-		debugTextUpdateInterval -= deltaTime;
-		if (debugTextUpdateInterval <= 0.0)
-		{
-			frameCount++;
-			std::string chaosSymbols = "!@#$%^&*()[]{}|\\:;\"'<>?/~`";
-			char randomSymbol = chaosSymbols[frameCount % chaosSymbols.length()];
-			
-			debugText[0] = std::format("FPS: {:.1f} | Frame: {} {}", FPS, frameCount, randomSymbol);
-			debugText[1] = std::format("Delta Time: {:.3f} ms | Chaos: {}", deltaTime * 1000.0, (rand() % 100));
-			debugText[2] = std::format("Camera Pos: ({:.2f}, {:.2f}, {:.2f}) {}", camera.position.x, camera.position.y, camera.position.z, (frameCount % 3 == 0) ? "!!!" : "");
-			debugText[3] = std::format("Camera Target: ({:.2f}, {:.2f}, {:.2f}) [{}]", camera.target.x, camera.target.y, camera.target.z, rand() % 1000);
-			debugText[4] = std::format("Camera Yaw: {:.2f} | Pitch: {:.2f} | {}", glm::degrees(camera.yaw), glm::degrees(camera.pitch), (frameCount % 2) ? "SPINNING" : "STABLE");
-			debugText[5] = std::format("Distance: {:.2f} | Render Mode: {} | {}", camera.distance, debug.renderMode, std::string(frameCount % 5, '*'));
-			debugText[6] = std::format("Window: {}x{} | Time: {:.1f}s | {}", WINDOW_WIDTH, WINDOW_HEIGHT, currentTime, (rand() % 2) ? "ALERT" : "NORMAL");
-			debugText[7] = std::format("Gizmo Mode: {} | Chaos Level: {} | {}", (int)gizmo.GetMode(), frameCount % 10, std::string((frameCount % 4) + 1, '!'));
-			debugText[8] = std::format("Memory Usage: {} KB | CPU: {}% | {}", (frameCount * 42) % 10000, (frameCount * 7) % 100, (frameCount % 3 == 0) ? "CRITICAL" : "OK");
-			debugText[9] = std::format("Random Data: {} | Status: {} | {}", rand() % 1000, (frameCount % 2 == 0) ? "OK" : "WARNING", std::string((rand() % 5) + 1, '?'));
-			
-			debugTextUpdateInterval = 1.0; // Update every 1 second
-		}
-
-		if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && glfwGetKey(window.GetHandle(), GLFW_KEY_R))
-			defaultShader.Reload();
-
-		if (glfwGetKey(window.GetHandle(), GLFW_KEY_1) == GLFW_PRESS)
-			debug.renderMode = RENDER_MODE_COLOR;
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_2) == GLFW_PRESS)
-			debug.renderMode = RENDER_MODE_NORMALS;
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_3) == GLFW_PRESS)
-			debug.renderMode = RENDER_MODE_METALLIC;
-		else if (glfwGetKey(window.GetHandle(), GLFW_KEY_4) == GLFW_PRESS)
-			debug.renderMode = RENDER_MODE_ROUGHNESS;
 
 		// Gizmo mode switching
 		if (glfwGetKey(window.GetHandle(), GLFW_KEY_Q) == GLFW_PRESS)
@@ -396,52 +481,16 @@ int main()
 		
 		// Update camera matrices with current aspect ratio
 		float aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
-		camera.UpdateMatrices(aspect);
+		camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0 / 9.0f);
 
 		// Render Here
-		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+		Viewport viewport{0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
+		
+		// FIRST PASS: Render to framebuffer
+		// framebuffer->CheckSize((uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT);
+		framebuffer->Bind(viewport);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glClearColor(0.1f, 0.1f, 0.15f, 1.0f);
-
-		glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
-		TextRenderer::Begin(orthoProjection);
-
-		// Render multiline debug text with chaos
-		int lineHeight = 25;
-		int startY = WINDOW_HEIGHT - 30;
-		
-		for (int i = 0; i < 10; ++i)
-		{
-			// Skip some lines randomly for chaos effect
-			if ((frameCount + i) % 7 == 0 && rand() % 3 == 0)
-				continue;
-			
-			// Create chaotic colors based on frame count and line index
-			float hue = fmod((frameCount * 0.1f + i * 0.5f), 1.0f);
-			glm::vec3 textColor;
-			
-			// Convert HSV to RGB for rainbow effect
-			if (hue < 0.166f) {
-				textColor = glm::vec3(1.0f, hue * 6.0f, 0.0f);
-			} else if (hue < 0.333f) {
-				textColor = glm::vec3((0.333f - hue) * 6.0f, 1.0f, 0.0f);
-			} else if (hue < 0.5f) {
-				textColor = glm::vec3(0.0f, 1.0f, (hue - 0.333f) * 6.0f);
-			} else if (hue < 0.666f) {
-				textColor = glm::vec3(0.0f, (0.666f - hue) * 6.0f, 1.0f);
-			} else if (hue < 0.833f) {
-				textColor = glm::vec3((hue - 0.666f) * 6.0f, 0.0f, 1.0f);
-			} else {
-				textColor = glm::vec3(1.0f, 0.0f, (1.0f - hue) * 6.0f);
-			}
-			
-			// Add some scale variation for chaos
-			float scale = 0.7f + 0.3f * sin(frameCount * 0.1f + i * 0.5f);
-			
-			TextRenderer::DrawString(&font, debugText[i].c_str(), 10, startY - (i * lineHeight), scale, textColor, {});
-		}
-
-		TextRenderer::End();
 
 		// Update camera data
 		cameraData.viewProjection = camera.projection * camera.view;
@@ -456,8 +505,7 @@ int main()
 
 		// Render models first
 		glCullFace(GL_BACK);
-		defaultShader.Use();
-		
+		PBRShader.Use();
 		
 		// Render all loaded meshes with their respective textures
 		for (const auto& mesh : meshes)
@@ -465,54 +513,78 @@ int main()
 			if (mesh->material)
 			{
 				mesh->material->occlusionTexture->Bind(4);
-				defaultShader.SetUniform("u_OcclusionTexture", 4);
+				PBRShader.SetUniform("u_OcclusionTexture", 4);
 
 				mesh->material->normalTexture->Bind(3);
-				defaultShader.SetUniform("u_NormalTexture", 3);
+				PBRShader.SetUniform("u_NormalTexture", 3);
 
 				mesh->material->metallicRoughnessTexture->Bind(2);
-				defaultShader.SetUniform("u_MetallicRoughnessTexture", 2);
+				PBRShader.SetUniform("u_MetallicRoughnessTexture", 2);
 
 				mesh->material->emissiveTexture->Bind(1);
-				defaultShader.SetUniform("u_EmissiveTexture", 1);
+				PBRShader.SetUniform("u_EmissiveTexture", 1);
 
 				mesh->material->baseColorTexture->Bind(0);
-				defaultShader.SetUniform("u_BaseColorTexture", 0);
+				PBRShader.SetUniform("u_BaseColorTexture", 0);
 			}
 
 			// Bind environment last to guarantee it stays on unit 5
 			environmentTex->Bind(5);
-			defaultShader.SetUniform("u_EnvironmentTexture", 5);
+			PBRShader.SetUniform("u_EnvironmentTexture", 5);
 			
-			defaultShader.SetUniform("u_Transform", rotation);
+			PBRShader.SetUniform("u_Transform", rotation);
 			mesh->vertexArray->Bind();
 			Renderer::DrawIndexed(mesh->vertexArray);
 		}
-		
 
-		// Render gizmo
-		gizmo.Render(camera.projection * camera.view);
+		{
+			// Render skybox last (no depth writes, pass when depth equals far plane)
+			glDepthMask(GL_FALSE);
+			GLint prevDepthFunc; glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
+			glDepthFunc(GL_LEQUAL);
 
-		// Render skybox last (no depth writes, pass when depth equals far plane)
-		glDepthMask(GL_FALSE);
-		GLint prevDepthFunc; glGetIntegerv(GL_DEPTH_FUNC, &prevDepthFunc);
-		glDepthFunc(GL_LEQUAL);
+			glCullFace(GL_FRONT);
+			skyboxShader.Use();
+			// Create skybox transformation (remove translation from view)
+			glm::mat4 skyboxView = glm::mat4(glm::mat3(camera.view));
+			glm::mat4 skyboxMVP = camera.projection * skyboxView;
+			skyboxShader.SetUniform("u_Transform", skyboxMVP);
+			environmentTex->Bind(0);
+			skyboxShader.SetUniform("u_EnvironmentMap", 0);
+			skyboxMesh->vertexArray->Bind();
+			Renderer::DrawIndexed(skyboxMesh->vertexArray);
 
-		glCullFace(GL_FRONT);
-		skyboxShader.Use();
-		// Create skybox transformation (remove translation from view)
-		glm::mat4 skyboxView = glm::mat4(glm::mat3(camera.view));
-		glm::mat4 skyboxMVP = camera.projection * skyboxView;
-		skyboxShader.SetUniform("u_Transform", skyboxMVP);
-		environmentTex->Bind(0);
-		skyboxShader.SetUniform("u_EnvironmentMap", 0);
-		skyboxMesh->vertexArray->Bind();
-		Renderer::DrawIndexed(skyboxMesh->vertexArray);
+			// Restore state
+			glCullFace(GL_BACK);
+			glDepthFunc(prevDepthFunc);
+			glDepthMask(GL_TRUE);
+		}
 
-		// Restore state
-		glCullFace(GL_BACK);
-		glDepthFunc(prevDepthFunc);
-		glDepthMask(GL_TRUE);
+		// SECOND PASS: Render framebuffer to default framebuffer (screen)
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClearColor(0.0, 0.0, 0.0, 1.0);
+
+		// Disable depth testing and culling for screen quad
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
+		if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
+		{
+			screen.Render(screenTexture);
+		}
+		// Restore depth testing and culling
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+
+		// Finally render UI/text on top
+		glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
+		TextRenderer::Begin(orthoProjection);
+		int startY = WINDOW_HEIGHT - 100;
+		TextRenderer::DrawString(&font, "Evangelion Manuhutu",
+			glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
+			glm::vec3(1.0f), {});
+		TextRenderer::End();
 
 		window.SwapBuffers();
 	}
