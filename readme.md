@@ -17,10 +17,12 @@ Below are sample captures (PNG).
 * PBR style material sampling (albedo / normal / metallic-roughness / emissive / occlusion)
 * glTF model loading (tinygltf) + fallback mesh generation
 * Skybox / environment map sampling
+* **HDR Bloom** with two-pass separable blur and downsample pipeline
 * Depth of Field (toggleable) with circle of confusion based blur
 * Filmic tone mapping + exposure + gamma control
 * Vignette (radius / softness / intensity / color, invertable with minor shader tweak)
 * Chromatic aberration (radial amount / falloff)
+* **Compute shader support** for advanced post-processing effects
 * ImGui (docking branch) integrated for live tweaking
 * Gizmo (translate / rotate / scale modes)
 * Text rendering via FreeType + msdfgen atlas (distance field fonts)
@@ -39,6 +41,7 @@ Below are sample captures (PNG).
 
 ### Post Processing Parameters (ImGui Stats Window)
 
+* **Bloom**: enable, threshold, intensity, blur passes
 * DOF: enable + focal length, f-stop, focus range, max blur
 * Exposure & Gamma
 * Vignette: enable, radius, softness, intensity, color
@@ -63,12 +66,15 @@ git submodule update --init --recursive
 
 ### Folder Structure (High Level)
 
-* `src/` Core, Renderer, Math modules
-* `resources/models` Test glTF assets
-* `resources/shaders` GLSL shaders (geometry + post effects)
-* `resources/fonts` TrueType font(s)
-* `resources/hdr` Environment maps
-* `resources/screenshots` Captured frames
+* `src/Core/` Core application systems (Camera, Buffer management, Main entry point)
+* `src/Renderer/` Rendering systems (Bloom, Shaders, Textures, Framebuffers, Mesh handling)
+* `src/Scene/` Scene graph and model loading
+* `src/Math/` Mathematical utilities and helpers
+* `resources/models/` Test glTF assets
+* `resources/shaders/` GLSL shaders (PBR, bloom, post-effects, compute shaders)
+* `resources/fonts/` TrueType font(s)
+* `resources/hdr/` Environment maps
+* `resources/screenshots/` Captured frames
 * `thirdparty/` External libs (glfw, glad, glm, stb, tinygltf, freetype, msdfgen, imgui docking)
 
 
@@ -83,11 +89,14 @@ This codebase is intended for:
 
 ### Possible Next Experiments
 
-* HDR bloom (two‑pass separable blur)
+* ~~HDR bloom (two‑pass separable blur)~~ ✅ **Implemented**
 * SSAO / GTAO
 * BRDF LUT pre-integration for specular IBL
 * GPU profiler zones & frame graphs
 * Batch renderer or bindless resource experimentation
+* Advanced compute shader effects
+* Temporal Anti-Aliasing (TAA)
+* Screen Space Reflections (SSR)
 
 ### License
 
