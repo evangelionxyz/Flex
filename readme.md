@@ -8,10 +8,8 @@ Below are sample captures (PNG).
 
 ![Shot 1](resources/screenshots/image_01.png)
 ![Shot 2](resources/screenshots/image_02.png)
-
-| | |
-|---|---|
-| ![Shot 3](resources/screenshots/image_03.png) | ![Shot 3](resources/screenshots/image_04.png) |
+![Shot 3](resources/screenshots/image_03.png)
+![Shot 3](resources/screenshots/image_04.png)
 
 ### Key Features
 
