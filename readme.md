@@ -2,6 +2,17 @@
 
 Educational and experimental playground for modern OpenGL rendering. This project is used to explore real‑time rendering techniques, engine architecture patterns, and post‑processing pipelines while keeping the code relatively approachable.
 
+### Screenshots
+
+Below are sample captures (PNG).
+
+![Shot 1](resources/screenshots/image_01.png)
+![Shot 2](resources/screenshots/image_02.png)
+
+| | |
+|---|---|
+| ![Shot 3](resources/screenshots/image_03.png) | ![Shot 3](resources/screenshots/image_04.png) |
+
 ### Key Features
 
 * GLFW + GLAD core profile setup (C++23, CMake build)
@@ -62,17 +73,6 @@ git submodule update --init --recursive
 * `resources/screenshots` Captured frames
 * `thirdparty/` External libs (glfw, glad, glm, stb, tinygltf, freetype, msdfgen, imgui docking)
 
-### Screenshots
-
-Below are sample captures (PNG).
-
-| | |
-|---|---|
-| ![Shot 1](resources/screenshots/image_01.png) | ![Shot 2](resources/screenshots/image_02.png)
-
-| | |
-|---|---|
-| ![Shot 3](resources/screenshots/image_03.png) | ![Shot 3](resources/screenshots/image_04.png)
 
 ### Educational Goals
 
