@@ -125,8 +125,12 @@ public:
 struct SceneData
 {
 	glm::vec4 lightColor = glm::vec4(1.0f);
-	int renderMode = RENDER_MODE_COLOR;
-	float time = 0.0f;
+	glm::vec2 lightAngle = glm::vec2(0.0f, 0.3f); // azimuth, elevation
+	float renderMode = RENDER_MODE_COLOR;
+	float fogDensity = 0.01f;
+	glm::vec4 fogColor = glm::vec4(0.7f, 0.8f, 0.9f, 1.0f); // light blue fog
+	float fogStart = 10.0f;
+	float fogEnd = 50.0f;
 	float padding[2];
 };
 
@@ -380,7 +384,8 @@ int main(int argc, char **argv)
 		cameraUbo->SetData(&cameraData, sizeof(cameraData));
 
 		// Update scene data
-		sceneData.time = (float)currentTime;
+		sceneData.lightAngle.x = sceneData.lightAngle.x; // azimuth
+		sceneData.lightAngle.y = sceneData.lightAngle.y; // elevation
 		sceneUbo->SetData(&sceneData, sizeof(SceneData));
 
 		// Render Here
@@ -455,7 +460,7 @@ int main(int argc, char **argv)
 		glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
 		TextRenderer::Begin(orthoProjection);
 		int startY = WINDOW_HEIGHT - 100;
-		TextRenderer::DrawString(&font, "Evangelion Manuhutu",
+		TextRenderer::DrawString(&font, "ABC",
 			glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
 			glm::vec3(1.0f), {});
 		TextRenderer::End();
@@ -519,15 +524,14 @@ int main(int argc, char **argv)
 								glm::vec3 eulerRotation = glm::eulerAngles(orientation);
 								eulerRotation = glm::degrees(eulerRotation);
 
-								bool editing = ImGui::DragFloat3("Position", &translation.x, 0.25f);
-								editing |= ImGui::DragFloat3("Rotation", &eulerRotation.x, 0.25f);
-								editing |= ImGui::DragFloat3("Scale", &scale.x, 0.25f);
+								bool editing = ImGui::DragFloat3("Position", &translation.x, 0.025f);
+								editing |= ImGui::DragFloat3("Rotation", &eulerRotation.x, 0.025f);
+								editing |= ImGui::DragFloat3("Scale", &scale.x, 0.025f);
 
 								if (editing)
 								{
 									orientation = glm::quat(glm::radians(eulerRotation));
-									mesh->localTransform = glm::translate(glm::mat4(1.0f), translation)
-										* glm::toMat4(orientation) * glm::scale(glm::mat4(1.0f), scale);
+									mesh->localTransform = glm::translate(glm::mat4(1.0f), translation) * glm::toMat4(orientation) * glm::scale(glm::mat4(1.0f), scale);
 								}
 
 								// ====== Material ======
@@ -548,7 +552,6 @@ int main(int argc, char **argv)
 								UIDrawImage(mat->normalTexture, imageSize.x, imageSize.y, "Normal");
 								UIDrawImage(mat->metallicRoughnessTexture, imageSize.x, imageSize.y, "MetalRough");
 								UIDrawImage(mat->occlusionTexture, imageSize.x, imageSize.y, "Occlusion");
-
 							}
 						}
 						ImGui::PopID();
@@ -587,7 +590,15 @@ int main(int argc, char **argv)
 
 			ImGui::SeparatorText("Sun");
 			ImGui::ColorEdit3("Light Color", &sceneData.lightColor.x);
-			ImGui::SliderFloat("Light Intensity", &sceneData.lightColor.w, 0.0f, 1.0f);
+			ImGui::SliderFloat("Light Intensity", &sceneData.lightColor.w, 0.0f, 10.0f);
+			ImGui::SliderFloat("Sun Azimuth", &sceneData.lightAngle.x, 0.0f, 2.0f * glm::pi<float>());
+			ImGui::SliderFloat("Sun Elevation", &sceneData.lightAngle.y, -0.5f, 1.5f);
+
+			ImGui::SeparatorText("Fog");
+			ImGui::ColorEdit3("Fog Color", &sceneData.fogColor.x);
+			ImGui::SliderFloat("Fog Density", &sceneData.fogDensity, 0.0f, 0.1f, "%.4f");
+			ImGui::SliderFloat("Fog Start", &sceneData.fogStart, 0.1f, 100.0f);
+			ImGui::SliderFloat("Fog End", &sceneData.fogEnd, 1.0f, 200.0f);
 
 			ImGui::SeparatorText("Camera");
 			ImGui::SliderFloat("Yaw", &camera.yaw, -glm::pi<float>(), glm::pi<float>());
@@ -624,13 +635,13 @@ int main(int argc, char **argv)
 
 			if (ImGui::CollapsingHeader("Render Mode"))
 			{
-				int mode = sceneData.renderMode;
+				int mode = (int)sceneData.renderMode;
 				if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
 				if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
 				if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
 				if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
 				if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
-				sceneData.renderMode = mode;
+				sceneData.renderMode = (float)mode;
 			}
 		}
 		ImGui::End();

@@ -120,17 +120,8 @@ std::shared_ptr<Framebuffer> Framebuffer::Create(const FramebufferCreateInfo &cr
 
 void Framebuffer::CreateAttachments()
 {
-    // Create depth and color attachments
     for (const auto &attachment : m_CreateInfo.attachments)
     {
-        TextureCreateInfo texCreateInfo;
-        texCreateInfo.format = attachment.format;
-        texCreateInfo.width = m_CreateInfo.width;
-        texCreateInfo.height = m_CreateInfo.height;
-
-        texCreateInfo.filter = attachment.filter;
-        texCreateInfo.clampMode = attachment.wrap;
-
         GLenum internalFormat = ToGLInternalFormat(attachment.format);
         GLenum format = ToGLFormat(attachment.format);
 
@@ -138,48 +129,47 @@ void Framebuffer::CreateAttachments()
         {
             glCreateTextures(GL_TEXTURE_2D, 1, &m_DepthAttachment);
             glBindTexture(GL_TEXTURE_2D, m_DepthAttachment);
-            
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
+            float borderColor[] = {1.0f,1.0f,1.0f,1.0f};
+            glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
             glTexStorage2D(GL_TEXTURE_2D, 1, internalFormat, m_CreateInfo.width, m_CreateInfo.height);
-
-            // glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, m_CreateInfo.width, m_CreateInfo.height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, m_DepthAttachment, 0);
         }
         else
         {
-            uint32_t &texture = m_ColorAttachments.emplace_back();
-            
-            glCreateTextures(GL_TEXTURE_2D, 1, &texture);
-            glBindTexture(GL_TEXTURE_2D, texture);
-
+            uint32_t &tex = m_ColorAttachments.emplace_back();
+            glCreateTextures(GL_TEXTURE_2D, 1, &tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, texCreateInfo.width, texCreateInfo.height, 0, format, GL_UNSIGNED_BYTE, nullptr);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size() - 1, GL_TEXTURE_2D, texture, 0);
+            bool isFloat = internalFormat == GL_RGB16F || internalFormat == GL_RGB32F || internalFormat == GL_RGBA16F || internalFormat == GL_RGBA32F;
+            GLenum dataType = isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE; // could refine to GL_HALF_FLOAT for 16F
+            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_CreateInfo.width, m_CreateInfo.height, 0, format, dataType, nullptr);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLuint)(m_ColorAttachments.size()-1), GL_TEXTURE_2D, tex, 0);
+#if defined(GL_VERSION_4_4)
+            if (isFloat)
+            {
+                float zero[4] = {0,0,0,0};
+                glClearTexImage(tex, 0, format, dataType, zero);
+            }
+            else
+            {
+                unsigned int zero[4] = {0,0,0,0};
+                glClearTexImage(tex, 0, format, GL_UNSIGNED_INT, zero);
+            }
+#endif
         }
     }
 
-    GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-	glDrawBuffers(m_ColorAttachments.size(), buffers);
-
-    // Set up draw buffers for multiple color attachments
     if (!m_ColorAttachments.empty())
     {
-        std::vector<GLenum> drawBuffers;
-        for (size_t i = 0; i < m_ColorAttachments.size(); ++i)
-        {
-            drawBuffers.push_back(GL_COLOR_ATTACHMENT0 + static_cast<GLenum>(i));
-        }
-        glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+        std::vector<GLenum> bufs; bufs.reserve(m_ColorAttachments.size());
+        for (size_t i=0;i<m_ColorAttachments.size();++i) bufs.push_back(GL_COLOR_ATTACHMENT0 + (GLenum)i);
+        glDrawBuffers((GLsizei)bufs.size(), bufs.data());
     }
 }

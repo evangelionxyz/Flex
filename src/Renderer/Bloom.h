@@ -23,10 +23,12 @@ private:
     {
         int width = 0;
         int height = 0;
-        std::shared_ptr<Framebuffer> fb;
+        // Two framebuffers for ping-pong blur (A: after downsample, B: temp for blur passes)
+        std::shared_ptr<Framebuffer> fbA; // initial downsample result / final after blur
+        std::shared_ptr<Framebuffer> fbB; // scratch
     };
 
-    std::vector<Level> m_Levels; // downsampled/blurred
+    std::vector<Level> m_Levels; // bloom mip chain levels
     Shader m_DownsampleShader;
     Shader m_BlurShader;
 };

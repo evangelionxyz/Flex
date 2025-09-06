@@ -98,8 +98,12 @@ layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
 layout (std140, binding = UNIFORM_BINDING_LOC_SCENE) uniform Scene
 {
     vec4 lightColor; // w = intensity
-    int renderMode;
-    float time;
+    vec2 lightAngle; // x = azimuth, y = elevation
+    float renderMode;
+    float fogDensity;
+    vec4 fogColor;
+    float fogStart;
+    float fogEnd;
     float padding[2];
 } u_Scene;
 
@@ -137,12 +141,15 @@ void main()
     vec3 bitangent = normalize(_input.bitangent);
     vec3 viewDirection = normalize(u_Camera.position.xyz - _input.worldPosition);
     
-    // Rotate sun around the object based on time
-    float sunRotationSpeed = 0.5;
-    float angle = u_Scene.time * sunRotationSpeed;
-    vec3 sunDirection = vec3(cos(angle), 0.3, sin(angle)); // Sun moves in a circle with slight elevation
+    // Calculate sun direction from azimuth and elevation angles
+    float azimuth = u_Scene.lightAngle.x;
+    float elevation = u_Scene.lightAngle.y;
+    vec3 sunDirection = vec3(
+        cos(elevation) * cos(azimuth),
+        sin(elevation),
+        cos(elevation) * sin(azimuth)
+    );
     vec3 lightDirection = normalize(-sunDirection);
-    vec3 reflectDirection = reflect(-viewDirection, normals);
 
     float sunAngularRadius = 0.5;
     float sunSolidAngle = 2.0 * M_PI * (1.0 - cos(sunAngularRadius)); // steradians
@@ -153,15 +160,15 @@ void main()
     vec3 normalMapTex = texture(u_NormalTexture, _input.uv).rgb;
     float occlusionTex = texture(u_OcclusionTexture, _input.uv).r;
     float metallicVal = metallicRoughnessColorTex.b * u_Material.metallicFactor;
-    float roughnessTex = metallicRoughnessColorTex.g;
-    float roughnessVal = clamp(roughnessTex * (1.0 - u_Material.roughnessFactor), 0.0, 1.0);
+    float roughnessTex = metallicRoughnessColorTex.g * u_Material.roughnessFactor;
+    float roughnessVal = clamp(roughnessTex, 0.0, 1.0);
 
     // Detect if occlusion texture is actually a white fallback (heuristic)
-    occlusionTex = abs(occlusionTex - 1.0) < 0.0001 
+    occlusionTex = abs(occlusionTex - 1.0) < 0.001 
         ? 1.0 * u_Material.occlusionStrength
         : occlusionTex * u_Material.occlusionStrength;
 
-    if (u_Scene.renderMode == RENDER_MODE_COLOR)
+    if (int(u_Scene.renderMode) == RENDER_MODE_COLOR)
     {
         // Use user/texture roughness directly (already clamped). Removed sunSolidAngle filtering for clearer control.
         vec3 diffuseColor = baseColorTex * _input.color * u_Material.baseColorFactor.rgb * (1.0 - metallicVal);
@@ -172,10 +179,11 @@ void main()
         if (length(normalMapTex) > 0.1) // Check if normal map has meaningful data
             finalNormal = GetNormalFromMap(normals, tangent, bitangent, _input.uv, u_NormalTexture);
         
+        vec3 reflectDirection = reflect(-viewDirection, finalNormal);
         vec3 reflectRadiance = SampleSphericalMap(u_EnvironmentTexture, reflectDirection);
         reflectRadiance = reflectRadiance / (reflectRadiance + 1.0);
 
-        float reflectionStrength = mix(0.001, 1.0, metallicVal) * (1.0 - roughnessVal);
+        float reflectionStrength = mix(0.01, 1.0, metallicVal) * (1.0 - roughnessVal);
         vec3 F = SchlickFresnel(viewDirection, finalNormal, specularColor);
         float NdotR = clamp(dot(finalNormal, reflectDirection), 0.0, 1.0);
         vec3 reflectedSpecular = GGXReflect(finalNormal, 
@@ -197,16 +205,18 @@ void main()
             roughnessVal
         );
         
-        fragColor = vec4(directLighting + ambient + reflectedSpecular, 1.0);
+        vec3 finalColor = directLighting + ambient + reflectedSpecular;
 
         // Add emissive if present
         // Only add emissive if not effectively black (fallback)
         if (length(emissiveColorTex) >= 0.01)
         {
-            fragColor.rgb += emissiveColorTex;
+            finalColor += emissiveColorTex;
         }
+        
+        fragColor = vec4(finalColor, 1.0);
     }
-    else if (u_Scene.renderMode == RENDER_MODE_NORMALS)
+    else if (int(u_Scene.renderMode) == RENDER_MODE_NORMALS)
     {
         vec3 n = normals * 0.5 + 0.5;
         vec3 finalNormal = normals * 0.5 + 0.5;
@@ -215,13 +225,13 @@ void main()
         
         fragColor = vec4(finalNormal, 1.0);
     }
-    else if (u_Scene.renderMode == RENDER_MODE_METALLIC)
+    else if (int(u_Scene.renderMode) == RENDER_MODE_METALLIC)
     {
         vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv);
         float metallic = metallicRoughnessColorTex.b * u_Material.metallicFactor;
         fragColor = vec4(metallic, metallic, metallic, 1.0);
     }
-    else if (u_Scene.renderMode == RENDER_MODE_ROUGHNESS)
+    else if (int(u_Scene.renderMode) == RENDER_MODE_ROUGHNESS)
     {
         vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv);
         float roughness = metallicRoughnessColorTex.g;

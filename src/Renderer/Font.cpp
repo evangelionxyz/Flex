@@ -105,12 +105,11 @@ Font::Font(const std::string &filename, int fontSize)
     generator.generate(m_Glyphs.data(), m_Glyphs.size());
 
     msdfgen::BitmapConstRef<float, 3> bitmap = generator.atlasStorage();
-    uint8_t *data = (uint8_t *)bitmap.pixels;
 
-    // Create atlas texture
+    // Create atlas texture (keep float precision for MSDF)
     glGenTextures(1, &m_TextureHandle);
     glBindTexture(GL_TEXTURE_2D, m_TextureHandle);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, bitmap.pixels);
 
     // Set texture options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -133,20 +132,22 @@ Font::~Font()
 // Text Renderer
 struct TextRendererData
 {
-    const uint32_t MAX_VERTICES = 1024 * 3;
-    const uint32_t MAX_INDICES = 1024 * 6;
+    // Express capacity in glyphs for clarity
+    static constexpr uint32_t MAX_GLYPHS   = 1024; // adjust as needed
+    static constexpr uint32_t MAX_VERTICES = MAX_GLYPHS * 4; // 4 verts per glyph
+    static constexpr uint32_t MAX_INDICES  = MAX_GLYPHS * 6; // 6 indices per glyph
 
-    const uint32_t MAX_FONTS = 32;
-    uint32_t indexCount = 0;
-    std::array<Font *, 32> fonts;
+    static constexpr uint32_t MAX_FONTS = 32;
+    uint32_t indexCount = 0; // number of indices currently queued
+    std::array<Font *, MAX_FONTS> fonts{};
 
     std::shared_ptr<VertexArray> vertexArray;
     std::shared_ptr<VertexBuffer> vertexBuffer;
     std::shared_ptr<IndexBuffer> indexBuffer;
-    uint32_t fontTextureIndex = 0;
+    uint32_t fontTextureIndex = 0; // number of active font textures this batch
 
-    FontVertex *vertexPointer = nullptr;
-    FontVertex *vertexPointerBase = nullptr;
+    FontVertex *vertexPointer = nullptr;      // write head
+    FontVertex *vertexPointerBase = nullptr;  // base
     std::shared_ptr<Shader> shader;
 };
 
@@ -159,11 +160,16 @@ void TextRenderer::Init()
         .AddFromFile("resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER)
         .Compile();
 
+    // Bind sampler array once (textures[0..31])
+    s_TextData.shader->Use();
+    for (int i = 0; i < 32; ++i)
+        s_TextData.shader->SetUniform(std::string("textures[") + std::to_string(i) + "]", i);
+
     s_TextData.fonts = {nullptr};
-    s_TextData.vertexPointerBase = new FontVertex[s_TextData.MAX_VERTICES];
+    s_TextData.vertexPointerBase = new FontVertex[TextRendererData::MAX_VERTICES];
 
     s_TextData.vertexArray = std::make_shared<VertexArray>();
-    s_TextData.vertexBuffer = std::make_shared<VertexBuffer>(sizeof(FontVertex) * s_TextData.MAX_VERTICES);
+    s_TextData.vertexBuffer = std::make_shared<VertexBuffer>(sizeof(FontVertex) * TextRendererData::MAX_VERTICES);
     s_TextData.vertexBuffer->SetAttributes(
     {
         {VertexAttribType::VECTOR_FLOAT_3, false},
@@ -172,9 +178,9 @@ void TextRenderer::Init()
         {VertexAttribType::INT, false},
     }, sizeof(FontVertex));
 
-    uint32_t* quadIndices = new uint32_t[s_TextData.MAX_INDICES];
+    uint32_t* quadIndices = new uint32_t[TextRendererData::MAX_INDICES];
 	uint32_t offset = 0;
-	for (uint32_t i = 0; i < s_TextData.MAX_INDICES; i += 6)
+	for (uint32_t i = 0; i < TextRendererData::MAX_INDICES; i += 6)
 	{
 		quadIndices[i + 0] = offset + 0;
 		quadIndices[i + 1] = offset + 1;
@@ -187,7 +193,7 @@ void TextRenderer::Init()
 		offset += 4;
 	}
     
-    s_TextData.indexBuffer = std::make_shared<IndexBuffer>(quadIndices, s_TextData.MAX_INDICES);
+    s_TextData.indexBuffer = std::make_shared<IndexBuffer>(quadIndices, TextRendererData::MAX_INDICES);
 	delete[] quadIndices;
 
     s_TextData.vertexArray->SetVertexBuffer(s_TextData.vertexBuffer);
@@ -230,13 +236,15 @@ void TextRenderer::End()
             }
         }
 
-        glDrawElements(GL_TRIANGLES, s_TextData.indexCount, GL_UNSIGNED_BYTE, nullptr);
+        glDrawElements(GL_TRIANGLES, s_TextData.indexCount, GL_UNSIGNED_INT, nullptr);
     }
 }
 
 void TextRenderer::DrawString(Font *font, const std::string &text, const glm::mat4 &transform, const glm::vec3 &color, const TextParameter &params)
 {
-    if (s_TextData.indexCount + 6 * text.size() > s_TextData.MAX_VERTICES)
+    // Bounds check: ensure both index and vertex capacity remain within limits
+    if (s_TextData.indexCount + 6 * text.size() > TextRendererData::MAX_INDICES ||
+        (uint32_t)((s_TextData.vertexPointer - s_TextData.vertexPointerBase) + 4 * text.size()) > TextRendererData::MAX_VERTICES)
     {
         return;
     }
@@ -258,11 +266,14 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
 	const auto &metrics = fontGeometry.getMetrics();
 
     double x = 0.0;
-	double y = 0.0;
-	double max_x = 0.0; // to track the maximum width
-	double min_y = 0.0; // to track the minimum y position (since y decrease with line breaks)
+    double y = 0.0;
+    double maxX = 0.0; // largest horizontal advance
+    double minY = 0.0; // lowest vertical position
 
-	double fontScale = 1.0 / (metrics.ascenderY - metrics.descenderY);
+    // Convert font plane units to pixels (requested font size)
+    double planeHeight = metrics.ascenderY - metrics.descenderY;
+    if (planeHeight == 0.0) planeHeight = 1.0; // avoid div by zero
+    double fontScale = (double)font->GetFontSize() / planeHeight;
 	const double spaceGlyphAdvance = fontGeometry.getGlyph(' ')->getAdvance();
 
 	for (size_t i = 0; i < text.size(); i++)
@@ -275,7 +286,7 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
 
 		if (character == '\n')
 		{
-			max_x = std::max(max_x, x);
+			maxX = std::max(maxX, x);
 
 			x = 0.0;
 			y -= fontScale * metrics.lineHeight + params.lineSpacing;
@@ -319,8 +330,8 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
 		glm::vec2 quadMin((float)planeLeft, (float)planeBottom);
 		glm::vec2 quadMax((float)planeRight, (float)planeTop);
 
-		quadMin *= fontScale;
-		quadMax *= fontScale;
+        quadMin *= (float)fontScale;
+        quadMax *= (float)fontScale;
 
 		quadMin += glm::vec2(x, y);
 		quadMax += glm::vec2(x, y);
@@ -365,8 +376,8 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
 			x += fontScale * advance + params.kerning;
 		}
 
-		max_x = std::max(max_x, x);
-		min_y = std::min(min_y, y);
+        maxX = std::max(maxX, x);
+        minY = std::min(minY, y);
 	}
 }
 

@@ -8,10 +8,19 @@ struct VERTEX
 };
 
 #define RENDER_MODE_DEPTH 4
-layout (std140, binding = 1) uniform Debug
+
+#define UNIFORM_BINDING_LOC_SCENE 1
+layout (std140, binding = UNIFORM_BINDING_LOC_SCENE) uniform Scene
 {
-    int renderMode;
-} u_Debug;
+    vec4 lightColor; // w = intensity
+    vec2 lightAngle; // x = azimuth, y = elevation
+    float renderMode;
+    float fogDensity;
+    vec4 fogColor;
+    float fogStart;
+    float fogEnd;
+    float padding[2];
+} u_Scene;
 
 layout (location = 0) in VERTEX _input;
 layout (binding = 0) uniform sampler2D u_ColorTexture;
@@ -23,7 +32,6 @@ layout (binding = 3) uniform sampler2D u_BloomTex1; // 1/4
 layout (binding = 4) uniform sampler2D u_BloomTex2; // 1/8
 layout (binding = 5) uniform sampler2D u_BloomTex3; // 1/16
 layout (binding = 6) uniform sampler2D u_BloomTex4; // 1/32 (optional)
-
 
 uniform float u_FocalLength;
 uniform float u_FocalDistance;
@@ -83,7 +91,7 @@ void main()
     viewSpace /= viewSpace.w;
     float dist = abs(viewSpace.z); // Use abs to ensure positive distance
 
-    if (u_Debug.renderMode == RENDER_MODE_DEPTH)
+    if (int(u_Scene.renderMode) == RENDER_MODE_DEPTH)
     {
         fragColor = vec4(depth, depth, depth, 1.0);
     }
@@ -98,11 +106,11 @@ void main()
             float coc = 0.0;
             if (distanceFromFocus > u_FocusRange)
             {
-                coc = (distanceFromFocus - u_FocusRange) * u_FocalLength / (u_FStop * max(dist, 0.001));
+                coc = (distanceFromFocus - u_FocusRange) * u_FocalLength / (u_FStop * max(dist, 0.1));
             }
             coc = min(coc, u_BlurAmount);
 
-            if (coc >= 0.001)
+            if (coc >= 0.1)
             {
                 vec4 accum = vec4(0.0);
                 float totalWeight = 0.0;
@@ -139,20 +147,6 @@ void main()
             baseColor.rgb = vec3(r, g, b);
         }
 
-        // Vignette AFTER chromatic aberration but still linear
-        if (u_EnableVignette)
-        {
-            float rad = clamp(u_VignetteRadius, 0.0, 1.0);
-            float soft = clamp(u_VignetteSoftness, 0.0001, 1.0);
-            vec2 pos = uv - 0.5;
-            float distNorm = length(pos) / 0.70710678; // normalize so corners ~=1
-            
-            float vig = 1.0 - smoothstep(rad, rad - soft, distNorm);
-
-            float intensity = u_VignetteIntensity;
-            baseColor.rgb = mix(baseColor.rgb, baseColor.rgb * u_VignetteColor, vig * intensity);
-        }
-
         // Tone mapping + gamma
         // Bloom composite BEFORE tone mapping (HDR domain)
         if (u_EnableBloom)
@@ -177,6 +171,65 @@ void main()
             if (iters >= 5) bloom += texture(u_BloomTex4, uv).rgb * 0.3;
 
             baseColor.rgb += bloom * bloomMask * u_BloomIntensity;
+        }
+
+        // Vignette AFTER chromatic aberration but still linear
+        if (u_EnableVignette)
+        {
+            float rad = clamp(u_VignetteRadius, 0.0, 1.0);
+            float soft = clamp(u_VignetteSoftness, 0.0001, 1.0);
+            vec2 pos = uv - 0.5;
+            float distNorm = length(pos) / 0.70710678; // normalize so corners ~=1
+            
+            float vig = 1.0 - smoothstep(rad, rad - soft, distNorm);
+
+            float intensity = u_VignetteIntensity;
+            baseColor.rgb = mix(baseColor.rgb, baseColor.rgb * u_VignetteColor, vig * intensity);
+        }
+
+        // High-quality fog calculation using depth buffer
+        if (u_Scene.fogDensity > 0.0)
+        {
+            // Convert depth to view space distance
+            vec4 clipSpace = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+            vec4 viewSpace = u_InverseProjection * clipSpace;
+            viewSpace /= viewSpace.w;
+            float viewDistance = abs(viewSpace.z);
+            
+            // Multi-layer fog calculation for high quality
+            float fogFactor = 1.0;
+            
+            // 1. Linear fog for base distance fade
+            float linearFog = clamp((viewDistance - u_Scene.fogStart) / (u_Scene.fogEnd - u_Scene.fogStart), 0.0, 1.0);
+            
+            // 2. Exponential fog for atmospheric depth
+            float expFog = 1.0 - exp(-u_Scene.fogDensity * viewDistance);
+            
+            // 3. Exponential squared fog for dense atmosphere
+            float exp2Fog = 1.0 - exp(-pow(u_Scene.fogDensity * viewDistance * 0.5, 2.0));
+            
+            // 4. Height-based fog simulation (assuming ground plane at y=0)
+            // Simulate fog density variation with height
+            vec2 ndcPos = uv * 2.0 - 1.0;
+            float heightFactor = max(0.0, 1.0 - abs(ndcPos.y) * 0.3); // More fog at horizon
+            
+            // Combine fog models with weighted blending
+            float combinedFog = mix(linearFog, expFog, 0.6) + exp2Fog * 0.3;
+            combinedFog *= (1.0 + heightFactor * 0.4); // Enhance horizon fog
+            
+            // Distance-based fog color variation (cooler colors at distance)
+            vec3 distantFogColor = mix(u_Scene.fogColor.rgb, u_Scene.fogColor.rgb * vec3(0.8, 0.9, 1.1), 
+                                     clamp(viewDistance / u_Scene.fogEnd, 0.0, 1.0));
+            
+            // Atmospheric perspective (slight blue shift at distance)
+            float atmosphericStrength = clamp(viewDistance / (u_Scene.fogEnd * 2.0), 0.0, 1.0);
+            vec3 atmosphericColor = mix(distantFogColor, distantFogColor * vec3(0.7, 0.8, 1.2), atmosphericStrength * 0.3);
+            
+            // Final fog factor with smooth transitions
+            fogFactor = 1.0 - clamp(combinedFog, 0.0, 1.0);
+            
+            // Apply fog with enhanced color mixing
+            baseColor.rgb = mix(atmosphericColor, baseColor.rgb, fogFactor);
         }
 
         vec3 mapped = FilmicTonemap(baseColor.rgb, u_Exposure, u_Gamma);

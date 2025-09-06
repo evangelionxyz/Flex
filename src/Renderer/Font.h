@@ -26,7 +26,7 @@ public:
     int GetFontSize() const { return m_FontSize; }
     uint32_t GetTextureHandle() const { return m_TextureHandle; }
     
-    msdf_atlas::FontGeometry GetGeometry() { return m_FontGeometry; }
+    const msdf_atlas::FontGeometry &GetGeometry() const { return m_FontGeometry; }
     const std::vector<msdf_atlas::GlyphGeometry> &GetGlyphs() { return m_Glyphs; }
     const glm::vec2 &GetAtlasSize() { return m_AtlasSize; }
 

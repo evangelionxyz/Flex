@@ -39,7 +39,7 @@ struct PostProcessing
 
 	// Bloom params
 	float bloomThreshold = 1.0f;   // HDR threshold
-	float bloomKnee = 1.0f;        // Soft knee range 0..1
+	float bloomKnee = 0.6f;        // Soft knee range 0..1
 	float bloomIntensity = 0.8f;   // Intensity of final bloom
 	int bloomIterations = 5;       // Blur iteration pairs (H+V)
 };
