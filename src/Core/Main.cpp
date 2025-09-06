@@ -26,6 +26,7 @@
 #include "Renderer/Texture.h"
 #include "Renderer/Mesh.h"
 #include "Renderer/Framebuffer.h"
+#include "Renderer/Bloom.h"
 #include "Math/Math.hpp"
 
 #include "Renderer/Gizmo.h"
@@ -65,12 +66,17 @@ public:
 		shader.SetUniform("u_EnableDOF", camera.lens.enableDOF ? 1 : 0);
 		shader.SetUniform("u_EnableVignette", postProcessing.enableVignette ? 1 : 0);
 		shader.SetUniform("u_EnableChromAb", postProcessing.enableChromAb ? 1 : 0);
+		shader.SetUniform("u_EnableBloom", postProcessing.enableBloom ? 1 : 0);
 		shader.SetUniform("u_VignetteRadius", postProcessing.vignetteRadius);
 		shader.SetUniform("u_VignetteSoftness", postProcessing.vignetteSoftness);
 		shader.SetUniform("u_VignetteIntensity", postProcessing.vignetteIntensity);
 		shader.SetUniform("u_VignetteColor", postProcessing.vignetteColor);
 		shader.SetUniform("u_ChromaticAbAmount", postProcessing.chromAbAmount);
 		shader.SetUniform("u_ChromaticAbRadual", postProcessing.chromAbRadial);
+		shader.SetUniform("u_BloomThreshold", postProcessing.bloomThreshold);
+		shader.SetUniform("u_BloomKnee", postProcessing.bloomKnee);
+		shader.SetUniform("u_BloomIntensity", postProcessing.bloomIntensity);
+		shader.SetUniform("u_BloomIterations", postProcessing.bloomIterations);
 
 		vertexArray->Bind();
 
@@ -119,18 +125,24 @@ public:
 	glm::mat4 inverseProjection = glm::mat4(1.0f);
 };
 
-struct DebugData
+struct SceneData
 {
+	float time = 0.0f;
 	int renderMode = RENDER_MODE_COLOR;
 };
 
-struct TimeData
+int main(int argc, char **argv)
 {
-	float time = 0.0f;
-};
+	std::string modelPath, skyboxPath;
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-model=") == 0 && i + 1 < argc) {
+			modelPath = argv[i+1];
+		}
+		if (strcmp(argv[i], "-skybox=") == 0 && i + 1 < argc) {
+			skyboxPath = argv[i+1];
+		}
+	}
 
-int main()
-{
 	int WINDOW_WIDTH = 800;
 	int WINDOW_HEIGHT = 650;
 
@@ -156,6 +168,7 @@ int main()
 	Camera camera;
 	Gizmo gizmo;
 	Screen screen;
+	Bloom bloom;
 
 	// Initialize gizmo at origin
 	gizmo.SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -180,15 +193,6 @@ int main()
 	double deltaTime = 0.0;
 	double FPS = 0.0;
 	double statusUpdateInterval = 0.0;
-	double debugTextUpdateInterval = 0.0;
-	int frameCount = 0;
-	std::string debugText[10];
-	
-	// Initialize debug text
-	for (int i = 0; i < 10; ++i)
-	{
-		debugText[i] = std::format("Initializing... {}", i);
-	}
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -209,33 +213,33 @@ int main()
 	createInfo.format = Format::RGB32F;
 	createInfo.clampMode = WrapMode::REPEAT;
 	createInfo.filter = FilterMode::LINEAR;
-	std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, "resources/hdr/klippad_sunrise_2_2k.hdr");
+
+	bool fileExists = std::filesystem::exists(skyboxPath);
+	std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, fileExists ? skyboxPath : "resources/hdr/rogland_clear_night_4k.hdr");
 
 	// Create skybox mesh
 	std::shared_ptr<Mesh> skyboxMesh = MeshLoader::CreateSkyboxCube();
 
 	// Load model from glTF file
-	std::shared_ptr<Model> model = Model::Create("resources/models/damaged_helmet.gltf");
-	glm::mat4 modelTr = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) , glm::vec3(1.0f, 0.0f, 0.0f));
-	model->SetTransform(modelTr);
+	fileExists = std::filesystem::exists(modelPath);
+	std::shared_ptr<Model> model = Model::Create(fileExists ? modelPath : "resources/models/damaged_helmet.gltf");
 
-	CameraBuffer cameraData;
-	DebugData debug;
-	TimeData timeData;
+	CameraBuffer cameraData{};
+	SceneData sceneData;
 
 	std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), 0);
-	std::shared_ptr<UniformBuffer> debugUbo = UniformBuffer::Create(sizeof(DebugData), 1);
-	std::shared_ptr<UniformBuffer> timeUbo = UniformBuffer::Create(sizeof(TimeData), 2);
+	std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), 1);
 
 	FramebufferCreateInfo framebufferCreateInfo;
 	framebufferCreateInfo.width = window.GetWidth();
 	framebufferCreateInfo.height = window.GetHeight();
 	framebufferCreateInfo.attachments = 
 	{
-		{Format::RGBA8, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color
+		{Format::RGBA16F, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color (HDR for bloom)
 		{Format::DEPTH24STENCIL8}, // Depth Attachment
 	};
 	std::shared_ptr<Framebuffer> framebuffer = Framebuffer::Create(framebufferCreateInfo);
+	bloom.Init(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	window.SetFullscreenCallback([&](int width, int height, bool fullscreen)
 	{
@@ -246,6 +250,7 @@ int main()
 		
 		// Resize framebuffer
 		framebuffer->Resize(width, height);
+		bloom.Resize(width, height);
 	});
 
 	window.SetScrollCallback([&](int xOffset, int yOffset)
@@ -262,6 +267,7 @@ int main()
 		
 		// Resize framebuffer
 		framebuffer->Resize(width, height);
+		bloom.Resize(width, height);
 		screen.inverseProjection = glm::inverse(camera.projection);
 	});
 
@@ -321,17 +327,14 @@ int main()
 
 		if (!ImGui::GetIO().WantCaptureMouse)
 		{
-			UpdateMouseState(camera, window.GetHandle());
-			HandleOrbit(camera, deltaTime);
-			HandlePan(camera, deltaTime);
-			HandleZoom(camera, deltaTime, window.GetHandle());
-			ApplyInertia(camera, deltaTime);
-			UpdateCameraPosition(camera);
+			camera.UpdateMouseState(window.GetHandle());
+			camera.HandleOrbit(deltaTime);
+			camera.HandlePan(deltaTime);
+			camera.HandleZoom(deltaTime, window.GetHandle());
+			camera.ApplyInertia(deltaTime);
+			camera.UpdateCameraPosition();
 		}
 
-		// float fstop = 1.4f;
-		// float focalLength = 120.0f;
-		// screen.SetDOFParameters(focalLength, camera.distance, fstop, invProj);
 		screen.inverseProjection = glm::inverse(camera.projection);
 		camera.lens.focalDistance = camera.distance;
 
@@ -341,6 +344,13 @@ int main()
 		// Update camera matrices with current aspect ratio
 		float aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
 		camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0 / 9.0f);
+		cameraData.viewProjection = camera.projection * camera.view;
+		cameraData.position = glm::vec4(camera.position, 1.0f);
+		cameraUbo->SetData(&cameraData, sizeof(cameraData), 0);
+
+		// Update scene data
+		sceneData.time = (float)currentTime;
+		sceneUbo->SetData(&sceneData, sizeof(sceneData));
 
 		// Render Here
 		Viewport viewport{0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
@@ -351,30 +361,11 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-		// Update camera data
-		cameraData.viewProjection = camera.projection * camera.view;
-		cameraData.position = glm::vec4(camera.position, 1.0f);
-		cameraUbo->SetData(&cameraData, sizeof(cameraData), 0);
-		
-		// Update time data
-		timeData.time = (float)currentTime;
-		timeUbo->SetData(&timeData, sizeof(timeData));
-		
-		debugUbo->SetData(&debug, sizeof(debug));
-
 		// Render models first
 		glCullFace(GL_BACK);
 		PBRShader.Use();
-		
-		// Render all loaded meshes with their respective textures
-		for (int z = -2; z < 2; ++z)
-		{
-			for (int x = -2; x < 2; ++x)
-			{
-				model->SetTransform(glm::translate(modelTr, {x * 3.0f, z * 3.0f, 0.0}));
-				model->Render(PBRShader, environmentTex);
-			}
-		}
+
+		model->Render(PBRShader, environmentTex);
 		
 		{
 			// Render skybox last (no depth writes, pass when depth equals far plane)
@@ -400,6 +391,12 @@ int main()
 		}
 
 		// SECOND PASS: Render framebuffer to default framebuffer (screen)
+		// Build bloom chain from HDR color before returning to default framebuffer
+		if (camera.postProcessing.enableBloom)
+		{
+			uint32_t hdrTex = framebuffer->GetColorAttachment(0);
+			bloom.Build(hdrTex, camera.postProcessing.bloomThreshold, camera.postProcessing.bloomKnee, camera.postProcessing.bloomIterations);
+		}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -410,6 +407,8 @@ int main()
 		glDisable(GL_CULL_FACE);
 		if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
 		{
+			if (camera.postProcessing.enableBloom)
+				bloom.BindTextures();
 			screen.Render(screenTexture, framebuffer->GetDepthAttachment(), camera, camera.postProcessing);
 		}
 		// Restore depth testing and culling
@@ -454,6 +453,26 @@ int main()
 			ImGui::Text("FPS: %.1f", FPS);
 			ImGui::Text("Delta ms: %.3f", deltaTime * 1000.0);
 			ImGui::Separator();
+			// Projection type selector
+			{
+				const char* projLabels[] = {"Perspective", "Orthographic"};
+				int projIndex = camera.projectionType == ProjectionType::Perspective ? 0 : 1;
+				if (ImGui::Combo("Projection", &projIndex, projLabels, IM_ARRAYSIZE(projLabels)))
+				{
+					camera.projectionType = projIndex == 0 ? ProjectionType::Perspective : ProjectionType::Orthographic;
+					camera.UpdateMatrices((float)WINDOW_WIDTH / (float)WINDOW_HEIGHT);
+				}
+				if (camera.projectionType == ProjectionType::Perspective)
+				{
+					ImGui::SliderFloat("FOV", &camera.fov, 10.0f, 120.0f);
+				}
+				else
+				{
+					ImGui::SliderFloat("Ortho Size", &camera.orthoSize, 1.0f, 200.0f);
+				}
+			}
+
+			ImGui::Separator();
 			ImGui::Text("Camera");
 			ImGui::SliderFloat("Yaw", &camera.yaw, -glm::pi<float>(), glm::pi<float>());
 			ImGui::SliderFloat("Pitch", &camera.pitch, -1.5f, 1.5f);
@@ -463,13 +482,13 @@ int main()
 			
 			ImGui::Separator();
 			ImGui::Text("Render Mode");
-			int mode = debug.renderMode;
+			int mode = sceneData.renderMode;
 			if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
 			if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
 			if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
 			if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
 			if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
-			debug.renderMode = mode;
+			sceneData.renderMode = mode;
 
 			ImGui::Separator();
 			ImGui::Text("DOF");
@@ -492,6 +511,13 @@ int main()
 			ImGui::Checkbox("Enable Chrom Ab", &camera.postProcessing.enableChromAb);
 			ImGui::SliderFloat("Chrom Amount", &camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
 			ImGui::SliderFloat("Chrom Radial", &camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
+			ImGui::Separator();
+			ImGui::Text("Bloom");
+			ImGui::Checkbox("Enable Bloom", &camera.postProcessing.enableBloom);
+			ImGui::SliderFloat("Bloom Threshold", &camera.postProcessing.bloomThreshold, 0.0f, 5.0f, "%.2f");
+			ImGui::SliderFloat("Bloom Knee", &camera.postProcessing.bloomKnee, 0.0f, 1.0f, "%.2f");
+			ImGui::SliderFloat("Bloom Intensity", &camera.postProcessing.bloomIntensity, 0.0f, 5.0f, "%.2f");
+			ImGui::SliderInt("Bloom Iterations", &camera.postProcessing.bloomIterations, 1, 8);
 		}
 		ImGui::End();
 

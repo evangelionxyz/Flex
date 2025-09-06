@@ -25,6 +25,7 @@ struct PostProcessing
 	// Toggles
 	bool enableVignette = false;
 	bool enableChromAb = false;
+	bool enableBloom = true;
 	
 	// Vignette params
 	float vignetteRadius = 1.1f;
@@ -35,6 +36,18 @@ struct PostProcessing
 	// Chromatic aberration params
 	float chromAbAmount = 0.03f;
 	float chromAbRadial = 0.1f;
+
+	// Bloom params
+	float bloomThreshold = 1.0f;   // HDR threshold
+	float bloomKnee = 1.0f;        // Soft knee range 0..1
+	float bloomIntensity = 0.8f;   // Intensity of final bloom
+	int bloomIterations = 5;       // Blur iteration pairs (H+V)
+};
+
+enum class ProjectionType
+{
+	Perspective,
+	Orthographic,
 };
 
 struct CameraLens
@@ -71,6 +84,8 @@ struct Camera
 	
 	CameraLens lens;
 	PostProcessing postProcessing;
+	ProjectionType projectionType = ProjectionType::Perspective;
+	float orthoSize = 10.0f; // Half-height for orthographic projection
 	
 	// Control settings
 	struct Controls
@@ -108,35 +123,29 @@ struct Camera
 	void UpdateMatrices(float aspectRatio)
 	{
 		view = glm::lookAt(position, target, up);
-		projection = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+		if (projectionType == ProjectionType::Perspective)
+		{
+			projection = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+		}
+		else // Orthographic
+		{
+			float halfH = orthoSize * 0.5f;
+			float halfW = halfH * aspectRatio;
+			projection = glm::ortho(-halfW, halfW, -halfH, halfH, nearPlane, farPlane);
+		}
 	}
 	
 	// Get camera direction vectors
 	glm::vec3 GetForward() const { return glm::normalize(target - position); }
 	glm::vec3 GetRight() const { return glm::normalize(glm::cross(GetForward(), up)); }
 	glm::vec3 GetUp() const { return glm::normalize(glm::cross(GetRight(), GetForward())); }
+
+	// Forward declarations for camera functions
+	void UpdateMouseState(GLFWwindow *window);
+	void HandleOrbit(float deltaTime);
+	void HandlePan(float deltaTime);
+	void HandleZoom(float deltaTime, GLFWwindow *window);
+	void ApplyInertia(float deltaTime);
+	void UpdateCameraPosition();
 };
 
-// Legacy functions for backward compatibility
-inline glm::vec3 GetCameraRight(const Camera &camera)
-{
-	return camera.GetRight();
-}
-
-inline glm::vec3 GetCameraForward(const Camera &camera)
-{
-	return camera.GetForward();
-}
-
-inline glm::vec3 GetCameraUp(const Camera &camera)
-{
-	return camera.GetUp();
-}
-
-// Forward declarations for camera functions
-inline void UpdateMouseState(Camera &camera, GLFWwindow *window);
-inline void HandleOrbit(Camera &camera, float deltaTime);
-inline void HandlePan(Camera &camera, float deltaTime);
-inline void HandleZoom(Camera &camera, float deltaTime, GLFWwindow *window);
-inline void ApplyInertia(Camera &camera, float deltaTime);
-inline void UpdateCameraPosition(Camera &camera);

@@ -17,7 +17,7 @@ public:
     ~Model();
     
     void Update(float deltaTime);
-    void Render(Shader &shader, std::shared_ptr<Texture2D> &environmentTexture);
+    void Render(Shader &shader, const std::shared_ptr<Texture2D> &environmentTexture);
 
     void SetTransform(const glm::mat4 &transform);
 
@@ -27,5 +27,5 @@ public:
 
 private:
     std::vector<std::shared_ptr<Mesh>> m_Meshes;
-    glm::mat4 m_Transform;
+    glm::mat4 m_Transform{};
 };

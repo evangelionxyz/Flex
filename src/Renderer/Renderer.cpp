@@ -48,7 +48,7 @@ std::shared_ptr<Texture2D> Renderer::GetBlackTexture()
     static std::shared_ptr<Texture2D> s_BlackTexture;
     if (!s_BlackTexture)
     {
-        uint32_t color = 0x000000FF;
+        uint32_t color = 0xFF000000;
         TextureCreateInfo createInfo;
         createInfo.format = Format::RGBA8;
         s_BlackTexture = std::make_shared<Texture2D>(createInfo, color);
@@ -62,7 +62,7 @@ std::shared_ptr<Texture2D> Renderer::GetMagentaTexture()
     static std::shared_ptr<Texture2D> s_MagentaTexture;
     if (!s_MagentaTexture)
     {
-        uint32_t color = 0xFF00FFFF;
+        uint32_t color = 0xFFFF00FF;
         TextureCreateInfo createInfo;
         createInfo.format = Format::RGBA8;
         s_MagentaTexture = std::make_shared<Texture2D>(createInfo, color);

@@ -16,6 +16,14 @@ layout (std140, binding = 1) uniform Debug
 layout (location = 0) in VERTEX _input;
 layout (binding = 0) uniform sampler2D u_ColorTexture;
 layout (binding = 1) uniform sampler2D u_DepthTexture;
+// Bloom mip chain (downsampled blurred). We'll bind consecutively after main color & depth.
+// 0: original color already bound at binding=0, so bloom starts at binding=2 upward.
+layout (binding = 2) uniform sampler2D u_BloomTex0; // 1/2 size
+layout (binding = 3) uniform sampler2D u_BloomTex1; // 1/4
+layout (binding = 4) uniform sampler2D u_BloomTex2; // 1/8
+layout (binding = 5) uniform sampler2D u_BloomTex3; // 1/16
+layout (binding = 6) uniform sampler2D u_BloomTex4; // 1/32 (optional)
+
 
 uniform float u_FocalLength;
 uniform float u_FocalDistance;
@@ -30,6 +38,11 @@ uniform mat4 u_InverseProjection;
 uniform bool u_EnableDOF;
 uniform bool u_EnableVignette;
 uniform bool u_EnableChromAb;
+uniform bool u_EnableBloom;
+uniform float u_BloomThreshold;
+uniform float u_BloomKnee;
+uniform float u_BloomIntensity;
+uniform int u_BloomIterations; // how many of the chain levels to use
 
 // Vignette parameters
 uniform float u_VignetteRadius;      // 0..1 (distance from center where vignette starts)
@@ -85,7 +98,7 @@ void main()
             float coc = 0.0;
             if (distanceFromFocus > u_FocusRange)
             {
-                coc = (distanceFromFocus - u_FocusRange) * u_FocalLength / (u_FStop * max(dist, 0.1));
+                coc = (distanceFromFocus - u_FocusRange) * u_FocalLength / (u_FStop * max(dist, 0.001));
             }
             coc = min(coc, u_BlurAmount);
 
@@ -93,7 +106,7 @@ void main()
             {
                 vec4 accum = vec4(0.0);
                 float totalWeight = 0.0;
-                int samples = 15; // balance quality/perf
+                int samples = 9; // balance quality/perf
                 for (int i = -samples/2; i <= samples/2; ++i)
                 {
                     for (int j = -samples/2; j <= samples/2; ++j)
@@ -141,6 +154,31 @@ void main()
         }
 
         // Tone mapping + gamma
+        // Bloom composite BEFORE tone mapping (HDR domain)
+        if (u_EnableBloom)
+        {
+            // Reconstruct bloom from mip chain additively with weights
+            int iters = clamp(u_BloomIterations, 1, 5);
+            vec3 bloom = vec3(0.0);
+            // Soft threshold (Filmic style)
+            float knee = u_BloomThreshold * u_BloomKnee + 1e-4;
+            float thresh = u_BloomThreshold;
+            vec3 src = baseColor.rgb;
+            float brightness = max(max(src.r, src.g), src.b);
+            float soft = clamp((brightness - thresh + knee) / (2.0 * knee), 0.0, 1.0);
+            float contribution = max(brightness - thresh, 0.0);
+            float bloomMask = (contribution + soft) / max(brightness, 1e-4);
+            bloomMask = clamp(bloomMask, 0.0, 1.0);
+
+            if (iters >= 1) bloom += texture(u_BloomTex0, uv).rgb;
+            if (iters >= 2) bloom += texture(u_BloomTex1, uv).rgb * 0.8;
+            if (iters >= 3) bloom += texture(u_BloomTex2, uv).rgb * 0.6;
+            if (iters >= 4) bloom += texture(u_BloomTex3, uv).rgb * 0.4;
+            if (iters >= 5) bloom += texture(u_BloomTex4, uv).rgb * 0.3;
+
+            baseColor.rgb += bloom * bloomMask * u_BloomIntensity;
+        }
+
         vec3 mapped = FilmicTonemap(baseColor.rgb, u_Exposure, u_Gamma);
         fragColor = vec4(mapped, 1.0);
     }

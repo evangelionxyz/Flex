@@ -16,7 +16,7 @@ uniform mat4 u_Transform;
 
 struct VERTEX
 {
-    vec3 worlPosition;
+    vec3 worldPosition;
     vec3 position;
     vec3 normals;
     vec3 tangent;
@@ -30,7 +30,7 @@ layout (location = 0) out VERTEX _output;
 void main()
 {
     // World position with translation
-    _output.worlPosition = (u_Transform * vec4(position, 1.0)).xyz;
+    _output.worldPosition = (u_Transform * vec4(position, 1.0)).xyz;
     _output.position = position;
     // Transform normals to world space (approximate; assumes uniform scale)
     _output.normals = normalize(mat3(u_Transform) * normals);

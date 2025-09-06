@@ -13,6 +13,9 @@
 
 #include "Renderer.h"
 
+#define MAX_BONES 100
+#define NUM_BONE_INFLUENCE 4
+
 struct Vertex
 {
     glm::vec3 position;
@@ -39,12 +42,12 @@ struct Material
 
     Material()
     {
-    // Neutral defaults per glTF PBR spec when a texture is absent
-    baseColorTexture = Renderer::GetWhiteTexture();           // baseColorFactor will tint
-    emissiveTexture = Renderer::GetBlackTexture();            // no emissive
-    metallicRoughnessTexture = Renderer::GetBlackTexture();   // will be overridden if texture present; factors supply values
-    normalTexture = Renderer::GetFlatNormalTexture();         // flat normal
-    occlusionTexture = Renderer::GetWhiteTexture();           // full occlusion (no darkening)
+        // Neutral defaults per glTF PBR spec when a texture is absent
+        baseColorTexture = Renderer::GetWhiteTexture();           // baseColorFactor will tint
+        emissiveTexture = Renderer::GetBlackTexture();            // no emissive
+        metallicRoughnessTexture = Renderer::GetBlackTexture();   // will be overridden if texture present; factors supply values
+        normalTexture = Renderer::GetWhiteTexture();              // flat normal
+        occlusionTexture = Renderer::GetWhiteTexture();           // full occlusion (no darkening)
     }
 };
 
@@ -57,6 +60,10 @@ struct Mesh
 
     int materialIndex = -1;
 
+    // Local (node) transform and resolved world transform
+    glm::mat4 localTransform {1.0f};
+    glm::mat4 worldTransform {1.0f};
+
     Mesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     static std::shared_ptr<Mesh> Create(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 };
@@ -64,9 +71,32 @@ struct Mesh
 class MeshLoader
 {
 public:
-    static std::vector<std::shared_ptr<Mesh>> LoadFromGLTF(const std::string& filename);
     static std::shared_ptr<Mesh> CreateFallbackQuad();
     static std::shared_ptr<Mesh> CreateSkyboxCube();
+
+    static void LoadMaterial(const std::shared_ptr<Mesh>& mesh, const tinygltf::Primitive &primitive, const std::vector<tinygltf::Material> &materials, const std::vector<std::shared_ptr<Texture2D>> &loadedTextures);
+    static void LoadVertexData(std::vector<Vertex> &vertices, const tinygltf::Primitive &primitive, const tinygltf::Model &model);
+    static void LoadIndicesData(std::vector<uint32_t> &indices, const tinygltf::Primitive &primitive, const tinygltf::Model &model);
+
+    // Scene graph structures
+    struct MeshNode
+    {
+        int parent = -1;
+        std::vector<int> children;
+        glm::mat4 local {1.0f};
+        glm::mat4 world {1.0f};
+        std::vector<std::shared_ptr<Mesh>> meshes; // Mesh primitives referenced by this node
+    };
+
+    struct MeshScene
+    {
+        std::vector<MeshNode> nodes;      // All nodes
+        std::vector<int> roots;           // Root node indices
+        std::vector<std::shared_ptr<Mesh>> flatMeshes; // All meshes collected (for convenience)
+    };
+
+    // Load full scene graph retaining hierarchy & transforms
+    static MeshScene LoadSceneGraphFromGLTF(const std::string &filename);
 
 private:
     static std::vector<std::shared_ptr<Texture2D>> LoadTexturesFromGLTF(const tinygltf::Model& model);

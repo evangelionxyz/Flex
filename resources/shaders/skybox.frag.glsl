@@ -20,8 +20,8 @@ void main()
     vec3 color = texture(u_EnvironmentMap, uv).rgb;
     
     // Simple tone mapping for HDR
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0/2.2)); // Gamma correction
+    // color = color / (color + vec3(1.0));
+    // color = pow(color, vec3(1.0/2.2)); // Gamma correction
     
     FragColor = vec4(color, 1.0);
 }

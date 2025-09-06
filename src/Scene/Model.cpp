@@ -2,8 +2,9 @@
 
 Model::Model(const std::string &filename)
 {
-    m_Meshes = MeshLoader::LoadFromGLTF(filename);
+    auto meshScene = MeshLoader::LoadSceneGraphFromGLTF(filename);
 
+    m_Meshes = meshScene.flatMeshes;
     m_Transform = glm::mat4(1.0f);
 }
 
@@ -15,9 +16,9 @@ void Model::Update(float deltaTime)
 {
 }
 
-void Model::Render(Shader &shader, std::shared_ptr<Texture2D> &environmentTexture)
+void Model::Render(Shader &shader, const std::shared_ptr<Texture2D> &environmentTexture)
 {
-    for (std::shared_ptr<Mesh> &mesh : m_Meshes)
+    for (const std::shared_ptr<Mesh> &mesh : m_Meshes)
     {
         if (mesh->material)
         {
@@ -42,7 +43,7 @@ void Model::Render(Shader &shader, std::shared_ptr<Texture2D> &environmentTextur
         shader.SetUniform("u_EnvironmentTexture", 5);
         
         // TODO: Calculate with mesh transform
-        shader.SetUniform("u_Transform", m_Transform);
+        shader.SetUniform("u_Transform", m_Transform * mesh->localTransform);
 
         mesh->vertexArray->Bind();
         Renderer::DrawIndexed(mesh->vertexArray);
