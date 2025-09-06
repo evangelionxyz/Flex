@@ -58,8 +58,17 @@ public:
 		shader.SetUniform("focusRange", focusRange);
 		shader.SetUniform("maxBlur", maxBlur);
 		shader.SetUniform("inverseProjection", inverseProjection);
-		shader.SetUniform("exposure", exposure); // pass exposure
-		shader.SetUniform("gamma", gamma); // pass exposure
+		shader.SetUniform("exposure", exposure);
+		shader.SetUniform("gamma", gamma);
+		shader.SetUniform("u_EnableDOF", enableDOF ? 1 : 0);
+		shader.SetUniform("u_EnableVignette", enableVignette ? 1 : 0);
+		shader.SetUniform("u_EnableChromAb", enableChromAb ? 1 : 0);
+		shader.SetUniform("vignetteRadius", vignetteRadius);
+		shader.SetUniform("vignetteSoftness", vignetteSoftness);
+		shader.SetUniform("vignetteIntensity", vignetteIntensity);
+		shader.SetUniform("vignetteColor", vignetteColor);
+		shader.SetUniform("chromAbAmount", chromAbAmount);
+		shader.SetUniform("chromAbRadial", chromAbRadial);
 
 		vertexArray->Bind();
 		// Ensure the index buffer is bound for glDrawElements
@@ -120,6 +129,18 @@ public:
 	float maxBlur = 4.0f;
 	float exposure = 1.0f; // Added exposure control
 	float gamma = 1.4f;
+	// Toggles
+	bool enableDOF = true;
+	bool enableVignette = true;
+	bool enableChromAb = true;
+	// Vignette params
+	float vignetteRadius = 1.2f;
+	float vignetteSoftness = 0.5f;
+	float vignetteIntensity = 0.93f;
+	glm::vec3 vignetteColor = glm::vec3(0.0f);
+	// Chromatic aberration params
+	float chromAbAmount = 0.03f;
+	float chromAbRadial = 0.1f;
 	glm::mat4 inverseProjection = glm::mat4(1.0f);
 };
 
@@ -696,12 +717,25 @@ int main()
 			debug.renderMode = mode;
 			ImGui::Separator();
 			ImGui::Text("DOF");
+			ImGui::Checkbox("Enable DOF", &screen.enableDOF);
 			ImGui::SliderFloat("Focal Length", &screen.focalLength, 10.0f, 200.0f);
 			ImGui::SliderFloat("fStop", &screen.fStop, 0.7f, 16.0f);
 			ImGui::SliderFloat("Focus Range", &screen.focusRange, 0.7f, 16.0f);
 			ImGui::SliderFloat("Max Blur", &screen.maxBlur, 0.5f, 20.0f);
-			ImGui::SliderFloat("Exposure", &screen.exposure, 0.1f, 5.0f, "%.2f"); // exposure slider
-			ImGui::SliderFloat("Gamma", &screen.gamma, 0.1f, 5.0f, "%.2f"); // exposure slider
+			ImGui::SliderFloat("Exposure", &screen.exposure, 0.1f, 5.0f, "%.2f");
+			ImGui::SliderFloat("Gamma", &screen.gamma, 0.1f, 5.0f, "%.2f");
+			ImGui::Separator();
+			ImGui::Text("Vignette");
+			ImGui::Checkbox("Enable Vignette", &screen.enableVignette);
+			ImGui::SliderFloat("Vignette Radius", &screen.vignetteRadius, 0.1f, 1.2f);
+			ImGui::SliderFloat("Vignette Softness", &screen.vignetteSoftness, 0.001f, 1.0f);
+			ImGui::SliderFloat("Vignette Intensity", &screen.vignetteIntensity, 0.0f, 2.0f);
+			ImGui::ColorEdit3("Vignette Color", &screen.vignetteColor.x);
+			ImGui::Separator();
+			ImGui::Text("Chromatic Aberration");
+			ImGui::Checkbox("Enable Chrom Ab", &screen.enableChromAb);
+			ImGui::SliderFloat("Chrom Amount", &screen.chromAbAmount, 0.0f, 0.03f, "%.4f");
+			ImGui::SliderFloat("Chrom Radial", &screen.chromAbRadial, 0.1f, 3.0f);
 			ImGui::End();
 		}
 
