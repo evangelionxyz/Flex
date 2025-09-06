@@ -72,7 +72,7 @@ static glm::mat4 BuildNodeLocalMatrix(const tinygltf::Node &node)
     return m;
 }
 
-MeshLoader::MeshScene MeshLoader::LoadSceneGraphFromGLTF(const std::string &filename)
+MeshScene MeshLoader::LoadSceneGraphFromGLTF(const std::string &filename)
 {
     MeshScene scene;
     tinygltf::Model gltfModel;
@@ -80,27 +80,43 @@ MeshLoader::MeshScene MeshLoader::LoadSceneGraphFromGLTF(const std::string &file
     std::string err, warn;
 
     bool ok = false;
-    if (filename.ends_with(".glb")) ok = loader.LoadBinaryFromFile(&gltfModel,&err,&warn,filename);
-    else ok = loader.LoadASCIIFromFile(&gltfModel,&err,&warn,filename);
-    if (!ok) return scene;
+    if (filename.ends_with(".glb"))
+        ok = loader.LoadBinaryFromFile(&gltfModel, &err, &warn, filename);
+    else
+        ok = loader.LoadASCIIFromFile(&gltfModel, &err, &warn, filename);
+    
+    if (!ok)
+        return scene;
 
     // Preload textures
     const auto textures = LoadTexturesFromGLTF(gltfModel);
-
+    
     // Reserve nodes
     scene.nodes.resize(gltfModel.nodes.size());
-
+    
     // Build raw node relationships and local transforms
     for (size_t i = 0;i < gltfModel.nodes.size();++i)
     {
         const tinygltf::Node &n = gltfModel.nodes[i];
+        
         MeshNode &mn = scene.nodes[i];
+        mn.name = n.name;
         mn.local = BuildNodeLocalMatrix(n);
-        for (int c : n.children) { mn.children.push_back(c); scene.nodes[c].parent = static_cast<int>(i); }
+        for (int c : n.children)
+        {
+            mn.children.push_back(c);
+            scene.nodes[c].parent = static_cast<int>(i);
+        }
     }
 
     // Identify roots
-    for (size_t i=0;i<scene.nodes.size();++i) if (scene.nodes[i].parent < 0) scene.roots.push_back((int)i);
+    for (size_t i = 0; i < scene.nodes.size(); ++i)
+    {
+        if (scene.nodes[i].parent < 0)
+        {
+            scene.roots.push_back(static_cast<int>(i));
+        }
+    } 
 
     // Load meshes referenced by nodes
     for (size_t i = 0; i < gltfModel.nodes.size(); ++i)
@@ -312,11 +328,12 @@ void MeshLoader::LoadMaterial(const std::shared_ptr<Mesh>& mesh, const tinygltf:
         const tinygltf::Material& material = materials[primitive.material];
         std::cout << "  Material: " << material.name << "\n";
 
-        mesh->material->baseColorFactor = {material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1], material.pbrMetallicRoughness.baseColorFactor[2] };
-        mesh->material->emissiveFactor = {material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2] };
-        mesh->material->metallicFactor = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
-        mesh->material->roughnessFactor = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
-        mesh->material->occlusionStrength = static_cast<float>(material.occlusionTexture.strength);
+        mesh->material->name = material.name;
+        mesh->material->params.baseColorFactor = {material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1], material.pbrMetallicRoughness.baseColorFactor[2], 1.0f };
+        mesh->material->params.emissiveFactor = {material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2], 1.0f };
+        mesh->material->params.metallicFactor = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
+        mesh->material->params.roughnessFactor = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
+        mesh->material->params.occlusionStrength = static_cast<float>(material.occlusionTexture.strength);
         
         // base color texture
         const int baseColorIndex = material.pbrMetallicRoughness.baseColorTexture.index;

@@ -9,10 +9,7 @@
 #include <format>
 #include <memory>
 
-// Dear ImGui
-#include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_opengl3.h>
+#include "UIHelper.h"
 
 #include <glad/glad.h>
 #include <stb_image_write.h>
@@ -131,6 +128,26 @@ struct SceneData
 	int renderMode = RENDER_MODE_COLOR;
 };
 
+struct Scene
+{
+	void AddModel(const std::string &filename)
+	{
+		auto &model = models.emplace_back();
+		model = Model::Create(filename);
+	}
+
+	bool RemoveModel(int index)
+	{
+		if (index >= models.size())
+			return false;
+		
+		models.erase(models.begin() + index);
+		return true;
+	}
+
+	std::vector<std::shared_ptr<Model>> models;
+};
+
 int main(int argc, char **argv)
 {
 	std::string modelPath, skyboxPath;
@@ -221,14 +238,15 @@ int main(int argc, char **argv)
 	std::shared_ptr<Mesh> skyboxMesh = MeshLoader::CreateSkyboxCube();
 
 	// Load model from glTF file
+	Scene scene;
 	fileExists = std::filesystem::exists(modelPath);
-	std::shared_ptr<Model> model = Model::Create(fileExists ? modelPath : "resources/models/damaged_helmet.gltf");
+	scene.AddModel(fileExists ? modelPath : "resources/models/damaged_helmet.gltf");
 
 	CameraBuffer cameraData{};
 	SceneData sceneData;
 
-	std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), 0);
-	std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), 1);
+	std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), UNIFORM_BINDING_LOC_CAMERA);
+	std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), UNIFORM_BINDING_LOC_SCENE);
 
 	FramebufferCreateInfo framebufferCreateInfo;
 	framebufferCreateInfo.width = window.GetWidth();
@@ -269,6 +287,14 @@ int main(int argc, char **argv)
 		framebuffer->Resize(width, height);
 		bloom.Resize(width, height);
 		screen.inverseProjection = glm::inverse(camera.projection);
+	});
+
+	window.SetDropCallback([&](const std::vector<std::string> &paths)
+	{
+		for (auto &path : paths)
+		{
+			scene.AddModel(path);
+		}
 	});
 
 	window.SetKeyboardCallback([&](int key, int scancode, int action, int mods)
@@ -365,8 +391,13 @@ int main(int argc, char **argv)
 		glCullFace(GL_BACK);
 		PBRShader.Use();
 
-		model->Render(PBRShader, environmentTex);
+		for (auto &model : scene.models)
+		{
+			model->Render(PBRShader, environmentTex);
+		}
 		
+		// Only render on perspective mode
+		if (camera.projectionType == ProjectionType::Perspective)
 		{
 			// Render skybox last (no depth writes, pass when depth equals far plane)
 			glDepthMask(GL_FALSE);
@@ -446,6 +477,85 @@ int main(int argc, char **argv)
 			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 			ImGui::End();
 		}
+
+		if (ImGui::Begin("Models"))
+		{
+			for (size_t i = 0; i < scene.models.size(); ++i)
+			{
+				ImGui::PushID(i);
+				bool removing = false;
+				std::shared_ptr<Model> &model = scene.models[i];
+				if (ImGui::CollapsingHeader(std::format("Model {}", static_cast<int>(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					if (ImGui::Button("Remove"))
+					{
+						removing = scene.RemoveModel(static_cast<int>(i));
+					}
+
+					if (removing)
+					{
+						ImGui::PopID();
+						break;
+					}
+
+					for (MeshNode &node : model->GetScene().nodes)
+					{
+						ImGui::Text(node.name.c_str());
+
+						ImGui::PushID(node.name.c_str());
+						for (std::shared_ptr<Mesh> &mesh : node.meshes)
+						{
+							if (ImGui::CollapsingHeader(node.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+							{
+								// ====== Transforms ======
+								glm::vec3 translation, scale, skew;
+								glm::vec4 perspective;
+								glm::quat orientation;
+								glm::decompose(mesh->localTransform, scale, orientation, translation, skew, perspective);
+								
+								glm::vec3 eulerRotation = glm::eulerAngles(orientation);
+								eulerRotation = glm::degrees(eulerRotation);
+
+								bool editing = ImGui::DragFloat3("Position", &translation.x, 0.25f);
+								editing |= ImGui::DragFloat3("Rotation", &eulerRotation.x, 0.25f);
+								editing |= ImGui::DragFloat3("Scale", &scale.x, 0.25f);
+
+								if (editing)
+								{
+									orientation = glm::quat(glm::radians(eulerRotation));
+									mesh->localTransform = glm::translate(glm::mat4(1.0f), translation)
+										* glm::toMat4(orientation) * glm::scale(glm::mat4(1.0f), scale);
+								}
+
+								// ====== Material ======
+								std::shared_ptr<Material> &mat = mesh->material;
+								ImGui::SeparatorText(std::format("Material - \"{}\"", mat->name).c_str());
+								
+								glm::vec3 factorVec = mat->params.baseColorFactor;
+								if (ImGui::ColorEdit3("Base Color", &factorVec.x)) mat->params.baseColorFactor = glm::vec4(factorVec, 1.0f);
+								factorVec = mat->params.emissiveFactor;
+								if (ImGui::ColorEdit3("Emissive", &factorVec.x)) mat->params.emissiveFactor = glm::vec4(factorVec, 1.0f);
+								ImGui::SliderFloat("Metallic", &mat->params.metallicFactor, 0.0f, 1.0f);
+								ImGui::SliderFloat("Roughness", &mat->params.roughnessFactor, 0.0f, 1.0f);
+								ImGui::SliderFloat("Occlussion", &mat->params.occlusionStrength, 0.0f, 1.0f);
+
+								static glm::vec2 imageSize = {64.0f, 64.0f};
+								UIDrawImage(mat->baseColorTexture, imageSize.x, imageSize.y, "BaseColor");
+								UIDrawImage(mat->emissiveTexture, imageSize.x, imageSize.y, "Emissive");
+								UIDrawImage(mat->normalTexture, imageSize.x, imageSize.y, "Normal");
+								UIDrawImage(mat->metallicRoughnessTexture, imageSize.x, imageSize.y, "MetalRough");
+								UIDrawImage(mat->occlusionTexture, imageSize.x, imageSize.y, "Occlusion");
+
+							}
+						}
+						ImGui::PopID();
+					}
+				}
+
+				ImGui::PopID();
+			}
+		}
+		ImGui::End();
 
 		// Example stats window
 		if (ImGui::Begin("Stats"))

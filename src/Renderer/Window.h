@@ -21,6 +21,7 @@ struct WindowData
     std::function<void(int xOffset, int yOffset)> scrollCb;
     std::function<void(int width, int height, bool fullscreen)> fullscreenCb;
     std::function<void(int key, int scancode, int action, int mods)> keyCb;
+    std::function<void(const std::vector<std::string> &paths)> dropCb;
 };
 
 struct WindowCreateInfo
@@ -46,6 +47,7 @@ public:
     void SetResizeCallback(const std::function<void(int, int)> &resizeCb);
     void SetScrollCallback(const std::function<void(int, int)> &scrollCb);
     void SetFullscreenCallback(const std::function<void(int, int, bool)> &fullscreenCb);
+    void SetDropCallback(const std::function<void(const std::vector<std::string> &)> &dropCb) ;
 
     void Show();
 

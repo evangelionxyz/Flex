@@ -73,35 +73,42 @@ vec3 SampleSphericalMap(sampler2D tex, vec3 dir)
 
 vec3 GetNormalFromMap(vec3 normal, vec3 tangent, vec3 bitangent, vec2 uv, sampler2D normalMap)
 {
-    // Sample normal map
     vec3 normalMapValue = texture(normalMap, uv).rgb;
-    // Convert from [0,1] to [-1,1]
     normalMapValue = normalMapValue * 2.0 - 1.0;
-    
-    // Create TBN matrix
     mat3 TBN = mat3(tangent, bitangent, normal);
-    
-    // Transform normal from tangent space to world space
     return normalize(TBN * normalMapValue);
 }
-
-layout (location = 0) out vec4 fragColor;
-layout (std140, binding = 0) uniform Camera
-{
-    mat4 viewProjection;
-    vec4 position;
-} u_Camera;
 
 #define RENDER_MODE_COLOR 0
 #define RENDER_MODE_NORMALS 1
 #define RENDER_MODE_METALLIC 2
 #define RENDER_MODE_ROUGHNESS 3
 
-layout (std140, binding = 1) uniform Scene
+#define UNIFORM_BINDING_LOC_CAMERA 0
+#define UNIFORM_BINDING_LOC_SCENE 1
+#define UNIFORM_BINDING_LOC_MATERIAL 2
+
+layout (location = 0) out vec4 fragColor;
+layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
+{
+    mat4 viewProjection;
+    vec4 position;
+} u_Camera;
+
+layout (std140, binding = UNIFORM_BINDING_LOC_SCENE) uniform Scene
 {
     float time;
     int renderMode;
 } u_Scene;
+
+layout (std140, binding = UNIFORM_BINDING_LOC_MATERIAL) uniform Material
+{
+    vec4 baseColorFactor;
+    vec4 emissiveFactor;
+    float metallicFactor;
+    float roughnessFactor;
+    float occlusionStrength;
+} u_Material;
 
 struct VERTEX
 {
@@ -123,15 +130,6 @@ layout (binding = 3) uniform sampler2D u_NormalTexture;
 layout (binding = 4) uniform sampler2D u_OcclusionTexture;
 layout (binding = 5) uniform sampler2D u_EnvironmentTexture;
 
-// Material scalar factors (set from CPU side once you add a UBO or push constants)
-// Provided here with defaults so shader compiles even if not set yet
-uniform vec3 u_BaseColorFactor = vec3(1.0);
-uniform vec3 u_EmissiveFactor = vec3(1.0);
-uniform float u_SpecularFactor = 1.0;
-uniform float u_MetallicFactor = 1.0;
-uniform float u_RoughnessFactor = 1.0;
-uniform float u_OcclusionStrength = 1.0;
-
 uniform vec3 u_LightColor = vec3(0.5);
 uniform float u_LightIntensity = 0.3;
 
@@ -152,24 +150,24 @@ void main()
     float sunAngularRadius = 0.05;
     float sunSolidAngle = 2.0 * M_PI * (1.0 - cos(sunAngularRadius)); // steradians
 
-    vec3 baseColorTex = texture(u_BaseColorTexture, _input.uv).rgb * u_BaseColorFactor;
-    vec3 emissiveColorTex = texture(u_EmissiveTexture, _input.uv).rgb * u_EmissiveFactor;
+    vec3 baseColorTex = texture(u_BaseColorTexture, _input.uv).rgb;
+    vec3 emissiveColorTex = texture(u_EmissiveTexture, _input.uv).rgb * u_Material.emissiveFactor.rgb;
     vec3 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv).rgb;
     vec3 normalMapTex = texture(u_NormalTexture, _input.uv).rgb;
     float occlusionTex = texture(u_OcclusionTexture, _input.uv).r;
-    float metallicVal = metallicRoughnessColorTex.b * u_MetallicFactor;
+    float metallicVal = metallicRoughnessColorTex.b * u_Material.metallicFactor;
     float roughnessTex = metallicRoughnessColorTex.g;
-    float roughnessVal = clamp(roughnessTex * u_RoughnessFactor, 0.0, 1.0);
+    float roughnessVal = clamp(roughnessTex * (1.0 - u_Material.roughnessFactor), 0.0, 1.0);
 
     // Detect if occlusion texture is actually a white fallback (heuristic)
     occlusionTex = abs(occlusionTex - 1.0) < 0.0001 
-        ? 1.0 * u_OcclusionStrength
-        : occlusionTex * u_OcclusionStrength;
+        ? 1.0 * u_Material.occlusionStrength
+        : occlusionTex * u_Material.occlusionStrength;
 
     if (u_Scene.renderMode == RENDER_MODE_COLOR)
     {
         // Use user/texture roughness directly (already clamped). Removed sunSolidAngle filtering for clearer control.
-        vec3 diffuseColor = baseColorTex * (1.0 - metallicVal);
+        vec3 diffuseColor = baseColorTex * _input.color * u_Material.baseColorFactor.rgb * (1.0 - metallicVal);
         vec3 specularColor = mix(vec3(0.04), baseColorTex, metallicVal);
         
         // Use normal mapping if available
@@ -192,7 +190,6 @@ void main()
         ) * reflectionStrength * NdotR * F;
 
         vec3 ambient = diffuseColor * vec3(0.4) * occlusionTex;
-
         vec3 irradiance = u_LightColor * u_LightIntensity;
         vec3 directLighting = GGX(finalNormal,
             lightDirection,
@@ -224,7 +221,7 @@ void main()
     else if (u_Scene.renderMode == RENDER_MODE_METALLIC)
     {
         vec4 metallicRoughnessColorTex = texture(u_MetallicRoughnessTexture, _input.uv);
-        float metallic = metallicRoughnessColorTex.b * u_MetallicFactor;
+        float metallic = metallicRoughnessColorTex.b * u_Material.metallicFactor;
         fragColor = vec4(metallic, metallic, metallic, 1.0);
     }
     else if (u_Scene.renderMode == RENDER_MODE_ROUGHNESS)

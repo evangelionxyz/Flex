@@ -157,6 +157,24 @@ void Window::SetFullscreenCallback(const std::function<void(int, int, bool)> &fu
     m_Data.fullscreenCb = fullscreenCb;
 }
 
+void Window::SetDropCallback(const std::function<void(const std::vector<std::string> &)> &dropCb)
+{
+    m_Data.dropCb = dropCb;
+    glfwSetDropCallback(m_Handle, [](GLFWwindow *window, int pathCount, const char **paths)
+    {
+        WindowData &data = *static_cast<WindowData *>(glfwGetWindowUserPointer(window));
+
+        std::vector<std::string> stringPaths;
+        for (int i = 0; i < pathCount; ++i)
+            stringPaths.push_back(paths[i]);
+
+        if (data.dropCb)
+        {
+            data.dropCb(stringPaths);
+        }
+    });
+}
+
 void Window::Show()
 {
     glfwShowWindow(m_Handle);

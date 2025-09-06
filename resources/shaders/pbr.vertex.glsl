@@ -6,7 +6,9 @@ layout (location = 3) in vec3 bitangent;
 layout (location = 4) in vec3 color;
 layout (location = 5) in vec2 uv;
 
-layout (std140, binding = 0) uniform Camera
+#define UNIFORM_BINDING_LOC_CAMERA 0
+
+layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
 {
     mat4 viewProjection;
     vec4 position;

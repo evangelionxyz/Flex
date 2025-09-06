@@ -3,6 +3,10 @@
 #include <glad/glad.h>
 #include <cassert>
 
+#define UNIFORM_BINDING_LOC_CAMERA 0
+#define UNIFORM_BINDING_LOC_SCENE 1
+#define UNIFORM_BINDING_LOC_MATERIAL 2
+
 enum class RasterizeFillMode
 {
     SOLID,

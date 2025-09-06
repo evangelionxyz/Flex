@@ -28,11 +28,16 @@ struct Vertex
 
 struct Material
 {
-    glm::vec3 baseColorFactor = glm::vec3(1.0f);
-    glm::vec3 emissiveFactor = glm::vec3(0.0f);
-    float metallicFactor = 1.0f;
-    float roughnessFactor = 1.0f;
-    float occlusionStrength = 1.0f;
+    std::string name;
+
+    struct Params
+    {
+        glm::vec4 baseColorFactor = glm::vec4(1.0f);
+        glm::vec4 emissiveFactor = glm::vec4(0.0f);
+        float metallicFactor = 1.0f;
+        float roughnessFactor = 1.0f;
+        float occlusionStrength = 0.0f;
+    } params;
 
     std::shared_ptr<Texture2D> baseColorTexture;
     std::shared_ptr<Texture2D> emissiveTexture;
@@ -44,7 +49,7 @@ struct Material
     {
         // Neutral defaults per glTF PBR spec when a texture is absent
         baseColorTexture = Renderer::GetWhiteTexture();           // baseColorFactor will tint
-        emissiveTexture = Renderer::GetBlackTexture();            // no emissive
+        emissiveTexture = Renderer::GetWhiteTexture();            // no emissive
         metallicRoughnessTexture = Renderer::GetBlackTexture();   // will be overridden if texture present; factors supply values
         normalTexture = Renderer::GetWhiteTexture();              // flat normal
         occlusionTexture = Renderer::GetWhiteTexture();           // full occlusion (no darkening)
@@ -68,6 +73,24 @@ struct Mesh
     static std::shared_ptr<Mesh> Create(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 };
 
+// Scene graph structures
+struct MeshNode
+{
+    int parent = -1;
+    std::string name;
+    std::vector<int> children;
+    glm::mat4 local {1.0f};
+    glm::mat4 world {1.0f};
+    std::vector<std::shared_ptr<Mesh>> meshes; // Mesh primitives referenced by this node
+};
+
+struct MeshScene
+{
+    std::vector<MeshNode> nodes;      // All nodes
+    std::vector<int> roots;           // Root node indices
+    std::vector<std::shared_ptr<Mesh>> flatMeshes; // All meshes collected (for convenience)
+};
+
 class MeshLoader
 {
 public:
@@ -77,23 +100,6 @@ public:
     static void LoadMaterial(const std::shared_ptr<Mesh>& mesh, const tinygltf::Primitive &primitive, const std::vector<tinygltf::Material> &materials, const std::vector<std::shared_ptr<Texture2D>> &loadedTextures);
     static void LoadVertexData(std::vector<Vertex> &vertices, const tinygltf::Primitive &primitive, const tinygltf::Model &model);
     static void LoadIndicesData(std::vector<uint32_t> &indices, const tinygltf::Primitive &primitive, const tinygltf::Model &model);
-
-    // Scene graph structures
-    struct MeshNode
-    {
-        int parent = -1;
-        std::vector<int> children;
-        glm::mat4 local {1.0f};
-        glm::mat4 world {1.0f};
-        std::vector<std::shared_ptr<Mesh>> meshes; // Mesh primitives referenced by this node
-    };
-
-    struct MeshScene
-    {
-        std::vector<MeshNode> nodes;      // All nodes
-        std::vector<int> roots;           // Root node indices
-        std::vector<std::shared_ptr<Mesh>> flatMeshes; // All meshes collected (for convenience)
-    };
 
     // Load full scene graph retaining hierarchy & transforms
     static MeshScene LoadSceneGraphFromGLTF(const std::string &filename);
