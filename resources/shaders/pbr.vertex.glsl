@@ -16,7 +16,7 @@ layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
 
 uniform mat4 u_Transform;
 
-struct VERTEX
+layout (location = 0) out VERTEX
 {
     vec3 worldPosition;
     vec3 position;
@@ -25,9 +25,7 @@ struct VERTEX
     vec3 bitangent;
     vec3 color;
     vec2 uv;
-};
-
-layout (location = 0) out VERTEX _output;
+} _output;
 
 void main()
 {

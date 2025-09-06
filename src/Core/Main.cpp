@@ -124,8 +124,10 @@ public:
 
 struct SceneData
 {
-	float time = 0.0f;
+	glm::vec4 lightColor = glm::vec4(1.0f);
 	int renderMode = RENDER_MODE_COLOR;
+	float time = 0.0f;
+	float padding[2];
 };
 
 struct Scene
@@ -176,6 +178,8 @@ int main(int argc, char **argv)
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Docking
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Keyboard controls
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
 	// Style
 	ImGui::StyleColorsDark();
 	// Backend init
@@ -241,9 +245,10 @@ int main(int argc, char **argv)
 	Scene scene;
 	fileExists = std::filesystem::exists(modelPath);
 	scene.AddModel(fileExists ? modelPath : "resources/models/damaged_helmet.gltf");
+	scene.AddModel("resources/models/scene.glb");
 
 	CameraBuffer cameraData{};
-	SceneData sceneData;
+	SceneData sceneData{};
 
 	std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), UNIFORM_BINDING_LOC_CAMERA);
 	std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), UNIFORM_BINDING_LOC_SCENE);
@@ -372,11 +377,11 @@ int main(int argc, char **argv)
 		camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0 / 9.0f);
 		cameraData.viewProjection = camera.projection * camera.view;
 		cameraData.position = glm::vec4(camera.position, 1.0f);
-		cameraUbo->SetData(&cameraData, sizeof(cameraData), 0);
+		cameraUbo->SetData(&cameraData, sizeof(cameraData));
 
 		// Update scene data
 		sceneData.time = (float)currentTime;
-		sceneUbo->SetData(&sceneData, sizeof(sceneData));
+		sceneUbo->SetData(&sceneData, sizeof(SceneData));
 
 		// Render Here
 		Viewport viewport{0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
@@ -478,7 +483,7 @@ int main(int argc, char **argv)
 			ImGui::End();
 		}
 
-		if (ImGui::Begin("Models"))
+		if (ImGui::Begin("Models", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			for (size_t i = 0; i < scene.models.size(); ++i)
 			{
@@ -500,12 +505,10 @@ int main(int argc, char **argv)
 
 					for (MeshNode &node : model->GetScene().nodes)
 					{
-						ImGui::Text(node.name.c_str());
-
 						ImGui::PushID(node.name.c_str());
 						for (std::shared_ptr<Mesh> &mesh : node.meshes)
 						{
-							if (ImGui::CollapsingHeader(node.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+							if (ImGui::CollapsingHeader(node.name.c_str()))
 							{
 								// ====== Transforms ======
 								glm::vec3 translation, scale, skew;
@@ -558,7 +561,7 @@ int main(int argc, char **argv)
 		ImGui::End();
 
 		// Example stats window
-		if (ImGui::Begin("Stats"))
+		if (ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			ImGui::Text("FPS: %.1f", FPS);
 			ImGui::Text("Delta ms: %.3f", deltaTime * 1000.0);
@@ -582,58 +585,65 @@ int main(int argc, char **argv)
 				}
 			}
 
-			ImGui::Separator();
-			ImGui::Text("Camera");
+			ImGui::SeparatorText("Sun");
+			ImGui::ColorEdit3("Light Color", &sceneData.lightColor.x);
+			ImGui::SliderFloat("Light Intensity", &sceneData.lightColor.w, 0.0f, 1.0f);
+
+			ImGui::SeparatorText("Camera");
 			ImGui::SliderFloat("Yaw", &camera.yaw, -glm::pi<float>(), glm::pi<float>());
 			ImGui::SliderFloat("Pitch", &camera.pitch, -1.5f, 1.5f);
 			ImGui::SliderFloat("Distance", &camera.distance, 0.1f, 50.0f);
 			ImGui::SliderFloat("Exposure", &camera.lens.exposure, 0.1f, 5.0f, "%.2f");
 			ImGui::SliderFloat("Gamma", &camera.lens.gamma, 0.1f, 5.0f, "%.2f");
-			
-			ImGui::Separator();
-			ImGui::Text("Render Mode");
-			int mode = sceneData.renderMode;
-			if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
-			if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
-			if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
-			if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
-			if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
-			sceneData.renderMode = mode;
 
-			ImGui::Separator();
-			ImGui::Text("DOF");
+			ImGui::SeparatorText("DOF");
 			ImGui::Checkbox("Enable DOF", &camera.lens.enableDOF);
 			ImGui::SliderFloat("Focal Length", &camera.lens.focalLength, 10.0f, 200.0f);
 			ImGui::SliderFloat("FStop", &camera.lens.fStop, 0.7f, 16.0f);
 			ImGui::SliderFloat("Focus Range", &camera.lens.focusRange, 0.7f, 16.0f);
 			ImGui::SliderFloat("Blur Amount", &camera.lens.blurAmount, 0.5f, 20.0f);
-			ImGui::Separator();
-
-			ImGui::Text("Vignette");
+			
+			ImGui::SeparatorText("Vignette");
 			ImGui::Checkbox("Enable Vignette", &camera.postProcessing.enableVignette);
 			ImGui::SliderFloat("Vignette Radius", &camera.postProcessing.vignetteRadius, 0.1f, 1.2f);
 			ImGui::SliderFloat("Vignette Softness", &camera.postProcessing.vignetteSoftness, 0.001f, 1.0f);
 			ImGui::SliderFloat("Vignette Intensity", &camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
 			ImGui::ColorEdit3("Vignette Color", &camera.postProcessing.vignetteColor.x);
-			ImGui::Separator();
-
-			ImGui::Text("Chromatic Aberration");
+			
+			ImGui::SeparatorText("Chromatic Abberation");
 			ImGui::Checkbox("Enable Chrom Ab", &camera.postProcessing.enableChromAb);
 			ImGui::SliderFloat("Chrom Amount", &camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
 			ImGui::SliderFloat("Chrom Radial", &camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
-			ImGui::Separator();
-			ImGui::Text("Bloom");
+
+			ImGui::SeparatorText("Bloom");
 			ImGui::Checkbox("Enable Bloom", &camera.postProcessing.enableBloom);
 			ImGui::SliderFloat("Bloom Threshold", &camera.postProcessing.bloomThreshold, 0.0f, 5.0f, "%.2f");
 			ImGui::SliderFloat("Bloom Knee", &camera.postProcessing.bloomKnee, 0.0f, 1.0f, "%.2f");
 			ImGui::SliderFloat("Bloom Intensity", &camera.postProcessing.bloomIntensity, 0.0f, 5.0f, "%.2f");
 			ImGui::SliderInt("Bloom Iterations", &camera.postProcessing.bloomIterations, 1, 8);
+
+			if (ImGui::CollapsingHeader("Render Mode"))
+			{
+				int mode = sceneData.renderMode;
+				if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
+				if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
+				if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
+				if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
+				if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
+				sceneData.renderMode = mode;
+			}
 		}
 		ImGui::End();
 
 		// Render ImGui after swap preparation but before loop ends
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(window.GetHandle());
+        }
 
 		window.SwapBuffers();
 	}

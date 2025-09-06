@@ -97,8 +97,10 @@ layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
 
 layout (std140, binding = UNIFORM_BINDING_LOC_SCENE) uniform Scene
 {
-    float time;
+    vec4 lightColor; // w = intensity
     int renderMode;
+    float time;
+    float padding[2];
 } u_Scene;
 
 layout (std140, binding = UNIFORM_BINDING_LOC_MATERIAL) uniform Material
@@ -110,7 +112,7 @@ layout (std140, binding = UNIFORM_BINDING_LOC_MATERIAL) uniform Material
     float occlusionStrength;
 } u_Material;
 
-struct VERTEX
+layout (location = 0) in VERTEX 
 {
     vec3 worldPosition;
     vec3 position;
@@ -119,9 +121,7 @@ struct VERTEX
     vec3 bitangent;
     vec3 color;
     vec2 uv;
-};
-
-layout (location = 0) in VERTEX _input;
+} _input;
 
 layout (binding = 0) uniform sampler2D u_BaseColorTexture;
 layout (binding = 1) uniform sampler2D u_EmissiveTexture;
@@ -129,9 +129,6 @@ layout (binding = 2) uniform sampler2D u_MetallicRoughnessTexture;
 layout (binding = 3) uniform sampler2D u_NormalTexture;
 layout (binding = 4) uniform sampler2D u_OcclusionTexture;
 layout (binding = 5) uniform sampler2D u_EnvironmentTexture;
-
-uniform vec3 u_LightColor = vec3(0.5);
-uniform float u_LightIntensity = 0.3;
 
 void main()
 {
@@ -141,13 +138,13 @@ void main()
     vec3 viewDirection = normalize(u_Camera.position.xyz - _input.worldPosition);
     
     // Rotate sun around the object based on time
-    float sunRotationSpeed = 0.8; // Adjust speed as needed
+    float sunRotationSpeed = 0.5;
     float angle = u_Scene.time * sunRotationSpeed;
     vec3 sunDirection = vec3(cos(angle), 0.3, sin(angle)); // Sun moves in a circle with slight elevation
     vec3 lightDirection = normalize(-sunDirection);
     vec3 reflectDirection = reflect(-viewDirection, normals);
 
-    float sunAngularRadius = 0.05;
+    float sunAngularRadius = 0.5;
     float sunSolidAngle = 2.0 * M_PI * (1.0 - cos(sunAngularRadius)); // steradians
 
     vec3 baseColorTex = texture(u_BaseColorTexture, _input.uv).rgb;
@@ -172,7 +169,7 @@ void main()
         
         // Use normal mapping if available
         vec3 finalNormal = normals;
-        if (length(normalMapTex) > 0.01) // Check if normal map has meaningful data
+        if (length(normalMapTex) > 0.1) // Check if normal map has meaningful data
             finalNormal = GetNormalFromMap(normals, tangent, bitangent, _input.uv, u_NormalTexture);
         
         vec3 reflectRadiance = SampleSphericalMap(u_EnvironmentTexture, reflectDirection);
@@ -190,7 +187,7 @@ void main()
         ) * reflectionStrength * NdotR * F;
 
         vec3 ambient = diffuseColor * vec3(0.4) * occlusionTex;
-        vec3 irradiance = u_LightColor * u_LightIntensity;
+        vec3 irradiance = u_Scene.lightColor.rgb * u_Scene.lightColor.w;
         vec3 directLighting = GGX(finalNormal,
             lightDirection,
             viewDirection,
