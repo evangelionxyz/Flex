@@ -39,11 +39,12 @@ struct Material
 
     Material()
     {
-        baseColorTexture = Renderer::GetWhiteTexture();
-        emissiveTexture = Renderer::GetWhiteTexture();
-        metallicRoughnessTexture = Renderer::GetWhiteTexture();
-        normalTexture = Renderer::GetWhiteTexture();
-        occlusionTexture = Renderer::GetWhiteTexture();
+    // Neutral defaults per glTF PBR spec when a texture is absent
+    baseColorTexture = Renderer::GetWhiteTexture();           // baseColorFactor will tint
+    emissiveTexture = Renderer::GetBlackTexture();            // no emissive
+    metallicRoughnessTexture = Renderer::GetBlackTexture();   // will be overridden if texture present; factors supply values
+    normalTexture = Renderer::GetFlatNormalTexture();         // flat normal
+    occlusionTexture = Renderer::GetWhiteTexture();           // full occlusion (no darkening)
     }
 };
 
@@ -63,7 +64,7 @@ struct Mesh
 class MeshLoader
 {
 public:
-    static std::vector<std::shared_ptr<Mesh>> LoadFromGLTF(const std::string& filePath);
+    static std::vector<std::shared_ptr<Mesh>> LoadFromGLTF(const std::string& filename);
     static std::shared_ptr<Mesh> CreateFallbackQuad();
     static std::shared_ptr<Mesh> CreateSkyboxCube();
 

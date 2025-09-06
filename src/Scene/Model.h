@@ -1,0 +1,31 @@
+#pragma once
+
+#include "Renderer/Mesh.h"
+#include "Renderer/Shader.h"
+#include "Renderer/Texture.h"
+
+#include <string>
+#include <memory>
+#include <vector>
+
+#include <glm/glm.hpp>
+
+class Model
+{
+public:
+    Model(const std::string &filename);
+    ~Model();
+    
+    void Update(float deltaTime);
+    void Render(Shader &shader, std::shared_ptr<Texture2D> &environmentTexture);
+
+    void SetTransform(const glm::mat4 &transform);
+
+    const glm::mat4 &GetTransform() { return m_Transform; }
+
+    static std::shared_ptr<Model> Create(const std::string &filename);
+
+private:
+    std::vector<std::shared_ptr<Mesh>> m_Meshes;
+    glm::mat4 m_Transform;
+};

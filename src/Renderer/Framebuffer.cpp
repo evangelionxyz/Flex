@@ -129,7 +129,7 @@ void Framebuffer::CreateAttachments()
         texCreateInfo.height = m_CreateInfo.height;
 
         texCreateInfo.filter = attachment.filter;
-        texCreateInfo.clampMode = attachment.clamp;
+        texCreateInfo.clampMode = attachment.wrap;
 
         GLenum internalFormat = ToGLInternalFormat(attachment.format);
         GLenum format = ToGLFormat(attachment.format);

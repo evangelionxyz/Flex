@@ -23,7 +23,7 @@ enum class ComparisonFunc
     GREATER_OR_EQUAL,
 };
 
-enum class ClampMode
+enum class WrapMode
 {
     REPEAT,
     CLAMP_TO_BORDER,
@@ -73,13 +73,13 @@ static GLenum ToGLCullMode(CullMode mode)
     }
 }
 
-static GLenum ToGLClampMode(ClampMode clamp)
+static GLenum ToGLClampMode(WrapMode wrap)
 {
-    switch (clamp)
+    switch (wrap)
     {
-        case ClampMode::CLAMP_TO_BORDER: return GL_CLAMP_TO_BORDER;
-        case ClampMode::CLAMP_TO_EDGE: return GL_CLAMP_TO_EDGE;
-        case ClampMode::REPEAT: return GL_REPEAT;
+        case WrapMode::CLAMP_TO_BORDER: return GL_CLAMP_TO_BORDER;
+        case WrapMode::CLAMP_TO_EDGE: return GL_CLAMP_TO_EDGE;
+        case WrapMode::REPEAT: return GL_REPEAT;
         default:
         return GL_REPEAT;
     }

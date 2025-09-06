@@ -15,4 +15,6 @@ public:
     static std::shared_ptr<Texture2D> GetWhiteTexture();
     static std::shared_ptr<Texture2D> GetBlackTexture();
     static std::shared_ptr<Texture2D> GetMagentaTexture();
+    // Flat normal texture (0.5,0.5,1.0) used as a neutral normal map fallback
+    static std::shared_ptr<Texture2D> GetFlatNormalTexture();
 };

@@ -70,3 +70,21 @@ std::shared_ptr<Texture2D> Renderer::GetMagentaTexture()
 
     return s_MagentaTexture;
 }
+
+std::shared_ptr<Texture2D> Renderer::GetFlatNormalTexture()
+{
+    static std::shared_ptr<Texture2D> s_FlatNormalTexture;
+    if (!s_FlatNormalTexture)
+    {
+        // Flat normal in tangent space = (0.5, 0.5, 1.0)
+        uint8_t r = static_cast<uint8_t>(0.5f * 255.0f);
+        uint8_t g = static_cast<uint8_t>(0.5f * 255.0f);
+        uint8_t b = 255; // 1.0
+        uint8_t a = 255;
+        uint32_t color = (r << 24) | (g << 16) | (b << 8) | a;
+        TextureCreateInfo createInfo;
+        createInfo.format = Format::RGBA8;
+        s_FlatNormalTexture = std::make_shared<Texture2D>(createInfo, color);
+    }
+    return s_FlatNormalTexture;
+}

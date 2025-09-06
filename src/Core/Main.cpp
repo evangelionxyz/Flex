@@ -17,6 +17,7 @@
 #include <glad/glad.h>
 #include <stb_image_write.h>
 
+#include "Scene/Model.h"
 #include "Renderer/Window.h"
 #include "Renderer/Renderer.h"
 #include "Renderer/UniformBuffer.h"
@@ -35,6 +36,7 @@
 #define RENDER_MODE_NORMALS 1
 #define RENDER_MODE_METALLIC 2
 #define RENDER_MODE_ROUGHNESS 3
+#define RENDER_MODE_DEPTH 4
 
 class Screen
 {
@@ -44,33 +46,34 @@ public:
 		Create();
 	}
 
-	void Render(uint32_t texture, uint32_t depthTex)
+	void Render(uint32_t texture, uint32_t depthTex, const Camera &camera, const PostProcessing &postProcessing)
 	{
 		shader.Use();
 		glBindTextureUnit(0, texture);
-		shader.SetUniform("texture0", 0);
+		shader.SetUniform("u_ColorTexture", 0);
 		glBindTextureUnit(1, depthTex);
-		shader.SetUniform("depthTex", 1);
+		shader.SetUniform("u_DepthTexture", 1);
 
-		shader.SetUniform("focalLength", focalLength);
-		shader.SetUniform("focalDistance", focalDistance);
-		shader.SetUniform("fStop", fStop);
-		shader.SetUniform("focusRange", focusRange);
-		shader.SetUniform("maxBlur", maxBlur);
-		shader.SetUniform("inverseProjection", inverseProjection);
-		shader.SetUniform("exposure", exposure);
-		shader.SetUniform("gamma", gamma);
-		shader.SetUniform("u_EnableDOF", enableDOF ? 1 : 0);
-		shader.SetUniform("u_EnableVignette", enableVignette ? 1 : 0);
-		shader.SetUniform("u_EnableChromAb", enableChromAb ? 1 : 0);
-		shader.SetUniform("vignetteRadius", vignetteRadius);
-		shader.SetUniform("vignetteSoftness", vignetteSoftness);
-		shader.SetUniform("vignetteIntensity", vignetteIntensity);
-		shader.SetUniform("vignetteColor", vignetteColor);
-		shader.SetUniform("chromAbAmount", chromAbAmount);
-		shader.SetUniform("chromAbRadial", chromAbRadial);
+		shader.SetUniform("u_FocalLength", camera.lens.focalLength);
+		shader.SetUniform("u_FocalDistance", camera.lens.focalDistance);
+		shader.SetUniform("u_FStop", camera.lens.fStop);
+		shader.SetUniform("u_FocusRange", camera.lens.focusRange);
+		shader.SetUniform("u_BlurAmount", camera.lens.blurAmount);
+		shader.SetUniform("u_InverseProjection", inverseProjection);
+		shader.SetUniform("u_Exposure", camera.lens.exposure);
+		shader.SetUniform("u_Gamma", camera.lens.gamma);
+		shader.SetUniform("u_EnableDOF", camera.lens.enableDOF ? 1 : 0);
+		shader.SetUniform("u_EnableVignette", postProcessing.enableVignette ? 1 : 0);
+		shader.SetUniform("u_EnableChromAb", postProcessing.enableChromAb ? 1 : 0);
+		shader.SetUniform("u_VignetteRadius", postProcessing.vignetteRadius);
+		shader.SetUniform("u_VignetteSoftness", postProcessing.vignetteSoftness);
+		shader.SetUniform("u_VignetteIntensity", postProcessing.vignetteIntensity);
+		shader.SetUniform("u_VignetteColor", postProcessing.vignetteColor);
+		shader.SetUniform("u_ChromaticAbAmount", postProcessing.chromAbAmount);
+		shader.SetUniform("u_ChromaticAbRadual", postProcessing.chromAbRadial);
 
 		vertexArray->Bind();
+
 		// Ensure the index buffer is bound for glDrawElements
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer->GetHandle());
     	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
@@ -108,39 +111,11 @@ public:
 		shader.Compile();
 	}
 
-	void SetDOFParameters(float fl, float fd, float fs, const glm::mat4& invProj)
-	{
-		focalLength = fl;
-		focalDistance = fd;
-		fStop = fs;
-		inverseProjection = invProj;
-	}
-
 	std::shared_ptr<VertexArray> vertexArray;
 	std::shared_ptr<VertexBuffer> vertexBuffer;
 	std::shared_ptr<IndexBuffer> indexBuffer;
 
 	Shader shader;
-
-	float focalLength = 120.0f;
-	float focalDistance = 5.5f;
-	float fStop = 1.4f;
-	float focusRange = 5.0f;
-	float maxBlur = 4.0f;
-	float exposure = 1.0f; // Added exposure control
-	float gamma = 1.4f;
-	// Toggles
-	bool enableDOF = true;
-	bool enableVignette = true;
-	bool enableChromAb = true;
-	// Vignette params
-	float vignetteRadius = 1.2f;
-	float vignetteSoftness = 0.5f;
-	float vignetteIntensity = 0.93f;
-	glm::vec3 vignetteColor = glm::vec3(0.0f);
-	// Chromatic aberration params
-	float chromAbAmount = 0.03f;
-	float chromAbRadial = 0.1f;
 	glm::mat4 inverseProjection = glm::mat4(1.0f);
 };
 
@@ -153,193 +128,6 @@ struct TimeData
 {
 	float time = 0.0f;
 };
-
-// Forward declarations for camera functions
-void UpdateMouseState(Camera &camera, GLFWwindow *window);
-void HandleOrbit(Camera &camera, float deltaTime);
-void HandlePan(Camera &camera, float deltaTime);
-void HandleZoom(Camera &camera, float deltaTime, GLFWwindow *window);
-void ApplyInertia(Camera &camera, float deltaTime);
-void UpdateCameraPosition(Camera &camera);
-
-void UpdateCamera(Camera &camera, GLFWwindow *window, float deltaTime, int windowWidth, int windowHeight)
-{
-	// Update mouse state
-	UpdateMouseState(camera, window);
-	
-	// Handle input
-	HandleOrbit(camera, deltaTime);
-	HandlePan(camera, deltaTime);
-	HandleZoom(camera, deltaTime, window);
-	
-	// Apply inertia if enabled
-	if (camera.controls.enableInertia) {
-		ApplyInertia(camera, deltaTime);
-	}
-	
-	// Update camera position and matrices
-	UpdateCameraPosition(camera);
-	
-	float aspect = (float)windowWidth / (float)windowHeight;
-	camera.UpdateMatrices(aspect);
-}
-
-void UpdateMouseState(Camera &camera, GLFWwindow *window)
-{
-	// Get current mouse position
-	double mouseX, mouseY;
-	glfwGetCursorPos(window, &mouseX, &mouseY);
-	
-	// Store last position before updating
-	camera.mouse.lastPosition = camera.mouse.position;
-	
-	// Update current position
-	camera.mouse.position = glm::vec2((float)mouseX, (float)mouseY);
-	
-	// Update button states
-	camera.mouse.leftButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-	camera.mouse.middleButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
-	camera.mouse.rightButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-}
-
-void HandleOrbit(Camera &camera, float deltaTime)
-{
-	if (camera.mouse.leftButton) {
-		glm::vec2 delta = camera.mouse.position - camera.mouse.lastPosition;
-		
-		// Apply mouse movement to angular velocity for inertia
-		if (camera.controls.enableInertia) {
-			camera.angularVelocity.x += delta.x * camera.controls.mouseSensitivity;
-			camera.angularVelocity.y += delta.y * camera.controls.mouseSensitivity;
-		}
-		
-		// Directly update angles for immediate response
-		camera.yaw += delta.x * camera.controls.mouseSensitivity;
-		camera.pitch += delta.y * camera.controls.mouseSensitivity;
-		
-		// Clamp pitch to prevent camera flipping
-		camera.pitch = glm::clamp(camera.pitch, camera.controls.minPitch, camera.controls.maxPitch);
-	}
-}
-
-void HandlePan(Camera &camera, float deltaTime)
-{
-	if (camera.mouse.middleButton) {
-		glm::vec2 delta = camera.mouse.position - camera.mouse.lastPosition;
-		
-		// Calculate pan direction in camera space
-		glm::vec3 right = camera.GetRight();
-		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
-		
-		// Pan in the camera's right and world up directions
-		float panSpeed = camera.controls.panSensitivity * camera.distance;
-		glm::vec3 panVector = right * (-delta.x * panSpeed) + 
-							 worldUp * (delta.y * panSpeed);
-		
-		// Apply pan to target
-		camera.target += panVector;
-		
-		// Apply to pan velocity for inertia
-		if (camera.controls.enableInertia) {
-			camera.panVelocity = delta * camera.controls.panSensitivity;
-		}
-	}
-}
-
-void HandleZoom(Camera &camera, float deltaTime, GLFWwindow *window)
-{
-	// Handle mouse wheel
-	float wheelDelta = 0.0f;
-	
-	// Check for scroll wheel input
-	if (camera.mouse.scroll.y != 0) {
-		wheelDelta = camera.mouse.scroll.y;
-		// Reset scroll after processing
-		camera.mouse.scroll.y = 0;
-	}
-	
-	// Handle keyboard zoom controls
-	if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS || 
-		glfwGetKey(window, GLFW_KEY_KP_ADD) == GLFW_PRESS) {
-		wheelDelta -= camera.controls.zoomSensitivity * deltaTime * 10.0f;
-	}
-	if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS || 
-		glfwGetKey(window, GLFW_KEY_KP_SUBTRACT) == GLFW_PRESS) {
-		wheelDelta += camera.controls.zoomSensitivity * deltaTime * 10.0f;
-	}
-	
-	if (wheelDelta != 0.0f) {
-		// Apply zoom velocity for smooth zooming
-		if (camera.controls.enableInertia) {
-			camera.zoomVelocity += wheelDelta * camera.controls.zoomSensitivity;
-		} else {
-			// Direct zoom for immediate response
-			camera.distance -= wheelDelta * camera.controls.zoomSensitivity;
-			camera.distance = glm::clamp(camera.distance, camera.controls.minDistance, camera.controls.maxDistance);
-		}
-	}
-	
-	// Apply zoom velocity
-	if (camera.controls.enableInertia && abs(camera.zoomVelocity) > 0.001f) {
-		camera.distance -= camera.zoomVelocity * deltaTime * 10.0f;
-		camera.distance = glm::clamp(camera.distance, camera.controls.minDistance, camera.controls.maxDistance);
-		
-		// Dampen zoom velocity
-		camera.zoomVelocity *= camera.controls.zoomDamping;
-		
-		// Stop very small velocities
-		if (abs(camera.zoomVelocity) < 0.001f) {
-			camera.zoomVelocity = 0.0f;
-		}
-	}
-}
-
-void ApplyInertia(Camera &camera, float deltaTime)
-{
-	// Apply angular inertia
-	if (glm::length(camera.angularVelocity) > 0.001f) {
-		camera.yaw += camera.angularVelocity.x * deltaTime;
-		camera.pitch += camera.angularVelocity.y * deltaTime;
-		camera.pitch = glm::clamp(camera.pitch, camera.controls.minPitch, camera.controls.maxPitch);
-		
-		// Dampen angular velocity
-		camera.angularVelocity *= camera.controls.inertiaDamping;
-		
-		// Stop very small velocities
-		if (glm::length(camera.angularVelocity) < 0.001f) {
-			camera.angularVelocity = glm::vec2(0.0f);
-		}
-	}
-	
-	// Apply pan inertia
-	if (glm::length(camera.panVelocity) > 0.001f)
-	{
-		glm::vec3 right = camera.GetRight();
-		glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
-		
-		float panSpeed = camera.distance;
-		glm::vec3 panVector = right * (-camera.panVelocity.x * panSpeed) + worldUp * (camera.panVelocity.y * panSpeed);
-		
-		camera.target += panVector * deltaTime;
-		
-		// Dampen pan velocity
-		camera.panVelocity *= camera.controls.inertiaDamping;
-		
-		// Stop very small velocities
-		if (glm::length(camera.panVelocity) < 0.001f) {
-			camera.panVelocity = glm::vec2(0.0f);
-		}
-	}
-}
-
-void UpdateCameraPosition(Camera &camera)
-{
-	// Update camera position based on spherical coordinates
-	camera.UpdateSphericalPosition();
-	
-	// Update view matrix
-	camera.view = glm::lookAt(camera.position, camera.target, camera.up);
-}
 
 int main()
 {
@@ -407,8 +195,8 @@ int main()
 	glCullFace(GL_BACK);
 
 	Shader PBRShader;
-	PBRShader.AddFromFile("resources/shaders/default.vertex.glsl", GL_VERTEX_SHADER);
-	PBRShader.AddFromFile("resources/shaders/default.frag.glsl", GL_FRAGMENT_SHADER);
+	PBRShader.AddFromFile("resources/shaders/pbr.vertex.glsl", GL_VERTEX_SHADER);
+	PBRShader.AddFromFile("resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER);
 	PBRShader.Compile();
 
 	Shader skyboxShader;
@@ -419,24 +207,17 @@ int main()
 	TextureCreateInfo createInfo;
 	createInfo.flip = false;
 	createInfo.format = Format::RGB32F;
-	createInfo.clampMode = ClampMode::REPEAT;
+	createInfo.clampMode = WrapMode::REPEAT;
 	createInfo.filter = FilterMode::LINEAR;
 	std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, "resources/hdr/klippad_sunrise_2_2k.hdr");
 
 	// Create skybox mesh
 	std::shared_ptr<Mesh> skyboxMesh = MeshLoader::CreateSkyboxCube();
 
-	// Load meshes from glTF file
-	std::vector<std::shared_ptr<Mesh>> meshes = MeshLoader::LoadFromGLTF("resources/models/helmet.glb");
-	
-	// Fallback if no meshes were loaded
-	if (meshes.empty())
-	{
-		std::cout << "No meshes loaded from glTF, using fallback quad\n";
-		meshes.push_back(MeshLoader::CreateFallbackQuad());
-	}
-
-	glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) , glm::vec3(1.0f, 0.0f, 0.0f));
+	// Load model from glTF file
+	std::shared_ptr<Model> model = Model::Create("resources/models/damaged_helmet.gltf");
+	glm::mat4 modelTr = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f) , glm::vec3(1.0f, 0.0f, 0.0f));
+	model->SetTransform(modelTr);
 
 	CameraBuffer cameraData;
 	DebugData debug;
@@ -451,7 +232,7 @@ int main()
 	framebufferCreateInfo.height = window.GetHeight();
 	framebufferCreateInfo.attachments = 
 	{
-		{Format::RGBA8, FilterMode::LINEAR, ClampMode::REPEAT }, // Main Color
+		{Format::RGBA8, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color
 		{Format::DEPTH24STENCIL8}, // Depth Attachment
 	};
 	std::shared_ptr<Framebuffer> framebuffer = Framebuffer::Create(framebufferCreateInfo);
@@ -491,26 +272,19 @@ int main()
 			case GLFW_PRESS:
 			{
 				if (key == GLFW_KEY_F11)
+				{
 					window.ToggleFullScreen();
+				}
 
 				if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && key == GLFW_KEY_R)
 				{
 					PBRShader.Reload();
 					screen.shader.Reload();
 				}
-
-				if (key == GLFW_KEY_1 )
-					debug.renderMode = RENDER_MODE_COLOR;
-				else if (key == GLFW_KEY_2 )
-					debug.renderMode = RENDER_MODE_NORMALS;
-				else if (key == GLFW_KEY_3 )
-					debug.renderMode = RENDER_MODE_METALLIC;
-				else if (key == GLFW_KEY_4 )
-					debug.renderMode = RENDER_MODE_ROUGHNESS;
-
 				else if (key == GLFW_KEY_ESCAPE)
+				{
 					glfwSetWindowShouldClose(window.GetHandle(), 1);
-
+				}
 				break;
 			}
 			case GLFW_REPEAT:
@@ -559,7 +333,7 @@ int main()
 		// float focalLength = 120.0f;
 		// screen.SetDOFParameters(focalLength, camera.distance, fstop, invProj);
 		screen.inverseProjection = glm::inverse(camera.projection);
-		screen.focalDistance = camera.distance;
+		camera.lens.focalDistance = camera.distance;
 
 		// Update gizmo
 		gizmo.Update(camera, window.GetHandle(), deltaTime);
@@ -593,35 +367,12 @@ int main()
 		PBRShader.Use();
 		
 		// Render all loaded meshes with their respective textures
-		for (int i = 0; i < 5; ++i)
+		for (int z = -2; z < 2; ++z)
 		{
-			for (const auto& mesh : meshes)
+			for (int x = -2; x < 2; ++x)
 			{
-				if (mesh->material)
-				{
-					mesh->material->occlusionTexture->Bind(4);
-					PBRShader.SetUniform("u_OcclusionTexture", 4);
-
-					mesh->material->normalTexture->Bind(3);
-					PBRShader.SetUniform("u_NormalTexture", 3);
-
-					mesh->material->metallicRoughnessTexture->Bind(2);
-					PBRShader.SetUniform("u_MetallicRoughnessTexture", 2);
-
-					mesh->material->emissiveTexture->Bind(1);
-					PBRShader.SetUniform("u_EmissiveTexture", 1);
-
-					mesh->material->baseColorTexture->Bind(0);
-					PBRShader.SetUniform("u_BaseColorTexture", 0);
-				}
-
-				// Bind environment last to guarantee it stays on unit 5
-				environmentTex->Bind(5);
-				PBRShader.SetUniform("u_EnvironmentTexture", 5);
-				
-				PBRShader.SetUniform("u_Transform", glm::translate(glm::mat4(1.0f), {0.25f * i, 0.0f, -5.0f * i}) * rotation);
-				mesh->vertexArray->Bind();
-				Renderer::DrawIndexed(mesh->vertexArray);
+				model->SetTransform(glm::translate(modelTr, {x * 3.0f, z * 3.0f, 0.0}));
+				model->Render(PBRShader, environmentTex);
 			}
 		}
 		
@@ -659,7 +410,7 @@ int main()
 		glDisable(GL_CULL_FACE);
 		if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
 		{
-			screen.Render(screenTexture, framebuffer->GetDepthAttachment());
+			screen.Render(screenTexture, framebuffer->GetDepthAttachment(), camera, camera.postProcessing);
 		}
 		// Restore depth testing and culling
 		glEnable(GL_DEPTH_TEST);
@@ -681,7 +432,7 @@ int main()
 
 		// Dockspace window (invisible host)
 		{
-			ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_MenuBar;
+			ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 			const ImGuiViewport* viewport = ImGui::GetMainViewport();
 			ImGui::SetNextWindowPos(viewport->WorkPos);
 			ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -690,7 +441,7 @@ int main()
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-			ImGui::Begin("DockSpaceHost", nullptr, window_flags);
+			ImGui::Begin("DockSpaceHost", nullptr, windowFlags);
 			ImGui::PopStyleVar(3);
 			ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
 			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
@@ -707,37 +458,42 @@ int main()
 			ImGui::SliderFloat("Yaw", &camera.yaw, -glm::pi<float>(), glm::pi<float>());
 			ImGui::SliderFloat("Pitch", &camera.pitch, -1.5f, 1.5f);
 			ImGui::SliderFloat("Distance", &camera.distance, 0.1f, 50.0f);
+			ImGui::SliderFloat("Exposure", &camera.lens.exposure, 0.1f, 5.0f, "%.2f");
+			ImGui::SliderFloat("Gamma", &camera.lens.gamma, 0.1f, 5.0f, "%.2f");
+			
 			ImGui::Separator();
 			ImGui::Text("Render Mode");
 			int mode = debug.renderMode;
 			if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
-			ImGui::SameLine(); if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
-			ImGui::SameLine(); if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
-			ImGui::SameLine(); if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
+			if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
+			if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
+			if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
+			if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
 			debug.renderMode = mode;
+
 			ImGui::Separator();
 			ImGui::Text("DOF");
-			ImGui::Checkbox("Enable DOF", &screen.enableDOF);
-			ImGui::SliderFloat("Focal Length", &screen.focalLength, 10.0f, 200.0f);
-			ImGui::SliderFloat("fStop", &screen.fStop, 0.7f, 16.0f);
-			ImGui::SliderFloat("Focus Range", &screen.focusRange, 0.7f, 16.0f);
-			ImGui::SliderFloat("Max Blur", &screen.maxBlur, 0.5f, 20.0f);
-			ImGui::SliderFloat("Exposure", &screen.exposure, 0.1f, 5.0f, "%.2f");
-			ImGui::SliderFloat("Gamma", &screen.gamma, 0.1f, 5.0f, "%.2f");
+			ImGui::Checkbox("Enable DOF", &camera.lens.enableDOF);
+			ImGui::SliderFloat("Focal Length", &camera.lens.focalLength, 10.0f, 200.0f);
+			ImGui::SliderFloat("FStop", &camera.lens.fStop, 0.7f, 16.0f);
+			ImGui::SliderFloat("Focus Range", &camera.lens.focusRange, 0.7f, 16.0f);
+			ImGui::SliderFloat("Blur Amount", &camera.lens.blurAmount, 0.5f, 20.0f);
 			ImGui::Separator();
+
 			ImGui::Text("Vignette");
-			ImGui::Checkbox("Enable Vignette", &screen.enableVignette);
-			ImGui::SliderFloat("Vignette Radius", &screen.vignetteRadius, 0.1f, 1.2f);
-			ImGui::SliderFloat("Vignette Softness", &screen.vignetteSoftness, 0.001f, 1.0f);
-			ImGui::SliderFloat("Vignette Intensity", &screen.vignetteIntensity, 0.0f, 2.0f);
-			ImGui::ColorEdit3("Vignette Color", &screen.vignetteColor.x);
+			ImGui::Checkbox("Enable Vignette", &camera.postProcessing.enableVignette);
+			ImGui::SliderFloat("Vignette Radius", &camera.postProcessing.vignetteRadius, 0.1f, 1.2f);
+			ImGui::SliderFloat("Vignette Softness", &camera.postProcessing.vignetteSoftness, 0.001f, 1.0f);
+			ImGui::SliderFloat("Vignette Intensity", &camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
+			ImGui::ColorEdit3("Vignette Color", &camera.postProcessing.vignetteColor.x);
 			ImGui::Separator();
+
 			ImGui::Text("Chromatic Aberration");
-			ImGui::Checkbox("Enable Chrom Ab", &screen.enableChromAb);
-			ImGui::SliderFloat("Chrom Amount", &screen.chromAbAmount, 0.0f, 0.03f, "%.4f");
-			ImGui::SliderFloat("Chrom Radial", &screen.chromAbRadial, 0.1f, 3.0f);
-			ImGui::End();
+			ImGui::Checkbox("Enable Chrom Ab", &camera.postProcessing.enableChromAb);
+			ImGui::SliderFloat("Chrom Amount", &camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
+			ImGui::SliderFloat("Chrom Radial", &camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
 		}
+		ImGui::End();
 
 		// Render ImGui after swap preparation but before loop ends
 		ImGui::Render();

@@ -14,7 +14,7 @@
 #include "Math/Math.hpp"
 #include "Renderer/Mesh.h"
 #include "Renderer/Shader.h"
-#include "../Core/Camera.hpp"
+#include "Core/Camera.h"
 
 // Forward declarations
 struct GLFWwindow;

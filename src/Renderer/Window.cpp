@@ -3,6 +3,21 @@
 #include <iostream>
 #include <assert.h>
 
+#ifdef _WIN32
+
+#ifndef GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+
+#include <GLFW/glfw3native.h>
+#include <dwmapi.h>
+#include <ShellScalingApi.h>
+
+#pragma comment(lib, "Dwmapi.lib") // Link to DWM API
+#pragma comment(lib, "shcore.lib")
+
+#endif // _WIN32
+
 void GLFWErrorCallback(int error_code, const char* description)
 {
     std::cerr << "GLFW Error: " << description << " [" << error_code << "]\n";
@@ -56,10 +71,25 @@ Window::Window(const WindowCreateInfo &createInfo)
     glfwSwapInterval(1); // 1: enable vertical sync
 	glfwSetWindowUserPointer(m_Handle, &m_Data);
 
+#if _WIN32
+        HWND hwnd = glfwGetWin32Window(m_Handle);
+        BOOL useDarkMode = TRUE;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDarkMode, sizeof(useDarkMode));
+
+        // 7160E8 visual studio purple
+        COLORREF rgbRed = 0x00E86071;
+        DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &rgbRed, sizeof(rgbRed));
+
+        // DWM_WINDOW_CORNER_PREFERENCE cornerPreference = DWMWCP_ROUNDSMALL;
+        // DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPreference, sizeof(cornerPreference));
+#endif
+
     if (createInfo.fullscreen)
     {
         m_Data.x = 0;
         m_Data.y = 0;
+
+        glfwMaximizeWindow(m_Handle);
     }
     else
     {

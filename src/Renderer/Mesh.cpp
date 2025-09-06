@@ -1,4 +1,5 @@
 #include "Mesh.h"
+
 #include <iostream>
 #include <filesystem>
 #include <cassert>
@@ -16,20 +17,20 @@ std::shared_ptr<Mesh> Mesh::Create(const std::vector<Vertex> &vertices, const st
     return std::make_shared<Mesh>(vertices, indices);
 }
 
-std::vector<std::shared_ptr<Mesh>> MeshLoader::LoadFromGLTF(const std::string& filePath)
+std::vector<std::shared_ptr<Mesh>> MeshLoader::LoadFromGLTF(const std::string& filename)
 {
     tinygltf::Model gltfModel;
     tinygltf::TinyGLTF tgltfLoader;
     std::string errMsg, warnMsg;
     
     bool ret = false;
-    if (filePath.ends_with(".glb"))
+    if (filename.ends_with(".glb"))
     {
-        ret = tgltfLoader.LoadBinaryFromFile(&gltfModel, &errMsg, &warnMsg, filePath);
+        ret = tgltfLoader.LoadBinaryFromFile(&gltfModel, &errMsg, &warnMsg, filename);
     }
     else
     {
-        ret = tgltfLoader.LoadASCIIFromFile(&gltfModel, &errMsg, &warnMsg, filePath);
+        ret = tgltfLoader.LoadASCIIFromFile(&gltfModel, &errMsg, &warnMsg, filename);
     }
     
     if (!errMsg.empty())
@@ -44,7 +45,7 @@ std::vector<std::shared_ptr<Mesh>> MeshLoader::LoadFromGLTF(const std::string& f
 
     if (!ret)
     {
-        std::cerr << "Failed to parse glTF: " << filePath << "\n";
+        std::cerr << "Failed to parse glTF: " << filename << "\n";
         return {};
     }
 
@@ -305,7 +306,7 @@ std::vector<std::shared_ptr<Texture2D>> MeshLoader::LoadTexturesFromGLTF(const t
             createInfo.width = image.width;
             createInfo.height = image.height;
             createInfo.flip = true;
-            createInfo.clampMode = ClampMode::REPEAT;
+            createInfo.clampMode = WrapMode::REPEAT;
             createInfo.filter = FilterMode::LINEAR;
             createInfo.format = Format::RGBA8;
 

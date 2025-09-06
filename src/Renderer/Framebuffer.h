@@ -10,7 +10,7 @@ struct FramebufferAttachment
 {
     Format format;
     FilterMode filter = FilterMode::LINEAR;
-    ClampMode clamp = ClampMode::CLAMP_TO_EDGE;
+    WrapMode wrap = WrapMode::CLAMP_TO_EDGE;
 };
 
 struct Viewport

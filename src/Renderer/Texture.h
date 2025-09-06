@@ -13,7 +13,7 @@ struct TextureCreateInfo
     bool flip = true;
     Format format = Format::RGBA8;
     FilterMode filter = FilterMode::LINEAR;
-    ClampMode clampMode = ClampMode::REPEAT;
+    WrapMode clampMode = WrapMode::REPEAT;
 };
 
 class Texture2D
@@ -35,7 +35,7 @@ public:
     uint32_t GetWidth() const { return m_CreateInfo.width; }
     uint32_t GetHeight() const { return m_CreateInfo.height; }
 
-    ClampMode GetClampMode() const { return m_CreateInfo.clampMode; }
+    WrapMode GetClampMode() const { return m_CreateInfo.clampMode; }
     Format GetFormat() const { return m_CreateInfo.format; }
 
     uint32_t GetChannels() const { return m_Channels; }
