@@ -6,10 +6,10 @@ Educational and experimental playground for modern OpenGL rendering. This projec
 
 Below are sample captures (PNG).
 
-![Shot 1](resources/screenshots/image_01.png)
-![Shot 2](resources/screenshots/image_02.png)
-![Shot 3](resources/screenshots/image_03.png)
-![Shot 3](resources/screenshots/image_04.png)
+| ![Shot 1](resources/screenshots/image_01.png) | ![Shot 2](resources/screenshots/image_02.png) |
+|-----------------------------------------------|-----------------------------------------------|
+| ![Shot 3](resources/screenshots/image_03.png) | ![Shot 4](resources/screenshots/image_04.png) |
+| ![Shot 5](resources/screenshots/image_05.png) | ![Shot 6](resources/screenshots/image_06.png) |
 
 ### Key Features
 
