@@ -50,7 +50,7 @@ void Bloom::CreateMipFramebuffers(int width, int height)
     int h = height / 2;
     
     // Create mip chain levels
-    for (int i = 0; i < 6; ++i) // More levels for higher quality
+    for (int i = 0; i < 8; ++i) // More levels for higher quality
     {
         if (w <= 4 || h <= 4) // Stop when too small
             break;

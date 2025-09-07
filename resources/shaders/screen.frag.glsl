@@ -44,8 +44,8 @@ uniform float u_VignetteIntensity;
 uniform vec3 u_VignetteColor;
 
 // Chromatic aberration uniforms
-uniform float u_ChromaticAbAmount;
-uniform float u_ChromaticAbRadial;
+uniform float u_ChromaticAberrationAmount;
+uniform float u_ChromaticAberrationRadial;
 
 float LinearizeDepth(float depth, float near, float far)
 {
@@ -149,6 +149,19 @@ void main()
     {
         vec4 baseColor = texture(u_ColorTexture, uv);
 
+        if (u_EnableChromAb)
+        {
+            vec2 center = vec2(0.5);
+            vec2 dir = uv - center;
+            float distUV = length(dir);
+            float amt = u_ChromaticAberrationAmount * pow(distUV, u_ChromaticAberrationRadial);
+            vec2 offset = dir * amt;
+            float r = texture(u_ColorTexture, uv + offset).r; // sample shifted
+            float g = baseColor.g;                            // keep green reference
+            float b = texture(u_ColorTexture, uv - offset).b; // opposite shift
+            baseColor.rgb = vec3(r, g, b);
+        }
+
         if (u_EnableDOF)
         {
             // Calculate circle of confusion (CoC)
@@ -196,21 +209,6 @@ void main()
             baseColor.rgb = ApplyFog(baseColor.rgb, depth, uv, u_InverseProjection, u_Scene.fogDensity, u_Scene.fogColor, u_Scene.fogStart, u_Scene.fogEnd);
         }
 
-        // Chromatic aberration (simple radial RGB shift) BEFORE tone mapping in linear
-        if (u_EnableChromAb)
-        {
-            vec2 center = vec2(0.5);
-            vec2 dir = uv - center;
-            float distUV = length(dir);
-            float amt = u_ChromaticAbAmount * pow(distUV, u_ChromaticAbRadial);
-            vec2 offset = dir * amt;
-            float r = texture(u_ColorTexture, uv + offset).r; // sample shifted
-            float g = baseColor.g;                            // keep green reference
-            float b = texture(u_ColorTexture, uv - offset).b; // opposite shift
-            baseColor.rgb = vec3(r, g, b);
-        }
-
-        // Tone mapping + gamma
         // Bloom composite BEFORE tone mapping (HDR domain)
         if (u_EnableBloom)
         {

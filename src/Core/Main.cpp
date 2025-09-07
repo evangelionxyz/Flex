@@ -69,8 +69,8 @@ public:
 		shader.SetUniform("u_VignetteSoftness", postProcessing.vignetteSoftness);
 		shader.SetUniform("u_VignetteIntensity", postProcessing.vignetteIntensity);
 		shader.SetUniform("u_VignetteColor", postProcessing.vignetteColor);
-		shader.SetUniform("u_ChromaticAbAmount", postProcessing.chromAbAmount);
-		shader.SetUniform("u_ChromaticAbRadual", postProcessing.chromAbRadial);
+		shader.SetUniform("u_ChromaticAberrationAmount", postProcessing.chromAbAmount);
+		shader.SetUniform("u_ChromaticAberrationRadial", postProcessing.chromAbRadial);
 
 		vertexArray->Bind();
 
@@ -631,15 +631,15 @@ int main(int argc, char **argv)
 			ImGui::SliderFloat("Vignette Intensity", &camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
 			ImGui::ColorEdit3("Vignette Color", &camera.postProcessing.vignetteColor.x);
 			
-			ImGui::SeparatorText("Chromatic Abberation");
-			ImGui::Checkbox("Enable Chrom Ab", &camera.postProcessing.enableChromAb);
-			ImGui::SliderFloat("Chrom Amount", &camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
-			ImGui::SliderFloat("Chrom Radial", &camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
+			ImGui::SeparatorText("Chromatic Aberation");
+			ImGui::Checkbox("Enable Chromatic Aberation", &camera.postProcessing.enableChromAb);
+			ImGui::SliderFloat("Amount", &camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
+			ImGui::SliderFloat("Radial", &camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
 
 			ImGui::SeparatorText("Bloom");
 			ImGui::Checkbox("Enable Bloom", &camera.postProcessing.enableBloom);
-			ImGui::DragFloat("Threshold", &bloom.settings.threshold, 0.25, 0.0f, FLT_MAX);
-			ImGui::DragFloat("Intensity", &bloom.settings.intensity, 0.25, 0.0f, FLT_MAX);
+			ImGui::DragFloat("Threshold", &bloom.settings.threshold, 0.025, 0.0f, FLT_MAX);
+			ImGui::DragFloat("Intensity", &bloom.settings.intensity, 0.025, 0.0f, FLT_MAX);
 			ImGui::DragFloat("Knee", &bloom.settings.knee, 0.25, 0.0f, FLT_MAX);
 			ImGui::DragFloat("Radius", &bloom.settings.radius, 0.025, 0.0f, 1.0f);
 			ImGui::SliderInt("Iterations", &bloom.settings.iterations, 1, 8);

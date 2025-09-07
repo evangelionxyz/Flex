@@ -23,8 +23,8 @@ struct CameraBuffer
 struct PostProcessing
 {
 	// Toggles
-	bool enableVignette = false;
-	bool enableChromAb = false;
+	bool enableVignette = true;
+	bool enableChromAb = true;
 	bool enableBloom = true;
 	
 	// Vignette params
@@ -34,7 +34,7 @@ struct PostProcessing
 	glm::vec3 vignetteColor = glm::vec3(0.0f);
 	
 	// Chromatic aberration params
-	float chromAbAmount = 0.03f;
+	float chromAbAmount = 0.001f;
 	float chromAbRadial = 0.1f;
 };
 
