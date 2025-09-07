@@ -1,0 +1,60 @@
+#pragma once
+
+#include <glm/glm.hpp>
+#include <array>
+#include <memory>
+
+class UniformBuffer;
+class Shader;
+class Camera;
+
+// Simple cascaded shadow map implementation for a directional light (sun)
+class CascadedShadowMap
+{
+public:
+    static constexpr int NumCascades = 4;
+
+    struct GPUData
+    {
+        glm::mat4 lightViewProj[NumCascades];
+        glm::vec4 cascadeSplits;          // view-space distances to end of each cascade
+        float shadowStrength = 1.0f;
+        float minBias = 0.0f;
+        float maxBias = 0.0f;
+        float pcfRadius = 0.3f;           // in texels (multiplier)
+        float padding[3];
+    };
+
+    CascadedShadowMap();
+    ~CascadedShadowMap();
+
+    void Resize(int resolution);
+
+    // Update cascade split distances and light matrices; call each frame when camera or light changes
+    void Update(const Camera &camera, const glm::vec3 &lightDir);
+
+    // Begin rendering a cascade layer (bind FBO + set viewport + attach correct layer)
+    void BeginCascade(int cascadeIndex);
+    void EndCascade();
+
+    // Bind shadow map texture array to a texture unit
+    void BindTexture(int unit) const;
+
+    // Upload UBO to GPU
+    void Upload();
+
+    const GPUData &GetData() const { return m_Data; }
+    GPUData &GetData() { return m_Data; }
+
+private:
+    void CreateResources();
+    void DestroyResources();
+    void ComputeMatrices(const Camera &camera, const glm::vec3 &lightDir);
+
+private:
+    unsigned int m_FBO = 0;
+    unsigned int m_DepthArray = 0;
+    int m_Resolution = 2048;
+    GPUData m_Data{};
+    std::shared_ptr<UniformBuffer> m_UBO; // binding = 3
+};

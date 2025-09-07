@@ -19,6 +19,7 @@ public:
     
     void Update(float deltaTime);
     void Render(Shader &shader, const std::shared_ptr<Texture2D> &environmentTexture);
+    void RenderDepth(Shader &shader); // depth-only
 
     void SetTransform(const glm::mat4 &transform);
     const glm::mat4 &GetTransform() { return m_Transform; }

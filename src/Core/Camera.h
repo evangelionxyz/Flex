@@ -18,6 +18,7 @@ struct CameraBuffer
 {
 	glm::mat4 viewProjection;
 	glm::vec4 position;
+	glm::mat4 view;
 };
 
 struct PostProcessing
@@ -69,7 +70,7 @@ struct Camera
 	float distance = 1.0f;
 	
 	// Projection properties
-	float fov = 45.0f;
+	float fov = 90.0f;
 	float nearPlane = 0.1f;
 	float farPlane = 550.0f;
 	

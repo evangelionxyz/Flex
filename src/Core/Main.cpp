@@ -15,6 +15,7 @@
 #include <stb_image_write.h>
 
 #include "Scene/Model.h"
+#include "Renderer/CascadedShadowMap.h"
 #include "Renderer/Material.h"
 #include "Renderer/Window.h"
 #include "Renderer/Renderer.h"
@@ -25,9 +26,8 @@
 #include "Renderer/Mesh.h"
 #include "Renderer/Framebuffer.h"
 #include "Renderer/Bloom.h"
-#include "Math/Math.hpp"
-
 #include "Renderer/Gizmo.h"
+#include "Math/Math.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -224,6 +224,12 @@ int main(int argc, char **argv)
 	PBRShader.AddFromFile("resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER);
 	PBRShader.Compile();
 
+	// Shadow depth shader (cascaded)
+	Shader shadowDepthShader;
+	shadowDepthShader.AddFromFile("resources/shaders/shadow_depth.vert.glsl", GL_VERTEX_SHADER);
+	shadowDepthShader.AddFromFile("resources/shaders/shadow_depth.frag.glsl", GL_FRAGMENT_SHADER);
+	shadowDepthShader.Compile();
+
 	Shader skyboxShader;
 	skyboxShader.AddFromFile("resources/shaders/skybox.vertex.glsl", GL_VERTEX_SHADER);
 	skyboxShader.AddFromFile("resources/shaders/skybox.frag.glsl", GL_FRAGMENT_SHADER);
@@ -249,6 +255,7 @@ int main(int argc, char **argv)
 
 	CameraBuffer cameraData{};
 	SceneData sceneData{};
+	CascadedShadowMap csm; // uses binding = 3 for UBO
 
 	std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), UNIFORM_BINDING_LOC_CAMERA);
 	std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), UNIFORM_BINDING_LOC_SCENE);
@@ -317,6 +324,7 @@ int main(int argc, char **argv)
 				{
 					PBRShader.Reload();
 					screen.shader.Reload();
+					shadowDepthShader.Reload();
 				}
 				else if (key == GLFW_KEY_ESCAPE)
 				{
@@ -377,6 +385,7 @@ int main(int argc, char **argv)
 		camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0 / 9.0f);
 		cameraData.viewProjection = camera.projection * camera.view;
 		cameraData.position = glm::vec4(camera.position, 1.0f);
+		cameraData.view = camera.view; // new field used by shadows (also u_View uniform separately)
 		cameraUbo->SetData(&cameraData, sizeof(cameraData));
 
 		// Update scene data
@@ -384,11 +393,37 @@ int main(int argc, char **argv)
 		sceneData.lightAngle.y = sceneData.lightAngle.y; // elevation
 		sceneUbo->SetData(&sceneData, sizeof(SceneData));
 
-		// Render Here
+		// Compute sun / light direction for shadows (matches shader code)
+		float azimuth = sceneData.lightAngle.x;
+		float elevation = sceneData.lightAngle.y;
+		glm::vec3 sunDirection = {
+			cos(elevation) * cos(azimuth),
+			sin(elevation),
+			cos(elevation) * sin(azimuth)
+		};
+		glm::vec3 lightDirection = glm::normalize(-sunDirection);
+
+		// Update cascaded shadow map matrices & UBO
+		csm.Update(camera, lightDirection);
+
+		// Shadow pass (depth only per cascade)
+		glEnable(GL_DEPTH_TEST);
+		glCullFace(GL_FRONT); // reduce peter-panning
+		for (int ci = 0; ci < CascadedShadowMap::NumCascades; ++ci)
+		{
+			csm.BeginCascade(ci);
+			shadowDepthShader.Use();
+			shadowDepthShader.SetUniform("u_CascadeIndex", ci);
+			for (auto &model : scene.models)
+				model->RenderDepth(shadowDepthShader);
+		}
+		csm.EndCascade();
+		glCullFace(GL_BACK);
+
+		// Render Here (main scene)
 		Viewport viewport{0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
 		
 		// FIRST PASS: Render to framebuffer
-		// framebuffer->CheckSize((uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT);
 		framebuffer->Bind(viewport);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -396,6 +431,12 @@ int main(int argc, char **argv)
 		// Render models first
 		glCullFace(GL_BACK);
 		PBRShader.Use();
+		// Bind cascaded shadow map (binding = 6 in pbr.frag)
+		csm.BindTexture(6);
+		PBRShader.SetUniform("u_ShadowMap", 6);
+		PBRShader.SetUniform("u_View", camera.view);
+		static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibility
+		PBRShader.SetUniform("u_DebugShadows", debugShadowMode);
 
 		for (auto &model : scene.models)
 		{
@@ -609,6 +650,28 @@ int main(int argc, char **argv)
 			ImGui::SliderFloat("Fog Density", &sceneData.fogDensity, 0.0f, 0.1f, "%.4f");
 			ImGui::SliderFloat("Fog Start", &sceneData.fogStart, 0.1f, 100.0f);
 			ImGui::SliderFloat("Fog End", &sceneData.fogEnd, 1.0f, 200.0f);
+			
+			ImGui::SeparatorText("Shadows");
+			{
+				auto &data = csm.GetData();
+				static int shadowResolution = 2048;
+				bool changed = false;
+				changed |= ImGui::SliderFloat("Strength", (float*)&data.shadowStrength, 0.0f, 1.0f);
+				changed |= ImGui::DragFloat("Min Bias", (float*)&data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
+				changed |= ImGui::DragFloat("Max Bias", (float*)&data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
+				changed |= ImGui::SliderFloat("PCF Radius", (float*)&data.pcfRadius, 0.1f, 4.0f);
+				if (ImGui::Combo("Resolution", &shadowResolution, "1024\0" "2048\0" "4096\0"))
+				{
+					int res = shadowResolution == 0 ? 1024 : (shadowResolution == 1 ? 2048 : 4096);
+					csm.Resize(res);
+				}
+				ImGui::Separator();
+				ImGui::Text("Shadow Debug");
+				ImGui::RadioButton("Off##ShadowDbg", &debugShadowMode, 0); ImGui::SameLine();
+				ImGui::RadioButton("Cascades", &debugShadowMode, 1); ImGui::SameLine();
+				ImGui::RadioButton("Visibility", &debugShadowMode, 2);
+				if (changed) csm.Upload();
+			}
 
 			ImGui::SeparatorText("Camera");
 			ImGui::SliderFloat("Yaw", &camera.yaw, -glm::pi<float>(), glm::pi<float>());

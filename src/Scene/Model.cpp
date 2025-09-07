@@ -64,6 +64,19 @@ void Model::Render(Shader &shader, const std::shared_ptr<Texture2D> &environment
     }
 }
 
+void Model::RenderDepth(Shader &shader)
+{
+    for (MeshNode &node : m_Scene.nodes)
+    {
+        for (const std::shared_ptr<Mesh> &mesh : node.meshes)
+        {
+            shader.SetUniform("u_Model", m_Transform * mesh->localTransform);
+            mesh->vertexArray->Bind();
+            Renderer::DrawIndexed(mesh->vertexArray);
+        }
+    }
+}
+
 void Model::SetTransform(const glm::mat4 &transform)
 {
     m_Transform = transform;
