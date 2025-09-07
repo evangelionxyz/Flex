@@ -4,6 +4,8 @@
 #include <string>
 #include <cassert>
 
+#include <memory>
+
 #include "RendererCommon.h"
 
 struct TextureCreateInfo
@@ -41,6 +43,11 @@ public:
     uint32_t GetChannels() const { return m_Channels; }
     uint32_t GetHandle() const { return m_Handle; }
     int GetBindIndex() const { return m_BindIndex; }
+
+    static std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo);
+    static std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo, uint32_t hexColor);
+    static std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo, void *data, size_t size);
+    static std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo, const std::string &filename);
 
 private:
     void CreateTexture();

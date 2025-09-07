@@ -1,25 +1,30 @@
 #version 460 core
-layout (location=0) out vec4 fragColor;
-layout (binding=0) uniform sampler2D u_Src;
-layout (location=0) in vec2 vUV;
 
-// Single-pass 9-tap separable-ish approximation sampling in a small disk
-const vec2 OFFSETS[9] = vec2[]
-(
-    vec2(0,0),
-    vec2(1,0), vec2(-1,0),
-    vec2(0,1), vec2(0,-1),
-    vec2(1,1), vec2(-1,1), vec2(1,-1), vec2(-1,-1)
-);
-const float WEIGHTS[9] = float[](0.25, 0.125,0.125,0.125,0.125,0.0625,0.0625,0.0625,0.0625);
+layout (location = 0) out vec4 fragColor;
+layout (binding = 0) uniform sampler2D u_Src;
 
-void main(){
-    vec2 texel = 1.0/vec2(textureSize(u_Src,0));
-    vec3 color = vec3(0.0);
-    for(int i = 0; i < 9; ++i)
+uniform int u_Horizontal; // 1 for horizontal, 0 for vertical
+
+layout (location = 0) in vec2 vUV;
+
+// High-quality separable Gaussian blur with 9 taps
+// Gaussian weights for sigma = 1.0
+const float WEIGHTS[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
+
+void main()
+{
+    vec2 texel = 1.0 / vec2(textureSize(u_Src, 0));
+    vec2 direction = u_Horizontal == 1 ? vec2(texel.x, 0.0) : vec2(0.0, texel.y);
+    
+    vec3 result = texture(u_Src, vUV).rgb * WEIGHTS[0];
+    
+    // Sample in both directions
+    for(int i = 1; i < 5; ++i)
     {
-        color += texture(u_Src, vUV + OFFSETS[i]*texel).rgb * WEIGHTS[i];
+        vec2 offset = direction * float(i);
+        result += texture(u_Src, vUV + offset).rgb * WEIGHTS[i];
+        result += texture(u_Src, vUV - offset).rgb * WEIGHTS[i];
     }
-
-    fragColor = vec4(color, 1.0);
+    
+    fragColor = vec4(result, 1.0);
 }

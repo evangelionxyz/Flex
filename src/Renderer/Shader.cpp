@@ -117,7 +117,7 @@ bool Shader::CompileShader(ShaderData *shaderData)
 	// Failed to compile shader
 	if (status == GL_FALSE)
 	{
-		std::cerr << "Failed to compile " << GetShaderStageString(shaderData->type) << "\n";
+		std::cerr << "Failed to compile " << GetShaderStageString(shaderData->type) << " \"" << shaderData->filepath <<"\"\n";
 
 		// Get shader info log
 		int logSize = 0;

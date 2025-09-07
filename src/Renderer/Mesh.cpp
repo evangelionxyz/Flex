@@ -1,5 +1,5 @@
 #include "Mesh.h"
-
+#include "Material.h"
 #include <iostream>
 #include <filesystem>
 #include <cassert>

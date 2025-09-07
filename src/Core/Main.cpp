@@ -15,6 +15,7 @@
 #include <stb_image_write.h>
 
 #include "Scene/Model.h"
+#include "Renderer/Material.h"
 #include "Renderer/Window.h"
 #include "Renderer/Renderer.h"
 #include "Renderer/UniformBuffer.h"
@@ -70,10 +71,6 @@ public:
 		shader.SetUniform("u_VignetteColor", postProcessing.vignetteColor);
 		shader.SetUniform("u_ChromaticAbAmount", postProcessing.chromAbAmount);
 		shader.SetUniform("u_ChromaticAbRadual", postProcessing.chromAbRadial);
-		shader.SetUniform("u_BloomThreshold", postProcessing.bloomThreshold);
-		shader.SetUniform("u_BloomKnee", postProcessing.bloomKnee);
-		shader.SetUniform("u_BloomIntensity", postProcessing.bloomIntensity);
-		shader.SetUniform("u_BloomIterations", postProcessing.bloomIterations);
 
 		vertexArray->Bind();
 
@@ -193,7 +190,6 @@ int main(int argc, char **argv)
 	Camera camera;
 	Gizmo gizmo;
 	Screen screen;
-	Bloom bloom;
 
 	// Initialize gizmo at origin
 	gizmo.SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
@@ -266,7 +262,7 @@ int main(int argc, char **argv)
 		{Format::DEPTH24STENCIL8}, // Depth Attachment
 	};
 	std::shared_ptr<Framebuffer> framebuffer = Framebuffer::Create(framebufferCreateInfo);
-	bloom.Init(WINDOW_WIDTH, WINDOW_HEIGHT);
+	Bloom bloom(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	window.SetFullscreenCallback([&](int width, int height, bool fullscreen)
 	{
@@ -362,10 +358,10 @@ int main(int argc, char **argv)
 
 		if (!ImGui::GetIO().WantCaptureMouse)
 		{
-			camera.UpdateMouseState(window.GetHandle());
+			camera.UpdateMouseState();
 			camera.HandleOrbit(deltaTime);
 			camera.HandlePan(deltaTime);
-			camera.HandleZoom(deltaTime, window.GetHandle());
+			camera.HandleZoom(deltaTime);
 			camera.ApplyInertia(deltaTime);
 			camera.UpdateCameraPosition();
 		}
@@ -436,8 +432,9 @@ int main(int argc, char **argv)
 		if (camera.postProcessing.enableBloom)
 		{
 			uint32_t hdrTex = framebuffer->GetColorAttachment(0);
-			bloom.Build(hdrTex, camera.postProcessing.bloomThreshold, camera.postProcessing.bloomKnee, camera.postProcessing.bloomIterations);
+			bloom.Build(hdrTex);
 		}
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -449,7 +446,20 @@ int main(int argc, char **argv)
 		if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
 		{
 			if (camera.postProcessing.enableBloom)
-				bloom.BindTextures();
+			{
+				bloom.BindTextures(); // Bind individual mip levels for compatibility
+				// Also bind the final high-quality bloom texture to slot 7
+				uint32_t bloomTex = bloom.GetBloomTexture();
+				if (bloomTex != 0)
+				{
+					glBindTextureUnit(3, bloomTex);
+				}
+				else
+				{
+					// Fallback: unbind the texture unit if no valid bloom texture
+					glBindTextureUnit(3, 0);
+				}
+			}
 			screen.Render(screenTexture, framebuffer->GetDepthAttachment(), camera, camera.postProcessing);
 		}
 		// Restore depth testing and culling
@@ -488,7 +498,7 @@ int main(int argc, char **argv)
 			ImGui::End();
 		}
 
-		if (ImGui::Begin("Models", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		if (ImGui::Begin("Models", nullptr))
 		{
 			for (size_t i = 0; i < scene.models.size(); ++i)
 			{
@@ -564,7 +574,7 @@ int main(int argc, char **argv)
 		ImGui::End();
 
 		// Example stats window
-		if (ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		if (ImGui::Begin("Stats", nullptr))
 		{
 			ImGui::Text("FPS: %.1f", FPS);
 			ImGui::Text("Delta ms: %.3f", deltaTime * 1000.0);
@@ -628,10 +638,11 @@ int main(int argc, char **argv)
 
 			ImGui::SeparatorText("Bloom");
 			ImGui::Checkbox("Enable Bloom", &camera.postProcessing.enableBloom);
-			ImGui::SliderFloat("Bloom Threshold", &camera.postProcessing.bloomThreshold, 0.0f, 5.0f, "%.2f");
-			ImGui::SliderFloat("Bloom Knee", &camera.postProcessing.bloomKnee, 0.0f, 1.0f, "%.2f");
-			ImGui::SliderFloat("Bloom Intensity", &camera.postProcessing.bloomIntensity, 0.0f, 5.0f, "%.2f");
-			ImGui::SliderInt("Bloom Iterations", &camera.postProcessing.bloomIterations, 1, 8);
+			ImGui::DragFloat("Threshold", &bloom.settings.threshold, 0.25, 0.0f, FLT_MAX);
+			ImGui::DragFloat("Intensity", &bloom.settings.intensity, 0.25, 0.0f, FLT_MAX);
+			ImGui::DragFloat("Knee", &bloom.settings.knee, 0.25, 0.0f, FLT_MAX);
+			ImGui::DragFloat("Radius", &bloom.settings.radius, 0.025, 0.0f, 1.0f);
+			ImGui::SliderInt("Iterations", &bloom.settings.iterations, 1, 8);
 
 			if (ImGui::CollapsingHeader("Render Mode"))
 			{

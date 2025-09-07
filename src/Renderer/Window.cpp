@@ -4,7 +4,6 @@
 #include <assert.h>
 
 #ifdef _WIN32
-
 #ifndef GLFW_EXPOSE_NATIVE_WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
@@ -15,8 +14,9 @@
 
 #pragma comment(lib, "Dwmapi.lib") // Link to DWM API
 #pragma comment(lib, "shcore.lib")
-
 #endif // _WIN32
+
+Window *s_Window = nullptr;
 
 void GLFWErrorCallback(int error_code, const char* description)
 {
@@ -26,6 +26,8 @@ void GLFWErrorCallback(int error_code, const char* description)
 
 Window::Window(const WindowCreateInfo &createInfo)
 {
+    s_Window = this;
+
     // Set error callback as early as possible
     glfwSetErrorCallback(GLFWErrorCallback);
 
@@ -106,6 +108,8 @@ Window::Window(const WindowCreateInfo &createInfo)
 
 Window::~Window()
 {
+    s_Window = nullptr;
+
     glfwDestroyWindow(m_Handle);
     glfwTerminate();
 }
@@ -187,6 +191,11 @@ void Window::Show()
     {
         glfwMaximizeWindow(m_Handle);
     }
+}
+
+Window *Window::Get()
+{
+    return s_Window;
 }
 
 void Window::SetKeyboardCallback(const std::function<void(int, int, int, int)> &keyCallback)

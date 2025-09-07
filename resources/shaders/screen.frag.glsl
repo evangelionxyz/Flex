@@ -1,14 +1,13 @@
 #version 460 core
 
 layout (location = 0) out vec4 fragColor;
+layout (location = 0) in vec2 vUV;
 
-struct VERTEX
-{
-    vec2 uv;
-};
+layout (binding = 0) uniform sampler2D u_ColorTexture;
+layout (binding = 1) uniform sampler2D u_DepthTexture;
+layout (binding = 3) uniform sampler2D u_BloomTexHQ; // High quality final bloom
 
 #define RENDER_MODE_DEPTH 4
-
 #define UNIFORM_BINDING_LOC_SCENE 1
 layout (std140, binding = UNIFORM_BINDING_LOC_SCENE) uniform Scene
 {
@@ -22,17 +21,6 @@ layout (std140, binding = UNIFORM_BINDING_LOC_SCENE) uniform Scene
     float padding[2];
 } u_Scene;
 
-layout (location = 0) in VERTEX _input;
-layout (binding = 0) uniform sampler2D u_ColorTexture;
-layout (binding = 1) uniform sampler2D u_DepthTexture;
-// Bloom mip chain (downsampled blurred). We'll bind consecutively after main color & depth.
-// 0: original color already bound at binding=0, so bloom starts at binding=2 upward.
-layout (binding = 2) uniform sampler2D u_BloomTex0; // 1/2 size
-layout (binding = 3) uniform sampler2D u_BloomTex1; // 1/4
-layout (binding = 4) uniform sampler2D u_BloomTex2; // 1/8
-layout (binding = 5) uniform sampler2D u_BloomTex3; // 1/16
-layout (binding = 6) uniform sampler2D u_BloomTex4; // 1/32 (optional)
-
 uniform float u_FocalLength;
 uniform float u_FocalDistance;
 uniform float u_FStop;
@@ -42,25 +30,45 @@ uniform float u_Exposure;
 uniform float u_Gamma;
 
 uniform mat4 u_InverseProjection;
+
 // Post effect toggles
 uniform bool u_EnableDOF;
 uniform bool u_EnableVignette;
 uniform bool u_EnableChromAb;
 uniform bool u_EnableBloom;
-uniform float u_BloomThreshold;
-uniform float u_BloomKnee;
-uniform float u_BloomIntensity;
-uniform int u_BloomIterations; // how many of the chain levels to use
 
-// Vignette parameters
-uniform float u_VignetteRadius;      // 0..1 (distance from center where vignette starts)
-uniform float u_VignetteSoftness;    // 0..1 (blend region size)
-uniform float u_VignetteIntensity;   // 0..2 (strength)
-uniform vec3  u_VignetteColor;       // Tint color (usually black)
+// Vignette uniforms
+uniform float u_VignetteRadius;
+uniform float u_VignetteSoftness;
+uniform float u_VignetteIntensity;
+uniform vec3 u_VignetteColor;
 
-// Chromatic aberration parameters
-uniform float u_ChromaticAbAmount;   // e.g. 0..0.02
-uniform float u_ChromaticAbRadual;   // power falloff factor
+// Chromatic aberration uniforms
+uniform float u_ChromaticAbAmount;
+uniform float u_ChromaticAbRadial;
+
+float LinearizeDepth(float depth, float near, float far)
+{
+    float z = depth * 2.0 - 1.0; // Convert to NDC
+    return (2.0 * near * far) / (far + near - z * (far - near));
+}
+
+vec3 SampleColorWithChromAb(sampler2D tex, vec2 uv, float amount, float radial)
+{
+    vec2 center = vec2(0.5);
+    vec2 direction = uv - center;
+    float distance = length(direction);
+    
+    // Scale chromatic aberration by distance from center
+    float aberration = amount * (1.0 + radial * distance * distance);
+    
+    // Sample each channel with slight offset
+    float r = texture(tex, uv + direction * aberration * 0.5).r;
+    float g = texture(tex, uv).g;
+    float b = texture(tex, uv - direction * aberration * 0.5).b;
+    
+    return vec3(r, g, b);
+}
 
 vec3 FilmicTonemapColor(vec3 color)
 {
@@ -74,15 +82,57 @@ vec3 FilmicTonemap(vec3 color, float exposure, float gamma)
     vec3 mappedColor = FilmicTonemapColor(color * exposure);
     vec3 whiteScale = 1.0 / FilmicTonemapColor(vec3(11.2));
     mappedColor *= whiteScale;
-    
+
     // Gamma correction
     vec3 gammaCorrected = pow(mappedColor, vec3(1.0 / gamma));
     return gammaCorrected.rgb;
 }
 
+vec3 ApplyFog(vec3 color, float depth, vec2 uv, mat4 inverseProjection, float fogDensity, vec4 fogColor, float fogStart, float fogEnd)
+{
+    if (fogDensity <= 0.0)
+        return color;
+        
+    // Convert depth to view space distance
+    vec4 clipSpace = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+    vec4 viewSpace = inverseProjection * clipSpace;
+    viewSpace /= viewSpace.w;
+    
+    float viewDistance = abs(viewSpace.z);
+    float fogFactor = 1.0;
+    
+    // 1. Linear fog for base distance fade
+    float linearFog = clamp((viewDistance - fogStart) / (fogEnd - fogStart), 0.0, 1.0);
+    
+    // 2. Exponential fog for atmospheric depth
+    float expFog = 1.0 - exp(-fogDensity * viewDistance);
+    
+    // 3. Exponential squared fog for dense atmosphere
+    float exp2Fog = 1.0 - exp(-pow(fogDensity * viewDistance * 0.5, 2.0));
+    
+    // 4. Height-based fog simulation (assuming ground plane at y=0)
+    // Simulate fog density variation with height
+    vec2 ndcPos = uv * 2.0 - 1.0;
+    float heightFactor = max(0.0, 1.0 - abs(ndcPos.y) * 0.3); // More fog at horizon
+    
+    // Combine fog models with weighted blending
+    float combinedFog = mix(linearFog, expFog, 0.6) + exp2Fog * 0.3;
+    combinedFog *= (1.0 + heightFactor * 0.4); // Enhance horizon fog
+    
+    // Distance-based fog color variation (cooler colors at distance)
+    vec3 distantFogColor = mix(fogColor.rgb, fogColor.rgb * vec3(0.8, 0.9, 1.1), clamp(viewDistance / fogEnd, 0.0, 1.0));
+    
+    // Atmospheric perspective (slight blue shift at distance)
+    float atmosphericStrength = clamp(viewDistance / (fogEnd * 2.0), 0.0, 1.0);
+    vec3 atmosphericColor = mix(distantFogColor, distantFogColor * vec3(0.7, 0.8, 1.2), atmosphericStrength * 0.3);
+    
+    fogFactor = 1.0 - clamp(combinedFog, 0.0, 1.0);
+    return mix(atmosphericColor, color, fogFactor);
+}
+
 void main()
 {
-    vec2 uv = _input.uv;
+    vec2 uv = vUV;
     float depth = texture(u_DepthTexture, uv).r;
     
     // Convert depth from NDC to view space
@@ -123,7 +173,10 @@ void main()
                         vec2 suv = uv + offset;
                         if (all(greaterThanEqual(suv, vec2(0.0))) && all(lessThanEqual(suv, vec2(1.0))))
                         {
-                            accum += texture(u_ColorTexture, suv);
+                            vec3 sampleColor = texture(u_ColorTexture, suv).rgb;
+                            float sampleDepth = texture(u_DepthTexture, suv).r;
+                            sampleColor = ApplyFog(sampleColor, sampleDepth, suv, u_InverseProjection, u_Scene.fogDensity, u_Scene.fogColor, u_Scene.fogStart, u_Scene.fogEnd);
+                            accum += vec4(sampleColor, 1.0);
                             totalWeight += 1.0;
                         }
                     }
@@ -131,6 +184,16 @@ void main()
                 if (totalWeight > 0.0)
                     baseColor = accum / totalWeight;
             }
+            else
+            {
+                // No blur, apply fog to center
+                baseColor.rgb = ApplyFog(baseColor.rgb, depth, uv, u_InverseProjection, u_Scene.fogDensity, u_Scene.fogColor, u_Scene.fogStart, u_Scene.fogEnd);
+            }
+        }
+        else
+        {
+            // No DOF, apply fog to center
+            baseColor.rgb = ApplyFog(baseColor.rgb, depth, uv, u_InverseProjection, u_Scene.fogDensity, u_Scene.fogColor, u_Scene.fogStart, u_Scene.fogEnd);
         }
 
         // Chromatic aberration (simple radial RGB shift) BEFORE tone mapping in linear
@@ -139,7 +202,7 @@ void main()
             vec2 center = vec2(0.5);
             vec2 dir = uv - center;
             float distUV = length(dir);
-            float amt = u_ChromaticAbAmount * pow(distUV, u_ChromaticAbRadual);
+            float amt = u_ChromaticAbAmount * pow(distUV, u_ChromaticAbRadial);
             vec2 offset = dir * amt;
             float r = texture(u_ColorTexture, uv + offset).r; // sample shifted
             float g = baseColor.g;                            // keep green reference
@@ -151,26 +214,7 @@ void main()
         // Bloom composite BEFORE tone mapping (HDR domain)
         if (u_EnableBloom)
         {
-            // Reconstruct bloom from mip chain additively with weights
-            int iters = clamp(u_BloomIterations, 1, 5);
-            vec3 bloom = vec3(0.0);
-            // Soft threshold (Filmic style)
-            float knee = u_BloomThreshold * u_BloomKnee + 1e-4;
-            float thresh = u_BloomThreshold;
-            vec3 src = baseColor.rgb;
-            float brightness = max(max(src.r, src.g), src.b);
-            float soft = clamp((brightness - thresh + knee) / (2.0 * knee), 0.0, 1.0);
-            float contribution = max(brightness - thresh, 0.0);
-            float bloomMask = (contribution + soft) / max(brightness, 1e-4);
-            bloomMask = clamp(bloomMask, 0.0, 1.0);
-
-            if (iters >= 1) bloom += texture(u_BloomTex0, uv).rgb;
-            if (iters >= 2) bloom += texture(u_BloomTex1, uv).rgb * 0.8;
-            if (iters >= 3) bloom += texture(u_BloomTex2, uv).rgb * 0.6;
-            if (iters >= 4) bloom += texture(u_BloomTex3, uv).rgb * 0.4;
-            if (iters >= 5) bloom += texture(u_BloomTex4, uv).rgb * 0.3;
-
-            baseColor.rgb += bloom * bloomMask * u_BloomIntensity;
+            baseColor.rgb += texture(u_BloomTexHQ, uv).rgb;
         }
 
         // Vignette AFTER chromatic aberration but still linear
@@ -185,51 +229,6 @@ void main()
 
             float intensity = u_VignetteIntensity;
             baseColor.rgb = mix(baseColor.rgb, baseColor.rgb * u_VignetteColor, vig * intensity);
-        }
-
-        // High-quality fog calculation using depth buffer
-        if (u_Scene.fogDensity > 0.0)
-        {
-            // Convert depth to view space distance
-            vec4 clipSpace = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-            vec4 viewSpace = u_InverseProjection * clipSpace;
-            viewSpace /= viewSpace.w;
-            float viewDistance = abs(viewSpace.z);
-            
-            // Multi-layer fog calculation for high quality
-            float fogFactor = 1.0;
-            
-            // 1. Linear fog for base distance fade
-            float linearFog = clamp((viewDistance - u_Scene.fogStart) / (u_Scene.fogEnd - u_Scene.fogStart), 0.0, 1.0);
-            
-            // 2. Exponential fog for atmospheric depth
-            float expFog = 1.0 - exp(-u_Scene.fogDensity * viewDistance);
-            
-            // 3. Exponential squared fog for dense atmosphere
-            float exp2Fog = 1.0 - exp(-pow(u_Scene.fogDensity * viewDistance * 0.5, 2.0));
-            
-            // 4. Height-based fog simulation (assuming ground plane at y=0)
-            // Simulate fog density variation with height
-            vec2 ndcPos = uv * 2.0 - 1.0;
-            float heightFactor = max(0.0, 1.0 - abs(ndcPos.y) * 0.3); // More fog at horizon
-            
-            // Combine fog models with weighted blending
-            float combinedFog = mix(linearFog, expFog, 0.6) + exp2Fog * 0.3;
-            combinedFog *= (1.0 + heightFactor * 0.4); // Enhance horizon fog
-            
-            // Distance-based fog color variation (cooler colors at distance)
-            vec3 distantFogColor = mix(u_Scene.fogColor.rgb, u_Scene.fogColor.rgb * vec3(0.8, 0.9, 1.1), 
-                                     clamp(viewDistance / u_Scene.fogEnd, 0.0, 1.0));
-            
-            // Atmospheric perspective (slight blue shift at distance)
-            float atmosphericStrength = clamp(viewDistance / (u_Scene.fogEnd * 2.0), 0.0, 1.0);
-            vec3 atmosphericColor = mix(distantFogColor, distantFogColor * vec3(0.7, 0.8, 1.2), atmosphericStrength * 0.3);
-            
-            // Final fog factor with smooth transitions
-            fogFactor = 1.0 - clamp(combinedFog, 0.0, 1.0);
-            
-            // Apply fog with enhanced color mixing
-            baseColor.rgb = mix(atmosphericColor, baseColor.rgb, fogFactor);
         }
 
         vec3 mapped = FilmicTonemap(baseColor.rgb, u_Exposure, u_Gamma);

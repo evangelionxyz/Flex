@@ -16,6 +16,8 @@
 #define MAX_BONES 100
 #define NUM_BONE_INFLUENCE 4
 
+struct Material;
+
 struct Vertex
 {
     glm::vec3 position;
@@ -24,36 +26,6 @@ struct Vertex
     glm::vec3 bitangent;
     glm::vec3 color;
     glm::vec2 uv;
-};
-
-struct Material
-{
-    std::string name;
-
-    struct Params
-    {
-        glm::vec4 baseColorFactor = glm::vec4(1.0f);
-        glm::vec4 emissiveFactor = glm::vec4(0.0f);
-        float metallicFactor = 1.0f;
-        float roughnessFactor = 1.0f;
-        float occlusionStrength = 0.0f;
-    } params;
-
-    std::shared_ptr<Texture2D> baseColorTexture;
-    std::shared_ptr<Texture2D> emissiveTexture;
-    std::shared_ptr<Texture2D> metallicRoughnessTexture;
-    std::shared_ptr<Texture2D> normalTexture;
-    std::shared_ptr<Texture2D> occlusionTexture;
-
-    Material()
-    {
-        // Neutral defaults per glTF PBR spec when a texture is absent
-        baseColorTexture = Renderer::GetWhiteTexture();           // baseColorFactor will tint
-        emissiveTexture = Renderer::GetWhiteTexture();            // no emissive
-        metallicRoughnessTexture = Renderer::GetBlackTexture();   // will be overridden if texture present; factors supply values
-        normalTexture = Renderer::GetWhiteTexture();              // flat normal
-        occlusionTexture = Renderer::GetWhiteTexture();           // full occlusion (no darkening)
-    }
 };
 
 struct Mesh

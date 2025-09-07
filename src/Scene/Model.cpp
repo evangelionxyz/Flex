@@ -1,5 +1,7 @@
 #include "Model.h"
 
+#include "Renderer/Material.h"
+
 Model::Model(const std::string &filename)
     : m_Transform(glm::mat4(1.0f))
     , m_Scene(MeshLoader::LoadSceneGraphFromGLTF(filename))

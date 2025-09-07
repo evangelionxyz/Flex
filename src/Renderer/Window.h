@@ -54,6 +54,8 @@ public:
     uint32_t GetWidth() { return m_Data.width; }
     uint32_t GetHeight() { return m_Data.height; }
 
+    static Window *Get();
+
     GLFWwindow *GetHandle() 
     {
         return m_Handle;

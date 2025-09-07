@@ -245,3 +245,24 @@ void Texture2D::Unbind()
 {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
+
+std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo)
+{
+    return std::make_shared<Texture2D>(createInfo);
+}
+
+std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo, uint32_t hexColor)
+{
+    return std::make_shared<Texture2D>(createInfo, hexColor);
+}
+
+std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo, void *data, size_t size)
+{
+    return std::make_shared<Texture2D>(createInfo, data, size);
+}
+
+std::shared_ptr<Texture2D> Create(const TextureCreateInfo &createInfo, const std::string &filename)
+{
+    return std::make_shared<Texture2D>(createInfo, filename);
+}
+

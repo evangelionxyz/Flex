@@ -36,12 +36,6 @@ struct PostProcessing
 	// Chromatic aberration params
 	float chromAbAmount = 0.03f;
 	float chromAbRadial = 0.1f;
-
-	// Bloom params
-	float bloomThreshold = 1.0f;   // HDR threshold
-	float bloomKnee = 0.6f;        // Soft knee range 0..1
-	float bloomIntensity = 0.8f;   // Intensity of final bloom
-	int bloomIterations = 5;       // Blur iteration pairs (H+V)
 };
 
 enum class ProjectionType
@@ -141,10 +135,10 @@ struct Camera
 	glm::vec3 GetUp() const { return glm::normalize(glm::cross(GetRight(), GetForward())); }
 
 	// Forward declarations for camera functions
-	void UpdateMouseState(GLFWwindow *window);
+	void UpdateMouseState();
 	void HandleOrbit(float deltaTime);
 	void HandlePan(float deltaTime);
-	void HandleZoom(float deltaTime, GLFWwindow *window);
+	void HandleZoom(float deltaTime);
 	void ApplyInertia(float deltaTime);
 	void UpdateCameraPosition();
 };

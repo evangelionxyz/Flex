@@ -160,7 +160,7 @@ void main()
     vec3 normalMapTex = texture(u_NormalTexture, _input.uv).rgb;
     float occlusionTex = texture(u_OcclusionTexture, _input.uv).r;
     float metallicVal = metallicRoughnessColorTex.b * u_Material.metallicFactor;
-    float roughnessTex = metallicRoughnessColorTex.g * u_Material.roughnessFactor;
+    float roughnessTex = metallicRoughnessColorTex.g * (1.0 - u_Material.roughnessFactor);
     float roughnessVal = clamp(roughnessTex, 0.0, 1.0);
 
     // Detect if occlusion texture is actually a white fallback (heuristic)
