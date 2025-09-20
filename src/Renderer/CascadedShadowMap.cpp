@@ -1,3 +1,5 @@
+#include "RendererCommon.h"
+
 #include "CascadedShadowMap.h"
 #include "Renderer/UniformBuffer.h"
 #include "Core/Camera.h"
@@ -6,12 +8,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 
-static constexpr int kCSMBinding = 3; // Matches shader binding
-
 CascadedShadowMap::CascadedShadowMap()
 {
     CreateResources();
-    m_UBO = UniformBuffer::Create(sizeof(GPUData), kCSMBinding);
+    m_UBO = UniformBuffer::Create(sizeof(GPUData), UNIFORM_BINDING_LOC_CSM);
 }
 
 CascadedShadowMap::~CascadedShadowMap()
@@ -43,15 +43,25 @@ void CascadedShadowMap::CreateResources()
 
 void CascadedShadowMap::DestroyResources()
 {
-    if (m_DepthArray) glDeleteTextures(1, &m_DepthArray);
-    if (m_FBO) glDeleteFramebuffers(1, &m_FBO);
-    m_DepthArray = 0; m_FBO = 0;
+    if (m_DepthArray) 
+    {
+        glDeleteTextures(1, &m_DepthArray);
+    }
+    
+    if (m_FBO)
+    {
+        glDeleteFramebuffers(1, &m_FBO);
+    } 
+    
+    m_DepthArray = 0;
+    m_FBO = 0;
 }
 
 static void GetFrustumCornersWS(const glm::mat4 &invViewProj, float nearZ, float farZ, std::array<glm::vec3,8> &out)
 {
     // NDC cube corners
-    std::array<glm::vec3,8> ndc = {
+    std::array<glm::vec3,8> ndc =
+    {
         glm::vec3(-1,-1,1), glm::vec3(1,-1,1), glm::vec3(1,1,1), glm::vec3(-1,1,1), // near (z=1 in OpenGL clip after projection? We'll derive using custom approach)
         glm::vec3(-1,-1,-1), glm::vec3(1,-1,-1), glm::vec3(1,1,-1), glm::vec3(-1,1,-1) // far
     };
@@ -77,13 +87,15 @@ void CascadedShadowMap::ComputeMatrices(const Camera &camera, const glm::vec3 &l
     float ratio = maxZ / minZ;
 
     std::array<float, NumCascades> cascadeEnds{};
-    for (int i = 0; i < NumCascades; ++i) {
+    for (int i = 0; i < NumCascades; ++i)
+    {
         float p = (i + 1) / (float)NumCascades;
         float logd = minZ * std::pow(ratio, p);
         float lined = minZ + range * p;
         float d = lambda * (logd - lined) + lined;
         cascadeEnds[i] = d;
     }
+
     m_Data.cascadeSplits = glm::vec4(cascadeEnds[0], cascadeEnds[1], cascadeEnds[2], cascadeEnds[3]);
 
     // Camera basis
@@ -112,10 +124,10 @@ void CascadedShadowMap::ComputeMatrices(const Camera &camera, const glm::vec3 &l
         cornersVS[1] = glm::vec3( tanFovX * nearDist, -tanFovY * nearDist, -nearDist);
         cornersVS[2] = glm::vec3( tanFovX * nearDist,  tanFovY * nearDist, -nearDist);
         cornersVS[3] = glm::vec3(-tanFovX * nearDist,  tanFovY * nearDist, -nearDist);
-        cornersVS[4] = glm::vec3(-tanFovX * farDist,   -tanFovY * farDist, -farDist);
-        cornersVS[5] = glm::vec3( tanFovX * farDist,   -tanFovY * farDist, -farDist);
-        cornersVS[6] = glm::vec3( tanFovX * farDist,    tanFovY * farDist, -farDist);
-        cornersVS[7] = glm::vec3(-tanFovX * farDist,    tanFovY * farDist, -farDist);
+        cornersVS[4] = glm::vec3(-tanFovX * farDist,  -tanFovY * farDist,  -farDist);
+        cornersVS[5] = glm::vec3( tanFovX * farDist,  -tanFovY * farDist,  -farDist);
+        cornersVS[6] = glm::vec3( tanFovX * farDist,   tanFovY * farDist,  -farDist);
+        cornersVS[7] = glm::vec3(-tanFovX * farDist,   tanFovY * farDist,  -farDist);
 
         // Transform to world space
         std::array<glm::vec3,8> cornersWS;
@@ -145,9 +157,16 @@ void CascadedShadowMap::ComputeMatrices(const Camera &camera, const glm::vec3 &l
         }
 
         // Extend depth range
-        float zMult = 10.0f;
-        if (minB.z < 0) minB.z *= zMult; else minB.z /= zMult;
-        if (maxB.z < 0) maxB.z /= zMult; else maxB.z *= zMult;
+        const float zMult = 10.0f;
+        if (minB.z < 0)
+            minB.z *= zMult;
+        else
+            minB.z /= zMult;
+        
+        if (maxB.z < 0)
+            maxB.z /= zMult;
+        else
+            maxB.z *= zMult;
 
         glm::mat4 lightProj = glm::ortho(minB.x, maxB.x, minB.y, maxB.y, -maxB.z, -minB.z);
 
@@ -180,7 +199,7 @@ void CascadedShadowMap::Update(const Camera &camera, const glm::vec3 &lightDir)
 void CascadedShadowMap::BeginCascade(int cascadeIndex)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, m_FBO);
-    glViewport(0,0,m_Resolution,m_Resolution);
+    glViewport(0, 0, m_Resolution, m_Resolution);
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_DepthArray, 0, cascadeIndex);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
@@ -200,5 +219,7 @@ void CascadedShadowMap::BindTexture(int unit) const
 void CascadedShadowMap::Upload()
 {
     if (m_UBO)
+    {
         m_UBO->SetData(&m_Data, sizeof(GPUData));
+    }
 }

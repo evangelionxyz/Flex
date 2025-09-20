@@ -17,8 +17,8 @@ struct MouseState
 struct CameraBuffer
 {
 	glm::mat4 viewProjection;
-	glm::vec4 position;
 	glm::mat4 view;
+	glm::vec4 position;
 };
 
 struct PostProcessing
@@ -27,6 +27,8 @@ struct PostProcessing
 	bool enableVignette = true;
 	bool enableChromAb = true;
 	bool enableBloom = true;
+	bool enableSSAO = true; // Screen space ambient occlusion
+	bool debugSSAO = false; // Visualize raw AO buffer
 	
 	// Vignette params
 	float vignetteRadius = 1.1f;
@@ -37,6 +39,12 @@ struct PostProcessing
 	// Chromatic aberration params
 	float chromAbAmount = 0.001f;
 	float chromAbRadial = 0.1f;
+
+	// SSAO params
+	float aoRadius = 0.5f;
+	float aoBias = 0.025f;
+	float aoIntensity = 1.0f; // blend strength when applied in post
+	float aoPower = 1.0f;     // curve/power for contrast
 };
 
 enum class ProjectionType
@@ -135,7 +143,6 @@ struct Camera
 	glm::vec3 GetRight() const { return glm::normalize(glm::cross(GetForward(), up)); }
 	glm::vec3 GetUp() const { return glm::normalize(glm::cross(GetRight(), GetForward())); }
 
-	// Forward declarations for camera functions
 	void UpdateMouseState();
 	void HandleOrbit(float deltaTime);
 	void HandlePan(float deltaTime);

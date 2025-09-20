@@ -6,6 +6,7 @@ layout (location = 0) in vec2 vUV;
 layout (binding = 0) uniform sampler2D u_ColorTexture;
 layout (binding = 1) uniform sampler2D u_DepthTexture;
 layout (binding = 3) uniform sampler2D u_BloomTexHQ; // High quality final bloom
+layout (binding = 8) uniform sampler2D u_AOTexture; // SSAO (optional)
 
 #define RENDER_MODE_DEPTH 4
 #define UNIFORM_BINDING_LOC_SCENE 1
@@ -36,6 +37,9 @@ uniform bool u_EnableDOF;
 uniform bool u_EnableVignette;
 uniform bool u_EnableChromAb;
 uniform bool u_EnableBloom;
+uniform bool u_EnableSSAO;
+uniform float u_AOIntensity; // blend strength
+uniform bool u_DebugSSAO;
 
 // Vignette uniforms
 uniform float u_VignetteRadius;
@@ -148,6 +152,19 @@ void main()
     else
     {
         vec4 baseColor = texture(u_ColorTexture, uv);
+        // Apply SSAO (multiply diffuse) before DOF/fog when still linear HDR
+        if (u_EnableSSAO)
+        {
+            float ao = texture(u_AOTexture, uv).r;
+            ao = clamp(ao, 0.0, 1.0);
+            if (u_DebugSSAO)
+            {
+                fragColor = vec4(vec3(ao), 1.0);
+                return;
+            }
+            float blendAO = mix(1.0, ao, u_AOIntensity);
+            baseColor.rgb *= blendAO;
+        }
 
         if (u_EnableChromAb)
         {

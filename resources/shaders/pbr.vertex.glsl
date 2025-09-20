@@ -11,6 +11,7 @@ layout (location = 5) in vec2 uv;
 layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
 {
     mat4 viewProjection;
+    mat4 view;
     vec4 position;
 } u_Camera;
 

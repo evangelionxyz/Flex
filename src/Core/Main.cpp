@@ -27,6 +27,7 @@
 #include "Renderer/Framebuffer.h"
 #include "Renderer/Bloom.h"
 #include "Renderer/Gizmo.h"
+#include "Renderer/SSAO.h"
 #include "Math/Math.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -65,6 +66,9 @@ public:
 		shader.SetUniform("u_EnableVignette", postProcessing.enableVignette ? 1 : 0);
 		shader.SetUniform("u_EnableChromAb", postProcessing.enableChromAb ? 1 : 0);
 		shader.SetUniform("u_EnableBloom", postProcessing.enableBloom ? 1 : 0);
+		shader.SetUniform("u_EnableSSAO", postProcessing.enableSSAO ? 1 : 0);
+		shader.SetUniform("u_AOIntensity", postProcessing.aoIntensity);
+		shader.SetUniform("u_DebugSSAO", postProcessing.debugSSAO ? 1 : 0);
 		shader.SetUniform("u_VignetteRadius", postProcessing.vignetteRadius);
 		shader.SetUniform("u_VignetteSoftness", postProcessing.vignetteSoftness);
 		shader.SetUniform("u_VignetteIntensity", postProcessing.vignetteIntensity);
@@ -76,7 +80,7 @@ public:
 
 		// Ensure the index buffer is bound for glDrawElements
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer->GetHandle());
-    	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 	}
 
 	void Create()
@@ -270,6 +274,7 @@ int main(int argc, char **argv)
 	};
 	std::shared_ptr<Framebuffer> framebuffer = Framebuffer::Create(framebufferCreateInfo);
 	Bloom bloom(WINDOW_WIDTH, WINDOW_HEIGHT);
+	SSAO ssao(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	window.SetFullscreenCallback([&](int width, int height, bool fullscreen)
 	{
@@ -298,6 +303,7 @@ int main(int argc, char **argv)
 		// Resize framebuffer
 		framebuffer->Resize(width, height);
 		bloom.Resize(width, height);
+		ssao.Resize(width, height);
 		screen.inverseProjection = glm::inverse(camera.projection);
 	});
 
@@ -434,7 +440,7 @@ int main(int argc, char **argv)
 		// Bind cascaded shadow map (binding = 6 in pbr.frag)
 		csm.BindTexture(6);
 		PBRShader.SetUniform("u_ShadowMap", 6);
-		PBRShader.SetUniform("u_View", camera.view);
+
 		static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibility
 		PBRShader.SetUniform("u_DebugShadows", debugShadowMode);
 
@@ -466,6 +472,12 @@ int main(int argc, char **argv)
 			glCullFace(GL_BACK);
 			glDepthFunc(prevDepthFunc);
 			glDepthMask(GL_TRUE);
+		}
+
+		// SSAO pass (before screen composite) if enabled
+		if (camera.postProcessing.enableSSAO)
+		{
+			ssao.Generate(framebuffer->GetDepthAttachment(), camera.projection, camera.postProcessing.aoRadius, camera.postProcessing.aoBias, camera.postProcessing.aoPower);
 		}
 
 		// SECOND PASS: Render framebuffer to default framebuffer (screen)
@@ -500,6 +512,12 @@ int main(int argc, char **argv)
 					// Fallback: unbind the texture unit if no valid bloom texture
 					glBindTextureUnit(3, 0);
 				}
+			}
+			// Bind SSAO texture (binding=8 in screen shader)
+			if (camera.postProcessing.enableSSAO)
+			{
+				uint32_t aoTex = ssao.GetAOTexture();
+				glBindTextureUnit(8, aoTex);
 			}
 			screen.Render(screenTexture, framebuffer->GetDepthAttachment(), camera, camera.postProcessing);
 		}
@@ -622,7 +640,7 @@ int main(int argc, char **argv)
 			ImGui::Separator();
 			// Projection type selector
 			{
-				const char* projLabels[] = {"Perspective", "Orthographic"};
+				static const char* projLabels[] = {"Perspective", "Orthographic"};
 				int projIndex = camera.projectionType == ProjectionType::Perspective ? 0 : 1;
 				if (ImGui::Combo("Projection", &projIndex, projLabels, IM_ARRAYSIZE(projLabels)))
 				{
@@ -660,7 +678,11 @@ int main(int argc, char **argv)
 				changed |= ImGui::DragFloat("Min Bias", (float*)&data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
 				changed |= ImGui::DragFloat("Max Bias", (float*)&data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
 				changed |= ImGui::SliderFloat("PCF Radius", (float*)&data.pcfRadius, 0.1f, 4.0f);
-				if (ImGui::Combo("Resolution", &shadowResolution, "1024\0" "2048\0" "4096\0"))
+
+				static const char* resolutionLabels[] = {"1024", "2048", "4096"};
+				int projIndex = camera.projectionType == ProjectionType::Perspective ? 0 : 1;
+
+				if (ImGui::Combo("Resolution", &shadowResolution, resolutionLabels, IM_ARRAYSIZE(resolutionLabels)))
 				{
 					int res = shadowResolution == 0 ? 1024 : (shadowResolution == 1 ? 2048 : 4096);
 					csm.Resize(res);
@@ -707,7 +729,15 @@ int main(int argc, char **argv)
 			ImGui::DragFloat("Radius", &bloom.settings.radius, 0.025, 0.0f, 1.0f);
 			ImGui::SliderInt("Iterations", &bloom.settings.iterations, 1, 8);
 
-			if (ImGui::CollapsingHeader("Render Mode"))
+			ImGui::SeparatorText("SSAO");
+			ImGui::Checkbox("Enable SSAO", &camera.postProcessing.enableSSAO);
+			ImGui::Checkbox("Debug SSAO", &camera.postProcessing.debugSSAO);
+			ImGui::DragFloat("AO Radius", &camera.postProcessing.aoRadius, 0.01f, 0.05f, 5.0f);
+			ImGui::DragFloat("AO Bias", &camera.postProcessing.aoBias, 0.001f, 0.0f, 0.2f, "%.4f");
+			ImGui::DragFloat("AO Intensity", &camera.postProcessing.aoIntensity, 0.01f, 0.0f, 4.0f);
+			ImGui::DragFloat("AO Power", &camera.postProcessing.aoPower, 0.01f, 0.1f, 4.0f);
+
+			if (ImGui::CollapsingHeader("Render Mode", ImGuiTreeNodeFlags_DefaultOpen))
 			{
 				int mode = (int)sceneData.renderMode;
 				if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;

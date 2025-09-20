@@ -29,18 +29,10 @@ public:
     ~CascadedShadowMap();
 
     void Resize(int resolution);
-
-    // Update cascade split distances and light matrices; call each frame when camera or light changes
     void Update(const Camera &camera, const glm::vec3 &lightDir);
-
-    // Begin rendering a cascade layer (bind FBO + set viewport + attach correct layer)
     void BeginCascade(int cascadeIndex);
     void EndCascade();
-
-    // Bind shadow map texture array to a texture unit
     void BindTexture(int unit) const;
-
-    // Upload UBO to GPU
     void Upload();
 
     const GPUData &GetData() const { return m_Data; }

@@ -1,13 +1,20 @@
 #version 460
 layout (location = 0) in vec3 aPos;
-uniform mat4 u_Model;
+
 layout(std140, binding = 3) uniform CascadedShadows
 {
-    mat4 u_LightViewProj[4];
-    vec4 u_CascadeSplits;
-    float u_ShadowStrength; float u_MinBias; float u_MaxBias; float u_PcfRadius;
+    mat4 lightViewProj[4];
+    vec4 cascadeSplits;
+    float shadowStrength;
+    float minBias;
+    float maxBias;
+    float pcfRadius;
 } u_CSM;
+
+uniform mat4 u_Model;
 uniform int u_CascadeIndex;
-void main(){
-    gl_Position = u_CSM.u_LightViewProj[u_CascadeIndex] * u_Model * vec4(aPos,1.0);
+
+void main()
+{
+    gl_Position = u_CSM.lightViewProj[u_CascadeIndex] * u_Model * vec4(aPos,1.0);
 }

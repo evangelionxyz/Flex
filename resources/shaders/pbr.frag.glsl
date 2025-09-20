@@ -87,14 +87,15 @@ vec3 GetNormalFromMap(vec3 normal, vec3 tangent, vec3 bitangent, vec2 uv, sample
 #define UNIFORM_BINDING_LOC_CAMERA 0
 #define UNIFORM_BINDING_LOC_SCENE 1
 #define UNIFORM_BINDING_LOC_MATERIAL 2
+#define UNIFORM_BINDING_LOC_CSM 3
 
 #define NUM_CASCADES 4
-#define UNIFORM_BINDING_LOC_CSM 3
 
 layout (location = 0) out vec4 fragColor;
 layout (std140, binding = UNIFORM_BINDING_LOC_CAMERA) uniform Camera
 {
     mat4 viewProjection;
+    mat4 view; // provide camera view matrix for view-space depth
     vec4 position;
 } u_Camera;
 
@@ -121,12 +122,12 @@ layout (std140, binding = UNIFORM_BINDING_LOC_MATERIAL) uniform Material
 
 layout (std140, binding = UNIFORM_BINDING_LOC_CSM) uniform CascadedShadows
 {
-    mat4 u_LightViewProj[NUM_CASCADES];
-    vec4 u_CascadeSplits; // view-space distances (camera space z positive forward magnitude)
-    float u_ShadowStrength;
-    float u_MinBias;
-    float u_MaxBias;
-    float u_PcfRadius;
+    mat4 lightViewProj[NUM_CASCADES];
+    vec4 cascadeSplits; // view-space distances (camera space z positive forward magnitude)
+    float shadowStrength;
+    float minBias;
+    float maxBias;
+    float pcfRadius;
 } u_CSM;
 
 layout (location = 0) in VERTEX 
@@ -148,37 +149,41 @@ layout (binding = 4) uniform sampler2D u_OcclusionTexture;
 layout (binding = 5) uniform sampler2D u_EnvironmentTexture;
 layout (binding = 6) uniform sampler2DArray u_ShadowMap; // depth array
 
-uniform mat4 u_View; // provide camera view matrix for view-space depth
 uniform int u_DebugShadows; // 1 = visualize cascades, 2 = visualize visibility factor
 
 int GetCascadeIndex(float viewDepth)
 {
-    if (viewDepth < u_CSM.u_CascadeSplits.x) return 0;
-    if (viewDepth < u_CSM.u_CascadeSplits.y) return 1;
-    if (viewDepth < u_CSM.u_CascadeSplits.z) return 2;
+    if (viewDepth < u_CSM.cascadeSplits.x) return 0;
+    if (viewDepth < u_CSM.cascadeSplits.y) return 1;
+    if (viewDepth < u_CSM.cascadeSplits.z) return 2;
     return 3;
 }
 
 float SampleShadow(vec3 worldPos, vec3 normal, vec3 lightDir)
 {
     // view depth (positive forward distance)
-    vec3 viewPos = (u_View * vec4(worldPos,1.0)).xyz;
+    vec3 viewPos = (u_Camera.view * vec4(worldPos,1.0)).xyz;
     float viewDepth = -viewPos.z; // camera looks -Z
     int ci = GetCascadeIndex(viewDepth);
-    mat4 lightVP = u_CSM.u_LightViewProj[ci];
+    mat4 lightVP = u_CSM.lightViewProj[ci];
     vec4 ls = lightVP * vec4(worldPos,1.0);
     ls.xyz /= ls.w;
+
     vec3 uvw = ls.xyz * 0.5 + 0.5;
     if (uvw.x < 0.0 || uvw.x > 1.0 || uvw.y < 0.0 || uvw.y > 1.0)
         return 1.0;
+
     float cosTheta = clamp(dot(normal, lightDir), 0.0, 1.0);
-    float bias = mix(u_CSM.u_MaxBias, u_CSM.u_MinBias, cosTheta);
-    vec2 texel = 1.0 / vec2(textureSize(u_ShadowMap,0));
-    float radius = u_CSM.u_PcfRadius;
-    float sum = 0.0; int cnt = 0;
-    for (int x=-2; x<=2; ++x)
+    float bias = mix(u_CSM.maxBias, u_CSM.minBias, cosTheta);
+    vec2 texel = 1.0 / vec2(textureSize(u_ShadowMap, 0));
+    float radius = u_CSM.pcfRadius;
+    
+    float sum = 0.0;
+    int cnt = 0;
+    
+    for (int x = -2; x <= 2; ++x)
     {
-        for (int y=-2; y<=2; ++y)
+        for (int y = -2; y <= 2; ++y)
         {
             vec2 offs = vec2(x,y) * texel * radius;
             float d = texture(u_ShadowMap, vec3(uvw.xy + offs, ci)).r;
@@ -186,8 +191,9 @@ float SampleShadow(vec3 worldPos, vec3 normal, vec3 lightDir)
             cnt++;
         }
     }
+
     float vis = sum / float(cnt);
-    return mix(1.0, vis, u_CSM.u_ShadowStrength);
+    return mix(1.0, vis, u_CSM.shadowStrength);
 }
 
 void main()
@@ -205,6 +211,7 @@ void main()
         sin(elevation),
         cos(elevation) * sin(azimuth)
     );
+
     // lightDirection = surface -> light
     vec3 lightDirection = normalize(sunDirection);
 
@@ -243,13 +250,13 @@ void main()
         float reflectionStrength = mix(0.01, 1.0, metallicVal) * (1.0 - roughnessVal);
         vec3 F = SchlickFresnel(viewDirection, finalNormal, specularColor);
         float NdotR = clamp(dot(finalNormal, reflectDirection), 0.0, 1.0);
+
         vec3 reflectedSpecular = GGXReflect(finalNormal, 
-            viewDirection, 
+            viewDirection,
             reflectDirection, 
             reflectRadiance, 
             specularColor, 
-            roughnessVal
-        ) * reflectionStrength * NdotR * F;
+            roughnessVal) * reflectionStrength * NdotR * F;
 
         // Direct light
         vec3 irradiance = u_Scene.lightColor.rgb * u_Scene.lightColor.w;
@@ -288,11 +295,15 @@ void main()
         if (u_DebugShadows == 1)
         {
             // visualize cascade index by re-running selection
-            vec3 viewPos = (u_View * vec4(_input.worldPosition,1.0)).xyz;
+            vec3 viewPos = (u_Camera.view * vec4(_input.worldPosition,1.0)).xyz;
             float viewDepth = -viewPos.z;
             int ci = GetCascadeIndex(viewDepth);
-            vec3 dbg = ci == 0 ? vec3(1,0,0) : (ci==1?vec3(0,1,0):(ci==2?vec3(0,0,1):vec3(1,1,0)));
-            fragColor = vec4(dbg,1.0);
+            vec3 dbg = ci == 0 ? vec3(1,0,0) 
+                : (ci == 1 ? vec3(0, 1, 0) 
+                : (ci == 2 ? vec3(0, 0, 1) 
+                : vec3(1, 1, 0)));
+            
+            fragColor = vec4(dbg, 1.0);
         }
         else if (u_DebugShadows == 2)
         {
