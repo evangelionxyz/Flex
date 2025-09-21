@@ -177,6 +177,8 @@ int main(int argc, char **argv)
 	windowCreateInfo.height = WINDOW_HEIGHT;
 	Window window(windowCreateInfo);
 
+	Renderer::Init();
+
 	// Initialize ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -769,6 +771,8 @@ int main(int argc, char **argv)
 	ImGui::DestroyContext();
 
 	TextRenderer::Shutdown();
+
+	Renderer::Shutdown();
 
 	return 0;
 }

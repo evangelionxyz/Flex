@@ -151,26 +151,28 @@ struct TextRendererData
     std::shared_ptr<Shader> shader;
 };
 
-static TextRendererData s_TextData;
+static TextRendererData *s_TextData = nullptr;
 
 void TextRenderer::Init()
 {
-    s_TextData.shader = std::make_shared<Shader>();
-    s_TextData.shader->AddFromFile("resources/shaders/text.vertex.glsl", GL_VERTEX_SHADER)
+    s_TextData = new TextRendererData();
+
+    s_TextData->shader = std::make_shared<Shader>();
+    s_TextData->shader->AddFromFile("resources/shaders/text.vertex.glsl", GL_VERTEX_SHADER)
         .AddFromFile("resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER)
         .Compile();
 
     // Bind sampler array once (textures[0..31])
-    s_TextData.shader->Use();
+    s_TextData->shader->Use();
     for (int i = 0; i < 32; ++i)
-        s_TextData.shader->SetUniform(std::string("textures[") + std::to_string(i) + "]", i);
+        s_TextData->shader->SetUniform(std::string("textures[") + std::to_string(i) + "]", i);
 
-    s_TextData.fonts = {nullptr};
-    s_TextData.vertexPointerBase = new FontVertex[TextRendererData::MAX_VERTICES];
+    s_TextData->fonts = {nullptr};
+    s_TextData->vertexPointerBase = new FontVertex[TextRendererData::MAX_VERTICES];
 
-    s_TextData.vertexArray = std::make_shared<VertexArray>();
-    s_TextData.vertexBuffer = std::make_shared<VertexBuffer>(sizeof(FontVertex) * TextRendererData::MAX_VERTICES);
-    s_TextData.vertexBuffer->SetAttributes(
+    s_TextData->vertexArray = std::make_shared<VertexArray>();
+    s_TextData->vertexBuffer = std::make_shared<VertexBuffer>(sizeof(FontVertex) * TextRendererData::MAX_VERTICES);
+    s_TextData->vertexBuffer->SetAttributes(
     {
         {VertexAttribType::VECTOR_FLOAT_3, false},
         {VertexAttribType::VECTOR_FLOAT_3, false},
@@ -193,26 +195,29 @@ void TextRenderer::Init()
 		offset += 4;
 	}
     
-    s_TextData.indexBuffer = std::make_shared<IndexBuffer>(quadIndices, TextRendererData::MAX_INDICES);
+    s_TextData->indexBuffer = std::make_shared<IndexBuffer>(quadIndices, TextRendererData::MAX_INDICES);
 	delete[] quadIndices;
 
-    s_TextData.vertexArray->SetVertexBuffer(s_TextData.vertexBuffer);
-    s_TextData.vertexArray->SetIndexBuffer(s_TextData.indexBuffer);
+    s_TextData->vertexArray->SetVertexBuffer(s_TextData->vertexBuffer);
+    s_TextData->vertexArray->SetIndexBuffer(s_TextData->indexBuffer);
 }
 
 void TextRenderer::Shutdown()
 {
-    if (s_TextData.vertexPointerBase)
-        delete[] s_TextData.vertexPointerBase;
+    if (s_TextData && s_TextData->vertexPointerBase)
+    {
+        delete[] s_TextData->vertexPointerBase;
+        delete s_TextData;
+    }
 }
 
 void TextRenderer::Begin(const glm::mat4 &viewProjection)
 {
-    s_TextData.vertexPointer = s_TextData.vertexPointerBase;
-    s_TextData.indexCount = 0;
+    s_TextData->vertexPointer = s_TextData->vertexPointerBase;
+    s_TextData->indexCount = 0;
 
-    s_TextData.shader->Use();
-    s_TextData.shader->SetUniform("viewProjection", viewProjection);
+    s_TextData->shader->Use();
+    s_TextData->shader->SetUniform("viewProjection", viewProjection);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -220,31 +225,31 @@ void TextRenderer::Begin(const glm::mat4 &viewProjection)
 
 void TextRenderer::End()
 {
-    if (s_TextData.indexCount)
+    if (s_TextData->indexCount)
     {
-        s_TextData.vertexArray->Bind();
+        s_TextData->vertexArray->Bind();
 
-        uint64_t byteSize = (uint64_t)((uint8_t *)(s_TextData.vertexPointer) - (uint8_t *)(s_TextData.vertexPointerBase));
-        s_TextData.vertexBuffer->SetData(s_TextData.vertexPointerBase, byteSize);
+        uint64_t byteSize = (uint64_t)((uint8_t *)(s_TextData->vertexPointer) - (uint8_t *)(s_TextData->vertexPointerBase));
+        s_TextData->vertexBuffer->SetData(s_TextData->vertexPointerBase, byteSize);
 
-        for (uint32_t i = 0; i < s_TextData.fontTextureIndex; ++i)
+        for (uint32_t i = 0; i < s_TextData->fontTextureIndex; ++i)
         {
-            if (s_TextData.fonts[i])
+            if (s_TextData->fonts[i])
             {
                 glActiveTexture(GL_TEXTURE0 + i);
-                glBindTexture(GL_TEXTURE_2D, s_TextData.fonts[i]->GetTextureHandle());
+                glBindTexture(GL_TEXTURE_2D, s_TextData->fonts[i]->GetTextureHandle());
             }
         }
 
-        glDrawElements(GL_TRIANGLES, s_TextData.indexCount, GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, s_TextData->indexCount, GL_UNSIGNED_INT, nullptr);
     }
 }
 
 void TextRenderer::DrawString(Font *font, const std::string &text, const glm::mat4 &transform, const glm::vec3 &color, const TextParameter &params)
 {
     // Bounds check: ensure both index and vertex capacity remain within limits
-    if (s_TextData.indexCount + 6 * text.size() > TextRendererData::MAX_INDICES ||
-        (uint32_t)((s_TextData.vertexPointer - s_TextData.vertexPointerBase) + 4 * text.size()) > TextRendererData::MAX_VERTICES)
+    if (s_TextData->indexCount + 6 * text.size() > TextRendererData::MAX_INDICES ||
+        (uint32_t)((s_TextData->vertexPointer - s_TextData->vertexPointerBase) + 4 * text.size()) > TextRendererData::MAX_VERTICES)
     {
         return;
     }
@@ -254,12 +259,12 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
     // load store new font
     if (textureIndex == -1)
     {
-        if (s_TextData.fontTextureIndex >= s_TextData.MAX_FONTS)
+        if (s_TextData->fontTextureIndex >= s_TextData->MAX_FONTS)
         {
             return;
         }
-        textureIndex = s_TextData.fontTextureIndex++;
-        s_TextData.fonts[textureIndex] = font;
+        textureIndex = s_TextData->fontTextureIndex++;
+        s_TextData->fonts[textureIndex] = font;
     }
 
     const auto &fontGeometry = font->GetGeometry();
@@ -342,31 +347,31 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
 		texCoordMin *= glm::vec2(texel_width, texel_height);
 		texCoordMax *= glm::vec2(texel_width, texel_height);
 
-        s_TextData.vertexPointer->position = transform * glm::vec4(quadMin, 0.0f, 1.0f);
-        s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->uv = texCoordMin;
-        s_TextData.vertexPointer->textureIndex = textureIndex;
-        s_TextData.vertexPointer++;
+        s_TextData->vertexPointer->position = transform * glm::vec4(quadMin, 0.0f, 1.0f);
+        s_TextData->vertexPointer->color = color;
+        s_TextData->vertexPointer->uv = texCoordMin;
+        s_TextData->vertexPointer->textureIndex = textureIndex;
+        s_TextData->vertexPointer++;
 
-        s_TextData.vertexPointer->position = transform * glm::vec4(quadMin.x, quadMax.y, 0.0f, 1.0f);
-        s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->uv = { texCoordMin.x, texCoordMax.y };
-        s_TextData.vertexPointer->textureIndex = textureIndex;
-        s_TextData.vertexPointer++;
+        s_TextData->vertexPointer->position = transform * glm::vec4(quadMin.x, quadMax.y, 0.0f, 1.0f);
+        s_TextData->vertexPointer->color = color;
+        s_TextData->vertexPointer->uv = { texCoordMin.x, texCoordMax.y };
+        s_TextData->vertexPointer->textureIndex = textureIndex;
+        s_TextData->vertexPointer++;
 
-        s_TextData.vertexPointer->position = transform * glm::vec4(quadMax, 0.0f, 1.0f);
-        s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->uv = texCoordMax;
-        s_TextData.vertexPointer->textureIndex = textureIndex;
-        s_TextData.vertexPointer++;
+        s_TextData->vertexPointer->position = transform * glm::vec4(quadMax, 0.0f, 1.0f);
+        s_TextData->vertexPointer->color = color;
+        s_TextData->vertexPointer->uv = texCoordMax;
+        s_TextData->vertexPointer->textureIndex = textureIndex;
+        s_TextData->vertexPointer++;
 
-        s_TextData.vertexPointer->position = transform * glm::vec4(quadMax.x, quadMin.y, 0.0f, 1.0f);
-        s_TextData.vertexPointer->color = color;
-        s_TextData.vertexPointer->uv = { texCoordMax.x, texCoordMin.y };
-        s_TextData.vertexPointer->textureIndex = textureIndex;
-        s_TextData.vertexPointer++;
+        s_TextData->vertexPointer->position = transform * glm::vec4(quadMax.x, quadMin.y, 0.0f, 1.0f);
+        s_TextData->vertexPointer->color = color;
+        s_TextData->vertexPointer->uv = { texCoordMax.x, texCoordMin.y };
+        s_TextData->vertexPointer->textureIndex = textureIndex;
+        s_TextData->vertexPointer++;
 
-        s_TextData.indexCount += 6;
+        s_TextData->indexCount += 6;
 
 		if (i < text.size())
 		{
@@ -383,9 +388,9 @@ void TextRenderer::DrawString(Font *font, const std::string &text, const glm::ma
 
 int TextRenderer::GetFontTextureIndex(Font *font)
 {
-    for (int i = 0; i < s_TextData.MAX_FONTS; ++i)
+    for (int i = 0; i < s_TextData->MAX_FONTS; ++i)
     {
-        if (s_TextData.fonts[i] == font)
+        if (s_TextData->fonts[i] == font)
             return i;
     }
     return -1;

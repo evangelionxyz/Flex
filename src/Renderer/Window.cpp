@@ -22,15 +22,15 @@ void GLFWErrorCallback(int errorCode, const char* description)
 {
     std::cerr << "GLFW Error: " << description << " [" << errorCode << "]\n";
     
-    // Don't assert on Wayland window position errors (error code 65548)
-    // This is expected behavior on Wayland
-    if (errorCode == 65548)
+    // Don't assert on expected Wayland errors or initialization timing issues
+    if (errorCode == 65548 ||  // Wayland window position not supported
+        errorCode == 65537)    // GLFW not initialized (can happen during shutdown)
     {
-        std::cerr << "Note: Window positioning is not supported on Wayland - this is normal\n";
+        std::cerr << "Note: This is expected behavior and not a critical error\n";
         return;
     }
     
-    assert(false);
+    assert(false && "GLFW Error" && description && "Error Code: " && errorCode);
 }
 
 Window::Window(const WindowCreateInfo &createInfo)
@@ -231,6 +231,8 @@ void Window::ToggleFullScreen()
     if (m_Data.fullscreen)
     {
         // Save current window position and size before going fullscreen
+        // Note: On Wayland, glfwGetWindowPos will trigger an error but won't crash
+        // since we handle it gracefully in our error callback
         glfwGetWindowPos(m_Handle, &m_Data.x, &m_Data.y);
         glfwSetWindowSize(m_Handle, m_Data.width, m_Data.height);
 
@@ -242,6 +244,7 @@ void Window::ToggleFullScreen()
     else
     {
         // Exit fullscreen - restore window position and size
+        // Note: On Wayland, window positioning will be ignored
         glfwSetWindowMonitor(m_Handle, nullptr, m_Data.x, m_Data.y, m_Data.width, m_Data.height, 0);
         if (m_Data.fullscreenCb)
             m_Data.fullscreenCb(m_Data.width, m_Data.height, false);

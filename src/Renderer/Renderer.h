@@ -9,6 +9,9 @@ class Texture2D;
 class Renderer
 {
 public:
+    static void Init();
+    static void Shutdown();
+    
     static void Draw(std::shared_ptr<VertexArray> vertexArray, uint32_t count);
     static void DrawIndexed(std::shared_ptr<VertexArray> vertexArray, std::shared_ptr<IndexBuffer> indexBuffer = nullptr);
 
