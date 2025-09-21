@@ -530,7 +530,8 @@ bool Gizmo::RayIntersectsRing(const Ray& ray, const glm::mat4& transform, float 
     glm::vec3 localDirection = glm::normalize(glm::vec3(invTransform * glm::vec4(ray.direction, 0.0f)));
 
     // Check intersection with ring plane (Y = 0)
-    if (abs(localDirection.y) < 0.001f) return false;
+    if (std::abs(localDirection.y) < 0.001f)
+        return false;
 
     float t = -localOrigin.y / localDirection.y;
     if (t < 0.0f) return false;

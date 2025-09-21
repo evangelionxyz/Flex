@@ -25,9 +25,9 @@ struct PostProcessing
 {
 	// Toggles
 	bool enableVignette = true;
-	bool enableChromAb = true;
-	bool enableBloom = true;
-	bool enableSSAO = true; // Screen space ambient occlusion
+	bool enableChromAb = false;
+	bool enableBloom = false;
+	bool enableSSAO = false; // Screen space ambient occlusion
 	bool debugSSAO = false; // Visualize raw AO buffer
 	
 	// Vignette params
@@ -62,7 +62,7 @@ struct CameraLens
 	float blurAmount = 1.0f;
 	float exposure = 1.1f;
 	float gamma = 1.1f;
-	bool enableDOF = true;
+	bool enableDOF = false;
 };
 
 struct Camera

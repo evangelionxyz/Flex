@@ -15,6 +15,6 @@ inline void UIDrawImage(const std::shared_ptr<Texture2D> &texture, float width, 
 
     if (!text.empty())
     {
-        ImGui::SameLine(); ImGui::Text(text.c_str());
+        ImGui::SameLine(); ImGui::Text("%s", text.c_str());
     }
 }

@@ -8,6 +8,13 @@ class UniformBuffer;
 class Shader;
 class Camera;
 
+enum class CascadedQuality
+{
+    Low,
+    Medium,
+    High
+};
+
 // Simple cascaded shadow map implementation for a directional light (sun)
 class CascadedShadowMap
 {
@@ -25,10 +32,10 @@ public:
         float padding[3];
     };
 
-    CascadedShadowMap();
+    CascadedShadowMap(CascadedQuality quality);
     ~CascadedShadowMap();
 
-    void Resize(int resolution);
+    void Resize(CascadedQuality quality);
     void Update(const Camera &camera, const glm::vec3 &lightDir);
     void BeginCascade(int cascadeIndex);
     void EndCascade();
@@ -37,6 +44,7 @@ public:
 
     const GPUData &GetData() const { return m_Data; }
     GPUData &GetData() { return m_Data; }
+    const CascadedQuality GetQuality() const { return m_Quality; }
 
 private:
     void CreateResources();
@@ -46,7 +54,8 @@ private:
 private:
     unsigned int m_FBO = 0;
     unsigned int m_DepthArray = 0;
-    int m_Resolution = 2048;
+    int m_Resolution = 0;
+    CascadedQuality m_Quality;
     GPUData m_Data{};
     std::shared_ptr<UniformBuffer> m_UBO; // binding = 3
 };

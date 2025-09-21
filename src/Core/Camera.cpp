@@ -50,7 +50,7 @@ void Camera::HandleOrbit(float deltaTime)
 			}
 			
 			// Apply zoom velocity
-			if (controls.enableInertia && abs(zoomVelocity) > 0.001f)
+			if (controls.enableInertia && std::abs(zoomVelocity) > 0.001f)
 			{
 				distance -= zoomVelocity * deltaTime;
 				distance = glm::clamp(distance, controls.minDistance, controls.maxDistance);
@@ -59,7 +59,7 @@ void Camera::HandleOrbit(float deltaTime)
 				zoomVelocity *= controls.zoomDamping;
 				
 				// Stop very small velocities
-				if (abs(zoomVelocity) < 0.001f)
+				if (std::abs(zoomVelocity) < 0.001f)
 				{
 					zoomVelocity = 0.0f;
 				}
@@ -151,7 +151,7 @@ void Camera::HandleZoom(float deltaTime)
 	}
 	
 	// Apply zoom velocity
-	if (controls.enableInertia && abs(zoomVelocity) > 0.001f)
+	if (controls.enableInertia && std::abs(zoomVelocity) > 0.001f)
 	{
 		distance -= zoomVelocity * deltaTime * 10.0f;
 		distance = glm::clamp(distance, controls.minDistance, controls.maxDistance);
@@ -160,7 +160,7 @@ void Camera::HandleZoom(float deltaTime)
 		zoomVelocity *= controls.zoomDamping;
 		
 		// Stop very small velocities
-		if (abs(zoomVelocity) < 0.001f)
+		if (std::abs(zoomVelocity) < 0.001f)
 		{
 			zoomVelocity = 0.0f;
 		}

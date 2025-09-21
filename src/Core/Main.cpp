@@ -261,7 +261,7 @@ int main(int argc, char **argv)
 
 	CameraBuffer cameraData{};
 	SceneData sceneData{};
-	CascadedShadowMap csm; // uses binding = 3 for UBO
+	CascadedShadowMap csm(CascadedQuality::Medium); // uses binding = 3 for UBO
 
 	std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), UNIFORM_BINDING_LOC_CAMERA);
 	std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), UNIFORM_BINDING_LOC_SCENE);
@@ -682,21 +682,21 @@ int main(int argc, char **argv)
 			ImGui::SeparatorText("Shadows");
 			{
 				auto &data = csm.GetData();
-				static int shadowResolution = 2048;
 				bool changed = false;
 				changed |= ImGui::SliderFloat("Strength", (float*)&data.shadowStrength, 0.0f, 1.0f);
 				changed |= ImGui::DragFloat("Min Bias", (float*)&data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
 				changed |= ImGui::DragFloat("Max Bias", (float*)&data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
 				changed |= ImGui::SliderFloat("PCF Radius", (float*)&data.pcfRadius, 0.1f, 4.0f);
 
-				static const char* resolutionLabels[] = {"1024", "2048", "4096"};
-				int projIndex = camera.projectionType == ProjectionType::Perspective ? 0 : 1;
+				static const char* resolutionLabels[] = {"Low - 1024px", "Medium - 2048px", "High - 4096px"};
+				int cascadeQualityIndex = static_cast<int>(csm.GetQuality());
 
-				if (ImGui::Combo("Resolution", &shadowResolution, resolutionLabels, IM_ARRAYSIZE(resolutionLabels)))
+				if (ImGui::Combo("Resolution", &cascadeQualityIndex, resolutionLabels, IM_ARRAYSIZE(resolutionLabels)))
 				{
-					int res = shadowResolution == 0 ? 1024 : (shadowResolution == 1 ? 2048 : 4096);
-					csm.Resize(res);
+					auto quality = static_cast<CascadedQuality>(cascadeQualityIndex);
+					csm.Resize(quality);
 				}
+
 				ImGui::Separator();
 				ImGui::Text("Shadow Debug");
 				ImGui::RadioButton("Off##ShadowDbg", &debugShadowMode, 0); ImGui::SameLine();

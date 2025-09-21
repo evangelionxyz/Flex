@@ -8,8 +8,16 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 
-CascadedShadowMap::CascadedShadowMap()
+CascadedShadowMap::CascadedShadowMap(CascadedQuality quality)
+    : m_Quality(quality)
 {
+    switch (quality)
+    {
+        case CascadedQuality::Low: m_Resolution = 1024; break;
+        case CascadedQuality::Medium: m_Resolution = 2048; break;
+        case CascadedQuality::High: m_Resolution = 4096; break;
+    }
+
     CreateResources();
     m_UBO = UniformBuffer::Create(sizeof(GPUData), UNIFORM_BINDING_LOC_CSM);
 }
@@ -19,9 +27,20 @@ CascadedShadowMap::~CascadedShadowMap()
     DestroyResources();
 }
 
-void CascadedShadowMap::Resize(int resolution)
+void CascadedShadowMap::Resize(CascadedQuality quality)
 {
-    if (resolution == m_Resolution) return;
+    int resolution = m_Resolution;
+
+    switch (quality)
+    {
+        case CascadedQuality::Low: resolution = 1024; break;
+        case CascadedQuality::Medium: resolution = 2048; break;
+        case CascadedQuality::High: resolution = 4096; break;
+    }
+
+    if (resolution == m_Resolution)
+        return;
+    
     m_Resolution = resolution;
     DestroyResources();
     CreateResources();
