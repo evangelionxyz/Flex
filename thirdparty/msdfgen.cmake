@@ -20,4 +20,6 @@ target_compile_definitions(MSDFGEN PUBLIC
     MSDF_USE_CPP11
 )
 
+target_link_libraries(MSDFGEN PRIVATE FREETYPE)
+
 set_target_properties(MSDFGEN PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED YES)

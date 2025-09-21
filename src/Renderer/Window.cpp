@@ -18,9 +18,18 @@
 
 Window *s_Window = nullptr;
 
-void GLFWErrorCallback(int error_code, const char* description)
+void GLFWErrorCallback(int errorCode, const char* description)
 {
-    std::cerr << "GLFW Error: " << description << " [" << error_code << "]\n";
+    std::cerr << "GLFW Error: " << description << " [" << errorCode << "]\n";
+    
+    // Don't assert on Wayland window position errors (error code 65548)
+    // This is expected behavior on Wayland
+    if (errorCode == 65548)
+    {
+        std::cerr << "Note: Window positioning is not supported on Wayland - this is normal\n";
+        return;
+    }
+    
     assert(false);
 }
 
@@ -96,12 +105,16 @@ Window::Window(const WindowCreateInfo &createInfo)
     else
     {
         GLFWmonitor *monitor = glfwGetPrimaryMonitor();
-        int monitorWidth, monitorHeight;
-        glfwGetMonitorWorkarea(monitor, nullptr, nullptr, &monitorWidth, &monitorHeight);
+        const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+        int monitorWidth = mode->width;
+        int monitorHeight = mode->height;
     
         // Center window
         m_Data.x = monitorWidth / 2 - m_Data.width / 2;
         m_Data.y = monitorHeight / 2 - m_Data.height / 2;
+        
+        // Try to set window position - this will fail silently on Wayland
+        // and trigger our error callback, but we handle that gracefully now
         glfwSetWindowPos(m_Handle, m_Data.x, m_Data.y);
     }
 }

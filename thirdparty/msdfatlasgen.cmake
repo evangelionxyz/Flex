@@ -12,4 +12,6 @@ target_include_directories(MSDF_ATLAS_GEN PUBLIC
     thirdparty/msdfatlasgen/msdfgen/include/
 )
 
+target_link_libraries(MSDF_ATLAS_GEN PRIVATE MSDFGEN)
+
 set_target_properties(MSDF_ATLAS_GEN PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
