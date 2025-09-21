@@ -1,12 +1,12 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 #include <vector>
 #include <array>
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
-#include <format>
 #include <memory>
 
 #include "UIHelper.h"
@@ -359,8 +359,12 @@ int main(int argc, char **argv)
 		statusUpdateInterval -= deltaTime;
 		if (statusUpdateInterval <= 0.0)
 		{
-			std::string statInfo = std::format("OpenGL - FPS {:.3} | {:.3} ms Camera Y: {:.3} P: {:.3}", FPS, deltaTime * 1000.0, camera.yaw, camera.pitch);
-			window.SetWindowTitle(statInfo);
+			std::stringstream ss;
+			ss << "OpenGL - FPS " << std::fixed << std::setprecision(3) << FPS 
+			   << " | " << std::fixed << std::setprecision(3) << deltaTime * 1000.0 
+			   << " ms Camera Y: " << std::fixed << std::setprecision(3) << camera.yaw 
+			   << " P: " << std::fixed << std::setprecision(3) << camera.pitch;
+			window.SetWindowTitle(ss.str());
 			statusUpdateInterval = 1.0;
 		}
 
@@ -566,7 +570,9 @@ int main(int argc, char **argv)
 				ImGui::PushID(i);
 				bool removing = false;
 				std::shared_ptr<Model> &model = scene.models[i];
-				if (ImGui::CollapsingHeader(std::format("Model {}", static_cast<int>(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+				std::stringstream ss;
+				ss << "Model " << static_cast<int>(i);
+				if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					if (ImGui::Button("Remove"))
 					{
@@ -607,7 +613,9 @@ int main(int argc, char **argv)
 
 								// ====== Material ======
 								std::shared_ptr<Material> &mat = mesh->material;
-								ImGui::SeparatorText(std::format("Material - \"{}\"", mat->name).c_str());
+								std::stringstream matSS;
+								matSS << "Material - \"" << mat->name << "\"";
+								ImGui::SeparatorText(matSS.str().c_str());
 								
 								glm::vec3 factorVec = mat->params.baseColorFactor;
 								if (ImGui::ColorEdit3("Base Color", &factorVec.x)) mat->params.baseColorFactor = glm::vec4(factorVec, 1.0f);
