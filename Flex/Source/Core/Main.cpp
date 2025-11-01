@@ -187,8 +187,6 @@ int main(int argc, char **argv)
 
     flex::Renderer::Init();
 
-    flex::ImGuiContext imguiContext(window.GetHandle());
-
     flex::Camera camera;
     flex::Gizmo gizmo;
     Screen screen;
@@ -359,7 +357,9 @@ int main(int argc, char **argv)
     vpData.viewport = {0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
     vpData.isHovered = false;
 
-    window.Show();
+    flex::ImGuiContext imguiContext(window.GetHandle());
+
+    // window.Show();
 
     while (window.IsLooping())
     {

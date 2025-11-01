@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <cassert>
+#include <csignal>
 #include <filesystem>
 
 #include <glm/gtc/type_ptr.hpp>
@@ -101,7 +102,11 @@ namespace flex
 
     bool Shader::CompileShader(ShaderData *shaderData)
     {
-        assert(std::filesystem::exists(shaderData->filepath) && "Shader file does not exists!");
+        if (const bool fileExists = std::filesystem::exists(shaderData->filepath); !fileExists)
+        {
+            assert(fileExists && "Shader file does not exists!");
+        }
+
 
         std::ifstream shaderFile(shaderData->filepath);
         std::stringstream stream;

@@ -237,7 +237,7 @@ namespace flex
                 {
 
                     // Image is referenced by URI (external file)
-                    std::string texturePath = "resources/models/" + image.uri;
+                    std::string texturePath = "Resources/models/" + image.uri;
                     
                     // Check if file exists
                     if (std::filesystem::exists(texturePath))
