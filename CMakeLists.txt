@@ -1,43 +1,16 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(OpenGL)
+project(Flex LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_subdirectory("thirdparty/glfw")
+set(RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+set(THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty")
 
-include("thirdparty/msdfgen.cmake")
-include("thirdparty/msdfatlasgen.cmake")
-include("thirdparty/freetype.cmake")
-include("thirdparty/imgui.cmake")
+add_subdirectory("${THIRDPARTY_DIR}/glfw")
+include("${THIRDPARTY_DIR}/msdfgen.cmake")
+include("${THIRDPARTY_DIR}/msdfatlasgen.cmake")
+include("${THIRDPARTY_DIR}/freetype.cmake")
+include("${THIRDPARTY_DIR}/imgui.cmake")
 
-file(GLOB_RECURSE app_src_file
-    ${CMAKE_SOURCE_DIR}/src/*.c
-    ${CMAKE_SOURCE_DIR}/src/*.h
-    ${CMAKE_SOURCE_DIR}/src/*.cpp
-    ${CMAKE_SOURCE_DIR}/src/*.hpp
-)
-
-add_executable(opengl_app
-    ${app_src_file}
-    "thirdparty/tinygltf/tinygltf.cpp"
-    "thirdparty/stb/stb.c"
-    "thirdparty/glad/src/glad.c"
-)
-
-target_include_directories(opengl_app PRIVATE
-    "${CMAKE_SOURCE_DIR}/src"
-    "thirdparty/glfw/include"
-    "thirdparty/glad/include"
-    "thirdparty/stb"
-    "thirdparty/glm"
-    "thirdparty/json"
-    "thirdparty/tinygltf/include"
-)
-
-target_link_libraries(opengl_app PRIVATE glfw imgui MSDF_ATLAS_GEN MSDFGEN FREETYPE)
-
-add_custom_command(TARGET opengl_app POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources $<TARGET_FILE_DIR:opengl_app>/resources
-)
-
+add_subdirectory(Flex)
