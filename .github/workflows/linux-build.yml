@@ -18,15 +18,15 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          sudo apt update && sudo apt upgrade `
-            sudo apt install cmake clang ninja-build `
+          sudo apt update && sudo apt upgrade \
+            sudo apt install cmake clang ninja-build \
             libwayland-dev libxkbcommon-dev xorg-dev zlib1g-dev zenity -y
 
       - name: Configure CMake
         run: |
-          cmake -B build -S . `
-            -G Ninja `
-            -A x64 `
+          cmake -B build -S . \
+            -G Ninja \
+            -A x64 \
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Flex Engine
