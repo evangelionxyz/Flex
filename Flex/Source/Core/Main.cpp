@@ -112,8 +112,8 @@ public:
         int error = glGetError();
         assert(error == GL_NO_ERROR);
 
-        shader.AddFromFile("resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER);
-        shader.AddFromFile("resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER);
+        shader.AddFromFile("Resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER);
+        shader.AddFromFile("Resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER);
         shader.Compile();
     }
 
@@ -208,7 +208,7 @@ int main(int argc, char **argv)
     camera.UpdateMatrices(initialAspect);
 
     // Initialize font and text renderer
-    Font font("resources/fonts/Montserrat-Medium.ttf", 12);
+    Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
     TextRenderer::Init();
 
     double currentTime = 0.0;
@@ -222,19 +222,19 @@ int main(int argc, char **argv)
     glCullFace(GL_BACK);
 
     Shader PBRShader;
-    PBRShader.AddFromFile("resources/shaders/pbr.vertex.glsl", GL_VERTEX_SHADER);
-    PBRShader.AddFromFile("resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER);
+    PBRShader.AddFromFile("Resources/shaders/pbr.vertex.glsl", GL_VERTEX_SHADER);
+    PBRShader.AddFromFile("Resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER);
     PBRShader.Compile();
 
     // Shadow depth shader (cascaded)
     Shader shadowDepthShader;
-    shadowDepthShader.AddFromFile("resources/shaders/shadow_depth.vert.glsl", GL_VERTEX_SHADER);
-    shadowDepthShader.AddFromFile("resources/shaders/shadow_depth.frag.glsl", GL_FRAGMENT_SHADER);
+    shadowDepthShader.AddFromFile("Resources/shaders/shadow_depth.vert.glsl", GL_VERTEX_SHADER);
+    shadowDepthShader.AddFromFile("Resources/shaders/shadow_depth.frag.glsl", GL_FRAGMENT_SHADER);
     shadowDepthShader.Compile();
 
     Shader skyboxShader;
-    skyboxShader.AddFromFile("resources/shaders/skybox.vertex.glsl", GL_VERTEX_SHADER);
-    skyboxShader.AddFromFile("resources/shaders/skybox.frag.glsl", GL_FRAGMENT_SHADER);
+    skyboxShader.AddFromFile("Resources/shaders/skybox.vertex.glsl", GL_VERTEX_SHADER);
+    skyboxShader.AddFromFile("Resources/shaders/skybox.frag.glsl", GL_FRAGMENT_SHADER);
     skyboxShader.Compile();
 
     TextureCreateInfo createInfo;
@@ -244,7 +244,7 @@ int main(int argc, char **argv)
     createInfo.filter = FilterMode::LINEAR;
 
     bool fileExists = std::filesystem::exists(skyboxPath);
-    std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, fileExists ? skyboxPath : "resources/hdr/rogland_clear_night_4k.hdr");
+    std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, fileExists ? skyboxPath : "Resources/hdr/rogland_clear_night_4k.hdr");
 
     // Create skybox mesh
     std::shared_ptr<Mesh> skyboxMesh = MeshLoader::CreateSkyboxCube();
@@ -252,8 +252,8 @@ int main(int argc, char **argv)
     // Load model from glTF file
     Scene scene;
     fileExists = std::filesystem::exists(modelPath);
-    scene.AddModel(fileExists ? modelPath : "resources/models/damaged_helmet.gltf");
-    scene.AddModel("resources/models/scene.glb");
+    scene.AddModel(fileExists ? modelPath : "Resources/models/damaged_helmet.gltf");
+    scene.AddModel("Resources/models/scene.glb");
 
     flex::CameraBuffer cameraData{};
     SceneData sceneData{};
