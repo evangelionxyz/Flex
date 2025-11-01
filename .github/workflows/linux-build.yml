@@ -18,9 +18,8 @@ jobs:
 
       - name: Setup Dependencies
         run: |
-          sudo apt update && sudo apt upgrade \
-            sudo apt install cmake clang ninja-build \
-            libwayland-dev libxkbcommon-dev xorg-dev zlib1g-dev zenity -y
+          sudo apt-get update && sudo apt upgrade -y
+          sudo apt-get install cmake clang ninja-build libwayland-dev libxkbcommon-dev xorg-dev zlib1g-dev zenity -y
 
       - name: Configure CMake
         run: |
