@@ -11,17 +11,14 @@ namespace flex
     {
         m_Width = width;
         m_Height = height;
-        if (m_Vao == 0)
-        {
-            glGenVertexArrays(1,&m_Vao);
-        }
+        glGenVertexArrays(1, &m_Vao);
 
-        m_AOShader.AddFromFile("resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_AOShader.AddFromFile("resources/shaders/ssao.frag.glsl", GL_FRAGMENT_SHADER);
+        m_AOShader.AddFromFile("Resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER);
+        m_AOShader.AddFromFile("Resources/shaders/ssao.frag.glsl", GL_FRAGMENT_SHADER);
         m_AOShader.Compile();
 
-        m_BlurShader.AddFromFile("resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_BlurShader.AddFromFile("resources/shaders/ssao_blur.frag.glsl", GL_FRAGMENT_SHADER);
+        m_BlurShader.AddFromFile("Resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER);
+        m_BlurShader.AddFromFile("Resources/shaders/ssao_blur.frag.glsl", GL_FRAGMENT_SHADER);
         m_BlurShader.Compile();
 
         BuildKernel();
@@ -31,7 +28,9 @@ namespace flex
 
     void SSAO::Resize(int width, int height)
     {
-        if (width == m_Width && height == m_Height)
+        const bool negativeValue = width <= 0 || height <= 0;
+        const bool sameValue = width == m_Width && height == m_Height;
+        if (sameValue || negativeValue)
         {
             return;
         }

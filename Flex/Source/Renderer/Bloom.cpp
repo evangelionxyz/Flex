@@ -15,16 +15,16 @@ namespace flex
         }
 
         // Load high-quality shaders
-        m_DownsampleShader.AddFromFile("resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_DownsampleShader.AddFromFile("resources/shaders/bloom_downsample.frag.glsl", GL_FRAGMENT_SHADER);
+        m_DownsampleShader.AddFromFile("Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
+        m_DownsampleShader.AddFromFile("Resources/shaders/bloom_downsample.frag.glsl", GL_FRAGMENT_SHADER);
         m_DownsampleShader.Compile();
 
-        m_BlurShader.AddFromFile("resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_BlurShader.AddFromFile("resources/shaders/bloom_blur.frag.glsl", GL_FRAGMENT_SHADER);
+        m_BlurShader.AddFromFile("Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
+        m_BlurShader.AddFromFile("Resources/shaders/bloom_blur.frag.glsl", GL_FRAGMENT_SHADER);
         m_BlurShader.Compile();
         
-        m_UpsampleShader.AddFromFile("resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_UpsampleShader.AddFromFile("resources/shaders/bloom_upsample.frag.glsl", GL_FRAGMENT_SHADER);
+        m_UpsampleShader.AddFromFile("Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
+        m_UpsampleShader.AddFromFile("Resources/shaders/bloom_upsample.frag.glsl", GL_FRAGMENT_SHADER);
         m_UpsampleShader.Compile();
 
         CreateMipFramebuffers(width, height);

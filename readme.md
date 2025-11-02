@@ -6,10 +6,10 @@ Educational and experimental playground for modern OpenGL rendering. This projec
 
 Below are sample captures (PNG).
 
-| ![Shot 1](resources/screenshots/image_01.png) | ![Shot 2](resources/screenshots/image_02.png) |
+| ![Shot 1](Flex/Resources/screenshots/image_01.png) | ![Shot 2](Flex/Resources/screenshots/image_02.png) |
 |-----------------------------------------------|-----------------------------------------------|
-| ![Shot 3](resources/screenshots/image_03.png) | ![Shot 4](resources/screenshots/image_04.png) |
-| ![Shot 5](resources/screenshots/image_05.png) | ![Shot 6](resources/screenshots/image_06.png) |
+| ![Shot 3](Flex/Resources/screenshots/image_03.png) | ![Shot 4](Flex/Resources/screenshots/image_04.png) |
+| ![Shot 5](Flex/Resources/screenshots/image_05.png) | ![Shot 6](Flex/Resources/screenshots/image_06.png) |
 
 ### Key Features
 
@@ -70,11 +70,11 @@ git submodule update --init --recursive
 * `src/Renderer/` Rendering systems (Bloom, Shaders, Textures, Framebuffers, Mesh handling)
 * `src/Scene/` Scene graph and model loading
 * `src/Math/` Mathematical utilities and helpers
-* `resources/models/` Test glTF assets
-* `resources/shaders/` GLSL shaders (PBR, bloom, post-effects, compute shaders)
-* `resources/fonts/` TrueType font(s)
-* `resources/hdr/` Environment maps
-* `resources/screenshots/` Captured frames
+* `Flex/Resources/models/` Test glTF assets
+* `Flex/Resources/shaders/` GLSL shaders (PBR, bloom, post-effects, compute shaders)
+* `Flex/Resources/fonts/` TrueType font(s)
+* `Flex/Resources/hdr/` Environment maps
+* `Flex/Resources/screenshots/` Captured frames
 * `thirdparty/` External libs (glfw, glad, glm, stb, tinygltf, freetype, msdfgen, imgui docking)
 
 
