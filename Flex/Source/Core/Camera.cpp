@@ -7,22 +7,13 @@ namespace flex
 {
     void Camera::UpdateMouseState()
     {
-        auto window = Window::Get()->GetHandle();
-
-        float mouseX = 0.0;
-        float mouseY = 0.0;
-        SDL_MouseButtonFlags buttonFlag = SDL_GetMouseState(&mouseX, &mouseY);
-        
-        // Store last position before updating
+        auto window = Window::Get();
         mouse.lastPosition = mouse.position;
+        mouse.position = window->GetMousePosition();
         
-        // Update current position
-        mouse.position = glm::vec2(mouseX, mouseY);
-        
-        // Update button states
-        mouse.leftButton = SDL_BUTTON_MASK(SDL_BUTTON_LEFT) == 0;
-        mouse.middleButton = SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE) == 0;
-        mouse.rightButton = SDL_BUTTON_MASK(SDL_BUTTON_RIGHT) == 0;
+        mouse.leftButton = window->IsMouseButtonPressed(SDL_BUTTON_LEFT);
+        mouse.middleButton = window->IsMouseButtonPressed(SDL_BUTTON_MIDDLE);
+        mouse.rightButton = window->IsMouseButtonPressed(SDL_BUTTON_RIGHT);
     }
 
     void Camera::HandleOrbit(float deltaTime)
@@ -32,21 +23,17 @@ namespace flex
         if (mouse.leftButton)
         {
             auto delta = mouse.position - mouse.lastPosition;
-            // delta.y *= -1.0f * 0.5f; // Invert
-
             // Handle Zoom
             if (window->IsKeyModPressed(SDL_KMOD_LCTRL))
             {
                 if (delta.y != 0.0f)
                 {
-                    // Apply zoom velocity for smooth zooming
                     if (controls.enableInertia)
                     {
                         zoomVelocity += delta.y;
                     }
                     else
                     {
-                        // Direct zoom for immediate response
                         distance -= delta.y;
                         distance = glm::clamp(distance, controls.minDistance, controls.maxDistance);
                     }

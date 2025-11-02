@@ -37,7 +37,8 @@ namespace flex
         
         m_Width = width;
         m_Height = height;
-        CreateFramebuffers(width, height);
+        m_AOFB->Resize(m_Width, m_Height);
+        m_BlurFB->Resize(m_Width, m_Height);
     }
 
     void SSAO::CreateFramebuffers(int width, int height)
