@@ -162,8 +162,8 @@ namespace flex
         s_TextData = new TextRendererData();
 
         s_TextData->shader = std::make_shared<Shader>();
-        s_TextData->shader->AddFromFile("resources/shaders/text.vertex.glsl", GL_VERTEX_SHADER)
-            .AddFromFile("resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER)
+        s_TextData->shader->AddFromFile("Resources/shaders/text.vertex.glsl", GL_VERTEX_SHADER)
+            .AddFromFile("Resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER)
             .Compile();
 
         // Bind sampler array once (textures[0..31])

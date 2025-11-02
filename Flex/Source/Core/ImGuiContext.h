@@ -14,11 +14,11 @@ namespace flex
     class ImGuiContext
     {
     public:
-        ImGuiContext(GLFWwindow *window);
+        explicit ImGuiContext(GLFWwindow *window);
     
-        void NewFrame();
+        void NewFrame() const;
         void Render();
-        void Shutdown();
+        void Shutdown() const;
 
     private: 
         GLFWwindow *m_Window;

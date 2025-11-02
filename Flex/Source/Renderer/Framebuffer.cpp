@@ -51,7 +51,7 @@ namespace flex
 
     void Framebuffer::Resize(uint32_t width, uint32_t height)
     {
-        const bool negativeResolution = width <= 0 || height < 0;
+        const bool negativeResolution = width <= 0 || height <= 0;
         const bool sameResolution = width == m_Viewport.width && height == m_Viewport.height;
         const bool outOfResolutionRange = width > MAX_RESOLUTION || height > MAX_RESOLUTION;
         if (negativeResolution || outOfResolutionRange || sameResolution)

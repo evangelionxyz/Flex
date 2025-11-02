@@ -26,14 +26,14 @@ namespace flex
         ImGui_ImplOpenGL3_Init("#version 460");
     }
 
-    void ImGuiContext::Shutdown()
+    void ImGuiContext::Shutdown() const
     {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
     }
     
-    void ImGuiContext::NewFrame()
+    void ImGuiContext::NewFrame() const
     {
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -44,7 +44,7 @@ namespace flex
     {
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        ImGuiIO& io = ImGui::GetIO();
+        const ImGuiIO& io = ImGui::GetIO();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {
             ImGui::UpdatePlatformWindows();

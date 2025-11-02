@@ -108,7 +108,9 @@ namespace flex
             bool enableInertia = true;
             float inertiaDamping = 0.9f;
             float zoomDamping = 0.65f;
-        } controls;
+        };
+        
+        Controls controls;
         
         // Inertia variables
         glm::vec2 angularVelocity = glm::vec2(0.0f);
@@ -150,7 +152,7 @@ namespace flex
 
         void UpdateMouseState();
         void HandleOrbit(float deltaTime);
-        void HandlePan(float deltaTime);
+        void HandlePan();
         void HandleZoom(float deltaTime);
         void ApplyInertia(float deltaTime);
         void UpdateCameraPosition();

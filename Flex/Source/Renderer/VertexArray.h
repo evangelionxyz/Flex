@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Flex Engine | Evangelion Manuhutu
 
 #ifndef VERTEX_ARRAY_H
-#define VERTEX_ARRYA_H
+#define VERTEX_ARRAY_H
 
 #include <memory>
 #include <cstdint>
