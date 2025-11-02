@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <memory>
 
 #include "UIHelper.h"
