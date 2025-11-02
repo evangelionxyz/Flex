@@ -178,14 +178,11 @@ int main(int argc, char **argv)
         }
     }
 
-    int WINDOW_WIDTH = 1280;
-    int WINDOW_HEIGHT = 640;
-
     WindowCreateInfo windowCreateInfo;
     windowCreateInfo.fullscreen = false;
     windowCreateInfo.title = "Flex Engine - OpenGL 4.6 Renderer";
-    windowCreateInfo.width = WINDOW_WIDTH;
-    windowCreateInfo.height = WINDOW_HEIGHT;
+    windowCreateInfo.width = 1280;
+    windowCreateInfo.height = 640;
     Window window(windowCreateInfo);
 
     flex::Renderer::Init();
@@ -204,7 +201,7 @@ int main(int argc, char **argv)
     camera.pitch = 0.0f;
     
     // Update initial position and matrices
-    float initialAspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+    const auto initialAspect = static_cast<float>(windowCreateInfo.width) / static_cast<float>(windowCreateInfo.height);
     camera.UpdateSphericalPosition();
     camera.UpdateMatrices(initialAspect);
 
@@ -212,11 +209,11 @@ int main(int argc, char **argv)
     Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
     TextRenderer::Init();
 
-    double currentTime = 0.0;
-    double prevTime = 0.0;
-    double deltaTime = 0.0;
-    double FPS = 0.0;
-    double statusUpdateInterval = 0.0;
+    float currentTime = 0.0;
+    float prevTime = 0.0;
+    float deltaTime = 0.0;
+    float FPS = 0.0;
+    float statusUpdateInterval = 0.0;
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -283,14 +280,11 @@ int main(int argc, char **argv)
     };
     auto viewportFramebuffer = Framebuffer::Create(viewportFramebufferCreateInfo);
 
-    Bloom bloom(WINDOW_WIDTH, WINDOW_HEIGHT);
-    SSAO ssao(WINDOW_WIDTH, WINDOW_HEIGHT);
+    Bloom bloom(framebufferCreateInfo.width, framebufferCreateInfo.height);
+    SSAO ssao(framebufferCreateInfo.width, framebufferCreateInfo.height);
 
     window.SetFullscreenCallback([&](int width, int height, bool fullscreen)
     {
-        WINDOW_WIDTH = width;
-        WINDOW_HEIGHT = height;
-
         screen.inverseProjection = glm::inverse(camera.projection);
         
         // Resize framebuffer
@@ -307,9 +301,6 @@ int main(int argc, char **argv)
 
     window.SetResizeCallback([&](int width, int height)
     {
-        WINDOW_WIDTH = width;
-        WINDOW_HEIGHT = height;
-        
         // Resize framebuffer
         framebuffer->Resize(width, height);
         bloom.Resize(width, height);
@@ -361,7 +352,7 @@ int main(int argc, char **argv)
 
     // Render Here (main scene)
     ViewportData vpData = {};
-    vpData.viewport = {0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
+    vpData.viewport = {0, 0, static_cast<uint32_t>(windowCreateInfo.width), static_cast<uint32_t>(windowCreateInfo.height)};
     vpData.isHovered = false;
 
     flex::ImGuiContext imguiContext(window.GetHandle());
@@ -370,15 +361,15 @@ int main(int argc, char **argv)
 
     while (window.IsLooping())
     {
-        currentTime = glfwGetTime();
+        currentTime = static_cast<float>(glfwGetTime());
         deltaTime = currentTime - prevTime;
         prevTime = currentTime;
-        FPS = 1.0 / deltaTime;
+        FPS = 1.0f / deltaTime;
 
         statusUpdateInterval -= deltaTime;
         if (statusUpdateInterval <= 0.0)
         {
-            auto title = std::format("OpenGL - FPS {:.3f} | {:.3f}", FPS, deltaTime * 1000.0);
+            auto title = std::format("OpenGL - FPS {:.3f} | {:.3f}", FPS, deltaTime * 1000.0f);
             window.SetWindowTitle(title);
             statusUpdateInterval = 1.0;
         }
@@ -409,20 +400,18 @@ int main(int argc, char **argv)
         // Update gizmo
         gizmo.Update(camera, window.GetHandle(), deltaTime);
         
-        // Update camera matrices with current aspect ratio
-        float aspect = (float)vpData.viewport.width / (float)vpData.viewport.height;
-        camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0 / 9.0f);
+        // Update camera matrices with the current aspect ratio
+        const float aspect = static_cast<float>(vpData.viewport.width) / static_cast<float>(vpData.viewport.height);
+        camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0f / 9.0f);
         cameraData.viewProjection = camera.projection * camera.view;
         cameraData.position = glm::vec4(camera.position, 1.0f);
         cameraData.view = camera.view; // new field used by shadows (also u_View uniform separately)
         cameraUbo->SetData(&cameraData, sizeof(cameraData));
 
         // Update scene data
-        sceneData.lightAngle.x = sceneData.lightAngle.x; // azimuth
-        sceneData.lightAngle.y = sceneData.lightAngle.y; // elevation
         sceneUbo->SetData(&sceneData, sizeof(SceneData));
 
-        // Compute sun / light direction for shadows (matches shader code)
+        // Compute a sun / light direction for shadows (matches shader code)
         float azimuth = sceneData.lightAngle.x;
         float elevation = sceneData.lightAngle.y;
         glm::vec3 sunDirection = {
@@ -461,7 +450,7 @@ int main(int argc, char **argv)
         csm.BindTexture(6);
         PBRShader.SetUniform("u_ShadowMap", 6);
 
-        static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibility
+        static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibilities
         PBRShader.SetUniform("u_DebugShadows", debugShadowMode);
 
         for (const auto &model : scene.models)
@@ -545,18 +534,18 @@ int main(int argc, char **argv)
         glEnable(GL_CULL_FACE);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, window.GetWidth(), window.GetHeight());
+        glViewport(0, 0, static_cast<int>(window.GetWidth()), static_cast<int>(window.GetHeight()));
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         // Finally render UI/text on top
-        glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
-        TextRenderer::Begin(orthoProjection);
+        auto pr = glm::ortho(0.0f, static_cast<float>(vpData.viewport.width), 0.0f, static_cast<float>(vpData.viewport.height));
+        TextRenderer::Begin(pr);
         TextRenderer::DrawString(&font, "ABC",
             glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
             glm::vec3(1.0f), {});
         TextRenderer::End();
 
-        imguiContext.NewFrame();
+        flex::ImGuiContext::NewFrame();
 
         // Dockspace window (invisible host)
         {
@@ -579,21 +568,21 @@ int main(int argc, char **argv)
         ImGui::Begin("Viewport");
         {
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-            if (viewportSize.x != vpData.viewport.width || viewportSize.y != vpData.viewport.height)
+            if (static_cast<int>(viewportSize.x) != vpData.viewport.width || static_cast<int>(viewportSize.y) != vpData.viewport.height)
             {
-                vpData.viewport.width = (int)viewportSize.x;
-                vpData.viewport.height = (int)viewportSize.y;
+                vpData.viewport.width = static_cast<int>(viewportSize.x);
+                vpData.viewport.height = static_cast<int>(viewportSize.y);
                 framebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
                 viewportFramebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
-                bloom.Resize(vpData.viewport.width, vpData.viewport.height);
-                ssao.Resize(vpData.viewport.width, vpData.viewport.height);
+                bloom.Resize(static_cast<int>(vpData.viewport.width), static_cast<int>(vpData.viewport.height));
+                ssao.Resize(static_cast<int>(vpData.viewport.width), static_cast<int>(vpData.viewport.height));
             }
 
             // Display framebuffer color attachment as image
-            uint32_t colorTex = viewportFramebuffer->GetColorAttachment(0);
+            const uint32_t colorTex = viewportFramebuffer->GetColorAttachment(0);
             if (colorTex != 0)
             {
-                ImGui::Image((void*)(uintptr_t)colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::Image(colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
             }
         }
         vpData.isHovered = ImGui::IsWindowHovered();
@@ -604,12 +593,12 @@ int main(int argc, char **argv)
             for (size_t i = 0; i < scene.models.size(); ++i)
             {
                 ImGui::PushID(i);
-                bool removing = false;
                 const auto &model = scene.models[i];
                 std::stringstream ss;
                 ss << "Model " << static_cast<int>(i);
                 if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
+                    bool removing = false;
                     if (ImGui::Button("Remove"))
                     {
                         removing = scene.RemoveModel(static_cast<int>(i));
@@ -785,13 +774,13 @@ int main(int argc, char **argv)
 
             if (ImGui::CollapsingHeader("Render Mode", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                int mode = (int)sceneData.renderMode;
+                int mode = static_cast<int>(sceneData.renderMode);
                 if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
                 if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
                 if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
                 if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
                 if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
-                sceneData.renderMode = (float)mode;
+                sceneData.renderMode = static_cast<float>(mode);
             }
         }
         ImGui::End();
@@ -800,7 +789,8 @@ int main(int argc, char **argv)
         window.SwapBuffers();
     }
 
-    imguiContext.Shutdown();
+    flex::ImGuiContext::Shutdown();
+
     TextRenderer::Shutdown();
     flex::Renderer::Shutdown();
 

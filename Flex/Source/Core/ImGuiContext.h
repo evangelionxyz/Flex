@@ -16,9 +16,9 @@ namespace flex
     public:
         explicit ImGuiContext(GLFWwindow *window);
     
-        void NewFrame() const;
+        static void NewFrame();
+        static void Shutdown();
         void Render();
-        void Shutdown() const;
 
     private: 
         GLFWwindow *m_Window;
