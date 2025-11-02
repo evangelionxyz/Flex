@@ -2,5 +2,9 @@
 
 namespace flex
 {
-    
+    class Event
+    {
+    public:
+        Event() = default;
+    };
 }

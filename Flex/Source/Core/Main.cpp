@@ -32,11 +32,11 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#define RENDER_MODE_COLOR 0
-#define RENDER_MODE_NORMALS 1
-#define RENDER_MODE_METALLIC 2
-#define RENDER_MODE_ROUGHNESS 3
-#define RENDER_MODE_DEPTH 4
+constexpr int RENDER_MODE_COLOR = 0;
+constexpr int RENDER_MODE_NORMALS = 1;
+constexpr int RENDER_MODE_METALLIC = 2;
+constexpr int RENDER_MODE_ROUGHNESS = 3;
+constexpr int RENDER_MODE_DEPTH = 4;
 
 using namespace flex;
 
@@ -95,7 +95,7 @@ public:
             { 1.0f,-1.0f },
         };
 
-        uint32_t indices[] = 
+        std::vector<uint32_t> indices = 
         {
             0, 1, 2,
             0, 2, 3,
@@ -104,7 +104,7 @@ public:
         vertexArray = std::make_shared<VertexArray>();
         vertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(glm::vec2));
         vertexBuffer->SetAttributes({{VertexAttribType::VECTOR_FLOAT_2}}, sizeof(glm::vec2));
-        indexBuffer = std::make_shared<IndexBuffer>(indices, (uint32_t)std::size(indices));
+        indexBuffer = std::make_shared<IndexBuffer>(indices.data(), static_cast<uint32_t>(indices.size()));
         
         vertexArray->SetVertexBuffer(vertexBuffer);
         vertexArray->SetIndexBuffer(indexBuffer);
@@ -165,7 +165,9 @@ struct ViewportData
 
 int main(int argc, char **argv)
 {
-    std::string modelPath, skyboxPath;
+    std::string modelPath;
+    std::string skyboxPath;
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-model=") == 0 && i + 1 < argc) {
             modelPath = argv[i+1];
@@ -242,7 +244,7 @@ int main(int argc, char **argv)
     createInfo.filter = FilterMode::LINEAR;
 
     bool fileExists = std::filesystem::exists(skyboxPath);
-    std::shared_ptr<Texture2D> environmentTex = std::make_shared<Texture2D>(createInfo, fileExists ? skyboxPath : "Resources/hdr/rogland_clear_night_4k.hdr");
+    auto environmentTex = std::make_shared<Texture2D>(createInfo, fileExists ? skyboxPath : "Resources/hdr/rogland_clear_night_4k.hdr");
 
     // Create skybox mesh
     std::shared_ptr<Mesh> skyboxMesh = MeshLoader::CreateSkyboxCube();
@@ -268,7 +270,7 @@ int main(int argc, char **argv)
         {Format::RGBA16F, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color (HDR for bloom)
         {Format::DEPTH24STENCIL8}, // Depth Attachment
     };
-    std::shared_ptr<Framebuffer> framebuffer = Framebuffer::Create(framebufferCreateInfo);
+    auto framebuffer = Framebuffer::Create(framebufferCreateInfo);
     
     FramebufferCreateInfo viewportFramebufferCreateInfo;
     viewportFramebufferCreateInfo.width = 256;
@@ -278,7 +280,7 @@ int main(int argc, char **argv)
         {Format::RGBA8, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color
         {Format::DEPTH24STENCIL8}, // Depth Attachment
     };
-    std::shared_ptr<Framebuffer> viewportFramebuffer = Framebuffer::Create(viewportFramebufferCreateInfo);
+    auto viewportFramebuffer = Framebuffer::Create(viewportFramebufferCreateInfo);
 
     Bloom bloom(WINDOW_WIDTH, WINDOW_HEIGHT);
     SSAO ssao(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -349,6 +351,10 @@ int main(int argc, char **argv)
             {
                 break;
             }
+            default:
+            {
+                break;
+            }
         }
     });
 
@@ -371,12 +377,8 @@ int main(int argc, char **argv)
         statusUpdateInterval -= deltaTime;
         if (statusUpdateInterval <= 0.0)
         {
-            std::stringstream ss;
-            ss << "OpenGL - FPS " << std::fixed << std::setprecision(3) << FPS 
-               << " | " << std::fixed << std::setprecision(3) << deltaTime * 1000.0 
-               << " ms Camera Y: " << std::fixed << std::setprecision(3) << camera.yaw 
-               << " P: " << std::fixed << std::setprecision(3) << camera.pitch;
-            window.SetWindowTitle(ss.str());
+            auto title = std::format("OpenGL - FPS {:.3f} | {:.3f}", FPS, deltaTime * 1000.0);
+            window.SetWindowTitle(title);
             statusUpdateInterval = 1.0;
         }
 
@@ -394,7 +396,7 @@ int main(int argc, char **argv)
             camera.mouse.position = glm::ivec2(0);
         }
         camera.HandleOrbit(deltaTime);
-        camera.HandlePan(deltaTime);
+        camera.HandlePan();
         camera.HandleZoom(deltaTime);
         camera.ApplyInertia(deltaTime);
         camera.UpdateMouseState();
@@ -440,7 +442,7 @@ int main(int argc, char **argv)
             csm.BeginCascade(ci);
             shadowDepthShader.Use();
             shadowDepthShader.SetUniform("u_CascadeIndex", ci);
-            for (auto &model : scene.models)
+            for (const auto &model : scene.models)
                 model->RenderDepth(shadowDepthShader);
         }
         csm.EndCascade();
@@ -461,7 +463,7 @@ int main(int argc, char **argv)
         static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibility
         PBRShader.SetUniform("u_DebugShadows", debugShadowMode);
 
-        for (auto &model : scene.models)
+        for (const auto &model : scene.models)
         {
             model->Render(PBRShader, environmentTex);
         }
@@ -477,8 +479,8 @@ int main(int argc, char **argv)
             glCullFace(GL_FRONT);
             skyboxShader.Use();
             // Create skybox transformation (remove translation from view)
-            glm::mat4 skyboxView = glm::mat4(glm::mat3(camera.view));
-            glm::mat4 skyboxMVP = camera.projection * skyboxView;
+            auto skyboxView = glm::mat4(glm::mat3(camera.view));
+            auto skyboxMVP = camera.projection * skyboxView;
             skyboxShader.SetUniform("u_Transform", skyboxMVP);
             environmentTex->Bind(0);
             skyboxShader.SetUniform("u_EnvironmentMap", 0);
@@ -548,7 +550,6 @@ int main(int argc, char **argv)
         // Finally render UI/text on top
         glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
         TextRenderer::Begin(orthoProjection);
-        int startY = WINDOW_HEIGHT - 100;
         TextRenderer::DrawString(&font, "ABC",
             glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
             glm::vec3(1.0f), {});
@@ -585,8 +586,6 @@ int main(int argc, char **argv)
                 viewportFramebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
                 bloom.Resize(vpData.viewport.width, vpData.viewport.height);
                 ssao.Resize(vpData.viewport.width, vpData.viewport.height);
-
-                // window.SetWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
             }
 
             // Display framebuffer color attachment as image
@@ -605,7 +604,7 @@ int main(int argc, char **argv)
             {
                 ImGui::PushID(i);
                 bool removing = false;
-                std::shared_ptr<Model> &model = scene.models[i];
+                const auto &model = scene.models[i];
                 std::stringstream ss;
                 ss << "Model " << static_cast<int>(i);
                 if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
@@ -621,10 +620,10 @@ int main(int argc, char **argv)
                         break;
                     }
 
-                    for (MeshNode &node : model->GetScene().nodes)
+                    for (const MeshNode &node : model->GetScene().nodes)
                     {
                         ImGui::PushID(node.name.c_str());
-                        for (std::shared_ptr<Mesh> &mesh : node.meshes)
+                        for (const std::shared_ptr<Mesh> &mesh : node.meshes)
                         {
                             if (ImGui::CollapsingHeader(node.name.c_str()))
                             {
@@ -648,7 +647,7 @@ int main(int argc, char **argv)
                                 }
 
                                 // ====== Material ======
-                                std::shared_ptr<Material> &mat = mesh->material;
+                                const auto &mat = mesh->material;
                                 std::stringstream matSS;
                                 matSS << "Material - \"" << mat->name << "\"";
                                 ImGui::SeparatorText(matSS.str().c_str());
@@ -686,9 +685,9 @@ int main(int argc, char **argv)
             ImGui::Separator();
             // Projection type selector
             {
-                static const char* projLabels[] = {"Perspective", "Orthographic"};
+                static const std::array<const char *, 2> projLabels = {"Perspective", "Orthographic"};
                 int projIndex = camera.projectionType == ProjectionType::Perspective ? 0 : 1;
-                if (ImGui::Combo("Projection", &projIndex, projLabels, IM_ARRAYSIZE(projLabels)))
+                if (ImGui::Combo("Projection", &projIndex, projLabels.data(), projLabels.size()))
                 {
                     camera.projectionType = projIndex == 0 ? ProjectionType::Perspective : ProjectionType::Orthographic;
                     camera.UpdateMatrices(aspect);
@@ -719,15 +718,15 @@ int main(int argc, char **argv)
             {
                 auto &data = csm.GetData();
                 bool changed = false;
-                changed |= ImGui::SliderFloat("Strength", (float*)&data.shadowStrength, 0.0f, 1.0f);
-                changed |= ImGui::DragFloat("Min Bias", (float*)&data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
-                changed |= ImGui::DragFloat("Max Bias", (float*)&data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
-                changed |= ImGui::SliderFloat("PCF Radius", (float*)&data.pcfRadius, 0.1f, 4.0f);
+                changed |= ImGui::SliderFloat("Strength", &data.shadowStrength, 0.0f, 1.0f);
+                changed |= ImGui::DragFloat("Min Bias", &data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
+                changed |= ImGui::DragFloat("Max Bias", &data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
+                changed |= ImGui::SliderFloat("PCF Radius", &data.pcfRadius, 0.1f, 4.0f);
 
-                static const char* resolutionLabels[] = {"Low - 1024px", "Medium - 2048px", "High - 4096px"};
+                static const std::array<const char*, 3> resolutionLabels = {"Low - 1024px", "Medium - 2048px", "High - 4096px"};
                 int cascadeQualityIndex = static_cast<int>(csm.GetQuality());
 
-                if (ImGui::Combo("Resolution", &cascadeQualityIndex, resolutionLabels, IM_ARRAYSIZE(resolutionLabels)))
+                if (ImGui::Combo("Resolution", &cascadeQualityIndex, resolutionLabels.data(), resolutionLabels.size()))
                 {
                     auto quality = static_cast<CascadedQuality>(cascadeQualityIndex);
                     csm.Resize(quality);
