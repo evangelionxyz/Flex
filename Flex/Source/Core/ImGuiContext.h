@@ -4,24 +4,25 @@
 #define IMGUI_CONTEXT_H
 
 #include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_opengl3.h>
-
-struct GLFWwindow;
 
 namespace flex
 {
+    class Window;
     class ImGuiContext
     {
     public:
-        explicit ImGuiContext(GLFWwindow *window);
+        explicit ImGuiContext(Window *window);
+
+        static void PollEvents(SDL_Event* event);
     
-        void NewFrame() const;
+        static void NewFrame();
+        static void Shutdown();
         void Render();
-        void Shutdown() const;
 
     private: 
-        GLFWwindow *m_Window;
+        Window *m_Window;
     };
 }
 

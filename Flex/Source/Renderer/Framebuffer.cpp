@@ -5,14 +5,14 @@
 
 namespace flex
 {
-    #define MAX_RESOLUTION 8192
+#define MAX_RESOLUTION 8192
 
-    Framebuffer::Framebuffer(const FramebufferCreateInfo &createInfo)
+    Framebuffer::Framebuffer(const FramebufferCreateInfo& createInfo)
         : m_CreateInfo(createInfo)
     {
         m_Viewport.width = createInfo.width;
         m_Viewport.height = createInfo.height;
-        
+
         glCreateFramebuffers(1, &m_Handle);
         glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
 
@@ -23,7 +23,7 @@ namespace flex
     Framebuffer::~Framebuffer()
     {
         glDeleteFramebuffers(1, &m_Handle);
-        
+
         // Delete old color attachments
         for (uint32_t texture : m_ColorAttachments)
         {
@@ -31,7 +31,7 @@ namespace flex
         }
 
         m_ColorAttachments.clear();
-        
+
         if (m_DepthAttachment != 0)
         {
             glDeleteTextures(1, &m_DepthAttachment);
@@ -59,45 +59,53 @@ namespace flex
             return;
         }
 
-        if (m_Handle != 0)
-        {
-            glDeleteFramebuffers(1, &m_Handle);
-        }
-        
-        glCreateFramebuffers(1, &m_Handle);
-        glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glFlush();
 
-        m_CreateInfo.width = width;
-        m_CreateInfo.height = height;
-
-        // Delete old color attachments
         for (uint32_t texture : m_ColorAttachments)
         {
             glDeleteTextures(1, &texture);
         }
-
         m_ColorAttachments.clear();
 
-        // Delete old depth attachment
         if (m_DepthAttachment != 0)
         {
             glDeleteTextures(1, &m_DepthAttachment);
             m_DepthAttachment = 0;
         }
 
+        if (m_Handle != 0)
+        {
+            glDeleteFramebuffers(1, &m_Handle);
+            m_Handle = 0;
+        }
+
+        m_CreateInfo.width = width;
+        m_CreateInfo.height = height;
+        m_Viewport.width = width;
+        m_Viewport.height = height;
+
+        glCreateFramebuffers(1, &m_Handle);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
+
         CreateAttachments();
         assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE && "Failed to resize framebuffer");
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    void Framebuffer::Bind(const Viewport &viewport)
+    void Framebuffer::Bind(const Viewport& viewport)
     {
         m_Viewport = viewport;
-        glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
-        // Ensure we render into our framebuffer, not the default one
+
+        // Bind framebuffer first
         glBindFramebuffer(GL_FRAMEBUFFER, m_Handle);
+
+        // Then set viewport
+        glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
     }
 
-    void Framebuffer::ClearColorAttachment(int index, const glm::vec4 &color)
+    void Framebuffer::ClearColorAttachment(int index, const glm::vec4& color)
     {
         if (index < 0 || index >= static_cast<int>(m_ColorAttachments.size()))
             return;
@@ -116,18 +124,18 @@ namespace flex
     {
         if (index < 0 || index >= static_cast<int>(m_ColorAttachments.size()))
             return 0;
-        
+
         return m_ColorAttachments[index];
     }
 
-    std::shared_ptr<Framebuffer> Framebuffer::Create(const FramebufferCreateInfo &createInfo)
+    std::shared_ptr<Framebuffer> Framebuffer::Create(const FramebufferCreateInfo& createInfo)
     {
         return std::make_shared<Framebuffer>(createInfo);
     }
 
     void Framebuffer::CreateAttachments()
     {
-        for (const auto &attachment : m_CreateInfo.attachments)
+        for (const auto& attachment : m_CreateInfo.attachments)
         {
             GLenum internalFormat = ToGLInternalFormat(attachment.format);
             GLenum format = ToGLFormat(attachment.format);
@@ -140,14 +148,14 @@ namespace flex
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-                float borderColor[] = {1.0f,1.0f,1.0f,1.0f};
+                float borderColor[] = { 1.0f,1.0f,1.0f,1.0f };
                 glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
                 glTexStorage2D(GL_TEXTURE_2D, 1, internalFormat, m_CreateInfo.width, m_CreateInfo.height);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, m_DepthAttachment, 0);
             }
             else
             {
-                uint32_t &tex = m_ColorAttachments.emplace_back();
+                uint32_t& tex = m_ColorAttachments.emplace_back();
                 glCreateTextures(GL_TEXTURE_2D, 1, &tex);
                 glBindTexture(GL_TEXTURE_2D, tex);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -157,26 +165,26 @@ namespace flex
                 bool isFloat = internalFormat == GL_RGB16F || internalFormat == GL_RGB32F || internalFormat == GL_RGBA16F || internalFormat == GL_RGBA32F;
                 GLenum dataType = isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE; // could refine to GL_HALF_FLOAT for 16F
                 glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_CreateInfo.width, m_CreateInfo.height, 0, format, dataType, nullptr);
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLuint)(m_ColorAttachments.size()-1), GL_TEXTURE_2D, tex, 0);
-    #if defined(GL_VERSION_4_4)
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLuint)(m_ColorAttachments.size() - 1), GL_TEXTURE_2D, tex, 0);
+#if defined(GL_VERSION_4_4)
                 if (isFloat)
                 {
-                    float zero[4] = {0,0,0,0};
+                    float zero[4] = { 0,0,0,0 };
                     glClearTexImage(tex, 0, format, dataType, zero);
                 }
                 else
                 {
-                    unsigned int zero[4] = {0,0,0,0};
+                    unsigned int zero[4] = { 0,0,0,0 };
                     glClearTexImage(tex, 0, format, GL_UNSIGNED_INT, zero);
                 }
-    #endif
+#endif
             }
         }
 
         if (!m_ColorAttachments.empty())
         {
             std::vector<GLenum> bufs; bufs.reserve(m_ColorAttachments.size());
-            for (size_t i=0;i<m_ColorAttachments.size();++i) bufs.push_back(GL_COLOR_ATTACHMENT0 + (GLenum)i);
+            for (size_t i = 0; i < m_ColorAttachments.size(); ++i) bufs.push_back(GL_COLOR_ATTACHMENT0 + (GLenum)i);
             glDrawBuffers((GLsizei)bufs.size(), bufs.data());
         }
     }

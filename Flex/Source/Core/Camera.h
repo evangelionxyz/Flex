@@ -5,8 +5,6 @@
 
 #include "Math/Math.hpp"
 
-struct GLFWwindow;
-
 namespace flex
 {
     struct MouseState

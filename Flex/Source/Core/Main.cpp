@@ -18,6 +18,7 @@
 #include "ImGuiContext.h"
 #include "Scene/Model.h"
 #include "Renderer/CascadedShadowMap.h"
+#include "Camera.h"
 #include "Renderer/Material.h"
 #include "Renderer/Shader.h"
 #include "Renderer/UniformBuffer.h"
@@ -26,7 +27,6 @@
 #include "Renderer/Mesh.h"
 #include "Renderer/Framebuffer.h"
 #include "Renderer/Bloom.h"
-#include "Renderer/Gizmo.h"
 #include "Renderer/SSAO.h"
 #include "Renderer/Window.h"
 #include "Math/Math.hpp"
@@ -164,47 +164,39 @@ struct ViewportData
     bool isHovered = false;
 };
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     std::string modelPath;
     std::string skyboxPath;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-model=") == 0 && i + 1 < argc) {
-            modelPath = argv[i+1];
+            modelPath = argv[i + 1];
         }
         if (strcmp(argv[i], "-skybox=") == 0 && i + 1 < argc) {
-            skyboxPath = argv[i+1];
+            skyboxPath = argv[i + 1];
         }
     }
-
-    int WINDOW_WIDTH = 1280;
-    int WINDOW_HEIGHT = 640;
 
     WindowCreateInfo windowCreateInfo;
     windowCreateInfo.fullscreen = false;
     windowCreateInfo.title = "Flex Engine - OpenGL 4.6 Renderer";
-    windowCreateInfo.width = WINDOW_WIDTH;
-    windowCreateInfo.height = WINDOW_HEIGHT;
+    windowCreateInfo.width = 1280;
+    windowCreateInfo.height = 640;
     Window window(windowCreateInfo);
 
     flex::Renderer::Init();
 
     flex::Camera camera;
-    flex::Gizmo gizmo;
     Screen screen;
 
-    // Initialize gizmo at origin
-    gizmo.SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
-    gizmo.SetMode(flex::GizmoMode::TRANSLATE);
-    // Initialize camera with proper spherical coordinates
     camera.target = glm::vec3(0.0f);
     camera.distance = 5.5f;
     camera.yaw = glm::radians(90.0f);
     camera.pitch = 0.0f;
-    
+
     // Update initial position and matrices
-    float initialAspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+    const auto initialAspect = static_cast<float>(windowCreateInfo.width) / static_cast<float>(windowCreateInfo.height);
     camera.UpdateSphericalPosition();
     camera.UpdateMatrices(initialAspect);
 
@@ -212,11 +204,8 @@ int main(int argc, char **argv)
     Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
     TextRenderer::Init();
 
-    double currentTime = 0.0;
-    double prevTime = 0.0;
-    double deltaTime = 0.0;
-    double FPS = 0.0;
-    double statusUpdateInterval = 0.0;
+    float FPS = 0.0;
+    float statusUpdateInterval = 0.0;
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -266,136 +255,98 @@ int main(int argc, char **argv)
     FramebufferCreateInfo framebufferCreateInfo;
     framebufferCreateInfo.width = window.GetWidth();
     framebufferCreateInfo.height = window.GetHeight();
-    framebufferCreateInfo.attachments = 
+    framebufferCreateInfo.attachments =
     {
         {Format::RGBA16F, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color (HDR for bloom)
         {Format::DEPTH24STENCIL8}, // Depth Attachment
     };
     auto framebuffer = Framebuffer::Create(framebufferCreateInfo);
-    
+
     FramebufferCreateInfo viewportFramebufferCreateInfo;
     viewportFramebufferCreateInfo.width = 256;
     viewportFramebufferCreateInfo.height = 256;
-    viewportFramebufferCreateInfo.attachments = 
+    viewportFramebufferCreateInfo.attachments =
     {
         {Format::RGBA8, FilterMode::LINEAR, WrapMode::REPEAT }, // Main Color
         {Format::DEPTH24STENCIL8}, // Depth Attachment
     };
     auto viewportFramebuffer = Framebuffer::Create(viewportFramebufferCreateInfo);
 
-    Bloom bloom(WINDOW_WIDTH, WINDOW_HEIGHT);
-    SSAO ssao(WINDOW_WIDTH, WINDOW_HEIGHT);
+    Bloom bloom(framebufferCreateInfo.width, framebufferCreateInfo.height);
+    SSAO ssao(framebufferCreateInfo.width, framebufferCreateInfo.height);
 
     window.SetFullscreenCallback([&](int width, int height, bool fullscreen)
-    {
-        WINDOW_WIDTH = width;
-        WINDOW_HEIGHT = height;
+        {
+            screen.inverseProjection = glm::inverse(camera.projection);
 
-        screen.inverseProjection = glm::inverse(camera.projection);
-        
-        // Resize framebuffer
-        framebuffer->Resize(width, height);
-        bloom.Resize(width, height);
-    });
+            // Resize framebuffer
+            framebuffer->Resize(width, height);
+            bloom.Resize(width, height);
+        });
 
     window.SetScrollCallback([&](int xOffset, int yOffset)
-    {
-        // Store scroll delta for processing in the update loop
-        camera.mouse.scroll.x = xOffset;
-        camera.mouse.scroll.y = yOffset;
-    });
+        {
+            // Store scroll delta for processing in the update loop
+            camera.mouse.scroll.x = xOffset;
+            camera.mouse.scroll.y = yOffset;
+        });
 
     window.SetResizeCallback([&](int width, int height)
-    {
-        WINDOW_WIDTH = width;
-        WINDOW_HEIGHT = height;
-        
-        // Resize framebuffer
-        framebuffer->Resize(width, height);
-        bloom.Resize(width, height);
-        ssao.Resize(width, height);
-        screen.inverseProjection = glm::inverse(camera.projection);
-    });
-
-    window.SetDropCallback([&](const std::vector<std::string> &paths)
-    {
-        for (auto &path : paths)
         {
-            scene.AddModel(path);
-        }
-    });
+            // Resize framebuffer
+            framebuffer->Resize(width, height);
+            bloom.Resize(width, height);
+            ssao.Resize(width, height);
+            screen.inverseProjection = glm::inverse(camera.projection);
+        });
 
-    window.SetKeyboardCallback([&](int key, int scancode, int action, int mods)
-    {
-        switch (action)
+    window.SetDropCallback([&](const std::vector<std::string>& paths)
         {
-            case GLFW_PRESS:
+            for (auto& path : paths)
             {
-                if (key == GLFW_KEY_F11)
-                {
-                    window.ToggleFullScreen();
-                }
-
-                if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && key == GLFW_KEY_R)
-                {
-                    PBRShader.Reload();
-                    screen.shader.Reload();
-                    shadowDepthShader.Reload();
-                }
-                else if (key == GLFW_KEY_ESCAPE)
-                {
-                    glfwSetWindowShouldClose(window.GetHandle(), 1);
-                }
-                break;
+                scene.AddModel(path);
             }
-            case GLFW_REPEAT:
-            {
-                break;
-            }
-            default:
-            {
-                break;
-            }
-        }
-    });
+        });
 
     // Render Here (main scene)
     ViewportData vpData = {};
-    vpData.viewport = {0, 0, (uint32_t)WINDOW_WIDTH, (uint32_t)WINDOW_HEIGHT};
+    vpData.viewport = { 0, 0, static_cast<uint32_t>(windowCreateInfo.width), static_cast<uint32_t>(windowCreateInfo.height) };
     vpData.isHovered = false;
 
-    flex::ImGuiContext imguiContext(window.GetHandle());
+    flex::ImGuiContext imguiContext(&window);
 
     // window.Show();
 
+    uint64_t prevCount = SDL_GetPerformanceCounter();
+    float freq = static_cast<float>(SDL_GetPerformanceFrequency());
+
+    SDL_Event event;
     while (window.IsLooping())
     {
-        currentTime = glfwGetTime();
-        deltaTime = currentTime - prevTime;
-        prevTime = currentTime;
-        FPS = 1.0 / deltaTime;
+        while (SDL_PollEvent(&event)) {
+            window.PollEvents(&event);
+            flex::ImGuiContext::PollEvents(&event);
+        }
+
+        const uint64_t currentCount = SDL_GetPerformanceCounter();
+        const float deltaTime = static_cast<float>(currentCount - prevCount) / freq;
+        prevCount = currentCount;
+        FPS = 1.0f / deltaTime;
 
         statusUpdateInterval -= deltaTime;
         if (statusUpdateInterval <= 0.0)
         {
-            auto title = std::format("OpenGL - FPS {:.3f} | {:.3f}", FPS, deltaTime * 1000.0);
+            auto title = std::format("OpenGL - FPS {:.3f} | {:.3f}", FPS, deltaTime * 1000.0f);
             window.SetWindowTitle(title);
             statusUpdateInterval = 1.0;
         }
-
-        // Gizmo mode switching
-        if (glfwGetKey(window.GetHandle(), GLFW_KEY_Q) == GLFW_PRESS)
-            gizmo.SetMode(flex::GizmoMode::TRANSLATE);
-        else if (glfwGetKey(window.GetHandle(), GLFW_KEY_W) == GLFW_PRESS)
-            gizmo.SetMode(flex::GizmoMode::ROTATE);
-        else if (glfwGetKey(window.GetHandle(), GLFW_KEY_E) == GLFW_PRESS)
-            gizmo.SetMode(flex::GizmoMode::SCALE);
 
         if (!vpData.isHovered)
         {
             camera.mouse.scroll = glm::ivec2(0);
             camera.mouse.position = glm::ivec2(0);
         }
+
         camera.HandleOrbit(deltaTime);
         camera.HandlePan();
         camera.HandleZoom(deltaTime);
@@ -406,23 +357,18 @@ int main(int argc, char **argv)
         screen.inverseProjection = glm::inverse(camera.projection);
         camera.lens.focalDistance = camera.distance;
 
-        // Update gizmo
-        gizmo.Update(camera, window.GetHandle(), deltaTime);
-        
-        // Update camera matrices with current aspect ratio
-        float aspect = (float)vpData.viewport.width / (float)vpData.viewport.height;
-        camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0 / 9.0f);
+        // Update camera matrices with the current aspect ratio
+        const float aspect = static_cast<float>(vpData.viewport.width) / static_cast<float>(vpData.viewport.height);
+        camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0f / 9.0f);
         cameraData.viewProjection = camera.projection * camera.view;
         cameraData.position = glm::vec4(camera.position, 1.0f);
         cameraData.view = camera.view; // new field used by shadows (also u_View uniform separately)
         cameraUbo->SetData(&cameraData, sizeof(cameraData));
 
         // Update scene data
-        sceneData.lightAngle.x = sceneData.lightAngle.x; // azimuth
-        sceneData.lightAngle.y = sceneData.lightAngle.y; // elevation
         sceneUbo->SetData(&sceneData, sizeof(SceneData));
 
-        // Compute sun / light direction for shadows (matches shader code)
+        // Compute a sun / light direction for shadows (matches shader code)
         float azimuth = sceneData.lightAngle.x;
         float elevation = sceneData.lightAngle.y;
         glm::vec3 sunDirection = {
@@ -435,6 +381,19 @@ int main(int argc, char **argv)
         // Update cascaded shadow map matrices & UBO
         csm.Update(camera, lightDirection);
 
+        // Resize framebuffer before rendering
+        if (framebuffer->GetWidth() != vpData.viewport.width || framebuffer->GetHeight() != vpData.viewport.height)
+        {
+            // Only resize if dimensions are valid
+            if (vpData.viewport.width > 0 && vpData.viewport.height > 0)
+            {
+                viewportFramebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
+                framebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
+                bloom.Resize(static_cast<int>(vpData.viewport.width), static_cast<int>(vpData.viewport.height));
+                ssao.Resize(static_cast<int>(vpData.viewport.width), static_cast<int>(vpData.viewport.height));
+            }
+        }
+
         // Shadow pass (depth only per cascade)
         glEnable(GL_DEPTH_TEST);
         glCullFace(GL_FRONT); // reduce peter-panning
@@ -443,12 +402,12 @@ int main(int argc, char **argv)
             csm.BeginCascade(ci);
             shadowDepthShader.Use();
             shadowDepthShader.SetUniform("u_CascadeIndex", ci);
-            for (const auto &model : scene.models)
+            for (const auto& model : scene.models)
                 model->RenderDepth(shadowDepthShader);
         }
         csm.EndCascade();
         glCullFace(GL_BACK);
-        
+
         // FIRST PASS: Render to framebuffer
         framebuffer->Bind(vpData.viewport);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -461,14 +420,14 @@ int main(int argc, char **argv)
         csm.BindTexture(6);
         PBRShader.SetUniform("u_ShadowMap", 6);
 
-        static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibility
+        static int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibilities
         PBRShader.SetUniform("u_DebugShadows", debugShadowMode);
 
-        for (const auto &model : scene.models)
+        for (const auto& model : scene.models)
         {
             model->Render(PBRShader, environmentTex);
         }
-        
+
         // Only render on perspective mode
         if (camera.projectionType == ProjectionType::Perspective)
         {
@@ -509,54 +468,58 @@ int main(int argc, char **argv)
             bloom.Build(hdrTex);
         }
 
-        viewportFramebuffer->Bind(vpData.viewport);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        glClearColor(0.0, 0.0, 0.0, 1.0);
-
-        // Disable depth testing and culling for screen quad
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_CULL_FACE);
-        if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
+        // Skip viewport rendering if dimensions are invalid
+        if (vpData.viewport.width > 0 && vpData.viewport.height > 0)
         {
-            if (camera.postProcessing.enableBloom)
+            viewportFramebuffer->Bind(vpData.viewport);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            glClearColor(0.0, 0.0, 0.0, 1.0);
+
+            // Disable depth testing and culling for screen quad
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            if (uint32_t screenTexture = framebuffer->GetColorAttachment(0))
             {
-                bloom.BindTextures(); // Bind individual mip levels for compatibility
-                // Also bind the final high-quality bloom texture to slot 7
-                uint32_t bloomTex = bloom.GetBloomTexture();
-                if (bloomTex != 0)
+                if (camera.postProcessing.enableBloom)
                 {
-                    glBindTextureUnit(3, bloomTex);
+                    bloom.BindTextures(); // Bind individual mip levels for compatibility
+                    // Also bind the final high-quality bloom texture to slot 7
+                    uint32_t bloomTex = bloom.GetBloomTexture();
+                    if (bloomTex != 0)
+                    {
+                        glBindTextureUnit(3, bloomTex);
+                    }
+                    else
+                    {
+                        glBindTextureUnit(3, 0);
+                    }
                 }
-                else
+                // Bind SSAO texture (binding=8 in screen shader)
+                if (camera.postProcessing.enableSSAO)
                 {
-                    glBindTextureUnit(3, 0);
+                    uint32_t aoTex = ssao.GetAOTexture();
+                    glBindTextureUnit(8, aoTex);
                 }
+                screen.Render(screenTexture, framebuffer->GetDepthAttachment(), camera, camera.postProcessing);
             }
-            // Bind SSAO texture (binding=8 in screen shader)
-            if (camera.postProcessing.enableSSAO)
-            {
-                uint32_t aoTex = ssao.GetAOTexture();
-                glBindTextureUnit(8, aoTex);
-            }
-            screen.Render(screenTexture, framebuffer->GetDepthAttachment(), camera, camera.postProcessing);
+            // Restore depth testing and culling
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_CULL_FACE);
         }
-        // Restore depth testing and culling
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, window.GetWidth(), window.GetHeight());
+        glViewport(0, 0, static_cast<int>(window.GetWidth()), static_cast<int>(window.GetHeight()));
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         // Finally render UI/text on top
-        glm::mat4 orthoProjection = glm::ortho(0.0f, (float)WINDOW_WIDTH, 0.0f, (float)WINDOW_HEIGHT);
-        TextRenderer::Begin(orthoProjection);
+        auto pr = glm::ortho(0.0f, static_cast<float>(vpData.viewport.width), 0.0f, static_cast<float>(vpData.viewport.height));
+        TextRenderer::Begin(pr);
         TextRenderer::DrawString(&font, "ABC",
-            glm::translate(glm::mat4(1.0f), {0.0f, 0.0f, 0.0f}),
+            glm::translate(glm::mat4(1.0f), { 0.0f, 0.0f, 0.0f }),
             glm::vec3(1.0f), {});
         TextRenderer::End();
 
-        imguiContext.NewFrame();
+        flex::ImGuiContext::NewFrame();
 
         // Dockspace window (invisible host)
         {
@@ -579,21 +542,14 @@ int main(int argc, char **argv)
         ImGui::Begin("Viewport");
         {
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-            if (viewportSize.x != vpData.viewport.width || viewportSize.y != vpData.viewport.height)
-            {
-                vpData.viewport.width = (int)viewportSize.x;
-                vpData.viewport.height = (int)viewportSize.y;
-                framebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
-                viewportFramebuffer->Resize(vpData.viewport.width, vpData.viewport.height);
-                bloom.Resize(vpData.viewport.width, vpData.viewport.height);
-                ssao.Resize(vpData.viewport.width, vpData.viewport.height);
-            }
+            vpData.viewport.width = viewportSize.x;
+            vpData.viewport.height = viewportSize.y;
 
             // Display framebuffer color attachment as image
-            uint32_t colorTex = viewportFramebuffer->GetColorAttachment(0);
+            const uint32_t colorTex = viewportFramebuffer->GetColorAttachment(0);
             if (colorTex != 0)
             {
-                ImGui::Image((void*)(uintptr_t)colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::Image(colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
             }
         }
         vpData.isHovered = ImGui::IsWindowHovered();
@@ -604,12 +560,12 @@ int main(int argc, char **argv)
             for (size_t i = 0; i < scene.models.size(); ++i)
             {
                 ImGui::PushID(i);
-                bool removing = false;
-                const auto &model = scene.models[i];
+                const auto& model = scene.models[i];
                 std::stringstream ss;
                 ss << "Model " << static_cast<int>(i);
                 if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
+                    bool removing = false;
                     if (ImGui::Button("Remove"))
                     {
                         removing = scene.RemoveModel(static_cast<int>(i));
@@ -621,10 +577,10 @@ int main(int argc, char **argv)
                         break;
                     }
 
-                    for (const MeshNode &node : model->GetScene().nodes)
+                    for (const MeshNode& node : model->GetScene().nodes)
                     {
                         ImGui::PushID(node.name.c_str());
-                        for (const std::shared_ptr<Mesh> &mesh : node.meshes)
+                        for (const std::shared_ptr<Mesh>& mesh : node.meshes)
                         {
                             if (ImGui::CollapsingHeader(node.name.c_str()))
                             {
@@ -633,7 +589,7 @@ int main(int argc, char **argv)
                                 glm::vec4 perspective;
                                 glm::quat orientation;
                                 glm::decompose(mesh->localTransform, scale, orientation, translation, skew, perspective);
-                                
+
                                 glm::vec3 eulerRotation = glm::eulerAngles(orientation);
                                 eulerRotation = glm::degrees(eulerRotation);
 
@@ -648,11 +604,11 @@ int main(int argc, char **argv)
                                 }
 
                                 // ====== Material ======
-                                const auto &mat = mesh->material;
+                                const auto& mat = mesh->material;
                                 std::stringstream matSS;
                                 matSS << "Material - \"" << mat->name << "\"";
                                 ImGui::SeparatorText(matSS.str().c_str());
-                                
+
                                 glm::vec3 factorVec = mat->params.baseColorFactor;
                                 if (ImGui::ColorEdit3("Base Color", &factorVec.x)) mat->params.baseColorFactor = glm::vec4(factorVec, 1.0f);
                                 factorVec = mat->params.emissiveFactor;
@@ -661,7 +617,7 @@ int main(int argc, char **argv)
                                 ImGui::SliderFloat("Roughness", &mat->params.roughnessFactor, 0.0f, 1.0f);
                                 ImGui::SliderFloat("Occlussion", &mat->params.occlusionStrength, 0.0f, 1.0f);
 
-                                static glm::vec2 imageSize = {64.0f, 64.0f};
+                                static glm::vec2 imageSize = { 64.0f, 64.0f };
                                 UIDrawImage(mat->baseColorTexture, imageSize.x, imageSize.y, "BaseColor");
                                 UIDrawImage(mat->emissiveTexture, imageSize.x, imageSize.y, "Emissive");
                                 UIDrawImage(mat->normalTexture, imageSize.x, imageSize.y, "Normal");
@@ -686,7 +642,7 @@ int main(int argc, char **argv)
             ImGui::Separator();
             // Projection type selector
             {
-                static const std::array<const char *, 2> projLabels = {"Perspective", "Orthographic"};
+                static const std::array<const char*, 2> projLabels = { "Perspective", "Orthographic" };
                 int projIndex = camera.projectionType == ProjectionType::Perspective ? 0 : 1;
                 if (ImGui::Combo("Projection", &projIndex, projLabels.data(), projLabels.size()))
                 {
@@ -714,17 +670,17 @@ int main(int argc, char **argv)
             ImGui::SliderFloat("Fog Density", &sceneData.fogDensity, 0.0f, 0.1f, "%.4f");
             ImGui::SliderFloat("Fog Start", &sceneData.fogStart, 0.1f, 100.0f);
             ImGui::SliderFloat("Fog End", &sceneData.fogEnd, 1.0f, 200.0f);
-            
+
             ImGui::SeparatorText("Shadows");
             {
-                auto &data = csm.GetData();
+                auto& data = csm.GetData();
                 bool changed = false;
                 changed |= ImGui::SliderFloat("Strength", &data.shadowStrength, 0.0f, 1.0f);
                 changed |= ImGui::DragFloat("Min Bias", &data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
                 changed |= ImGui::DragFloat("Max Bias", &data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
                 changed |= ImGui::SliderFloat("PCF Radius", &data.pcfRadius, 0.1f, 4.0f);
 
-                static const std::array<const char*, 3> resolutionLabels = {"Low - 1024px", "Medium - 2048px", "High - 4096px"};
+                static const std::array<const char*, 3> resolutionLabels = { "Low - 1024px", "Medium - 2048px", "High - 4096px" };
                 int cascadeQualityIndex = static_cast<int>(csm.GetQuality());
 
                 if (ImGui::Combo("Resolution", &cascadeQualityIndex, resolutionLabels.data(), resolutionLabels.size()))
@@ -754,14 +710,14 @@ int main(int argc, char **argv)
             ImGui::SliderFloat("FStop", &camera.lens.fStop, 0.7f, 16.0f);
             ImGui::SliderFloat("Focus Range", &camera.lens.focusRange, 0.7f, 16.0f);
             ImGui::SliderFloat("Blur Amount", &camera.lens.blurAmount, 0.5f, 20.0f);
-            
+
             ImGui::SeparatorText("Vignette");
             ImGui::Checkbox("Enable Vignette", &camera.postProcessing.enableVignette);
             ImGui::SliderFloat("Vignette Radius", &camera.postProcessing.vignetteRadius, 0.1f, 1.2f);
             ImGui::SliderFloat("Vignette Softness", &camera.postProcessing.vignetteSoftness, 0.001f, 1.0f);
             ImGui::SliderFloat("Vignette Intensity", &camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
             ImGui::ColorEdit3("Vignette Color", &camera.postProcessing.vignetteColor.x);
-            
+
             ImGui::SeparatorText("Chromatic Aberation");
             ImGui::Checkbox("Enable Chromatic Aberation", &camera.postProcessing.enableChromAb);
             ImGui::SliderFloat("Amount", &camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
@@ -785,13 +741,13 @@ int main(int argc, char **argv)
 
             if (ImGui::CollapsingHeader("Render Mode", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                int mode = (int)sceneData.renderMode;
+                int mode = static_cast<int>(sceneData.renderMode);
                 if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
                 if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
                 if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
                 if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
                 if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
-                sceneData.renderMode = (float)mode;
+                sceneData.renderMode = static_cast<float>(mode);
             }
         }
         ImGui::End();
@@ -800,7 +756,8 @@ int main(int argc, char **argv)
         window.SwapBuffers();
     }
 
-    imguiContext.Shutdown();
+    flex::ImGuiContext::Shutdown();
+
     TextRenderer::Shutdown();
     flex::Renderer::Shutdown();
 

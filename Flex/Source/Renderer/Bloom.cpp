@@ -65,11 +65,35 @@ namespace flex
             createInfo.attachments = { {Format::RGBA16F, FilterMode::LINEAR, WrapMode::CLAMP_TO_EDGE} };
 
             Level lvl; 
-            lvl.width = w; 
+            lvl.width = w;
             lvl.height = h;
-            lvl.fbDown = Framebuffer::Create(createInfo);
-            lvl.fbBlurH = Framebuffer::Create(createInfo);
-            lvl.fbBlurV = Framebuffer::Create(createInfo);
+
+            if (!lvl.fbDown)
+            {
+                lvl.fbDown = Framebuffer::Create(createInfo);
+            }
+            else
+            {
+                lvl.fbDown->Resize(w, h);
+            }
+
+            if (!lvl.fbBlurH)
+            {
+                lvl.fbBlurH = Framebuffer::Create(createInfo);
+            }
+            else
+            {
+                lvl.fbBlurH->Resize(w, h);
+            }
+
+            if (!lvl.fbBlurV)
+            {
+                lvl.fbBlurV = Framebuffer::Create(createInfo);
+            }
+            else
+            {
+                lvl.fbBlurV->Resize(w, h);
+            }
 
             m_Levels.push_back(lvl);
             
@@ -84,7 +108,14 @@ namespace flex
             finalInfo.width = width / 2;
             finalInfo.height = height / 2;
             finalInfo.attachments = { {Format::RGBA16F, FilterMode::LINEAR, WrapMode::CLAMP_TO_EDGE} };
-            m_FinalFB = Framebuffer::Create(finalInfo);
+            if (!m_FinalFB)
+            {
+                m_FinalFB = Framebuffer::Create(finalInfo);
+            }
+            else
+            {
+                m_FinalFB->Resize(finalInfo.width, finalInfo.height);
+            }
         }
     }
 
