@@ -324,8 +324,8 @@ int main(int argc, char **argv)
     while (window.IsLooping())
     {
         while (SDL_PollEvent(&event)) {
-            flex::ImGuiContext::PollEvents(&event);
             window.PollEvents(&event);
+            flex::ImGuiContext::PollEvents(&event);
         }
 
         const uint64_t currentCount = SDL_GetPerformanceCounter();

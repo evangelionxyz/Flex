@@ -68,7 +68,12 @@ namespace flex
     {
         s_Window = nullptr;
 
+        SDL_GL_DestroyContext(m_GL);
         SDL_DestroyWindow(m_Handle);
+
+        m_GL = nullptr;
+        m_Handle = nullptr;
+
         SDL_Quit();
     }
 
@@ -133,6 +138,10 @@ namespace flex
             {
                 m_Data.scrollCb((int)event->wheel.x, (int)event->wheel.x);
             }
+        }
+        if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
+        {
+            m_Running = false;
         }
     }
 
