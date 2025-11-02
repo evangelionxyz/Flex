@@ -9,25 +9,25 @@ namespace flex
     {
         auto window = Window::Get()->GetHandle();
 
-        double mouseX = 0.0;
-        double mouseY = 0.0;
-        glfwGetCursorPos(window, &mouseX, &mouseY);
+        float mouseX = 0.0;
+        float mouseY = 0.0;
+        SDL_MouseButtonFlags buttonFlag = SDL_GetMouseState(&mouseX, &mouseY);
         
         // Store last position before updating
         mouse.lastPosition = mouse.position;
         
         // Update current position
-        mouse.position = glm::vec2(static_cast<float>(mouseX), static_cast<float>(mouseY));
+        mouse.position = glm::vec2(mouseX, mouseY);
         
         // Update button states
-        mouse.leftButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-        mouse.middleButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
-        mouse.rightButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        mouse.leftButton = SDL_BUTTON_MASK(SDL_BUTTON_LEFT) == 0;
+        mouse.middleButton = SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE) == 0;
+        mouse.rightButton = SDL_BUTTON_MASK(SDL_BUTTON_RIGHT) == 0;
     }
 
     void Camera::HandleOrbit(float deltaTime)
     {
-        auto window = Window::Get()->GetHandle();
+        auto window = Window::Get();
 
         if (mouse.leftButton)
         {
@@ -35,7 +35,7 @@ namespace flex
             // delta.y *= -1.0f * 0.5f; // Invert
 
             // Handle Zoom
-            if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+            if (window->IsKeyModPressed(SDL_KMOD_LCTRL))
             {
                 if (delta.y != 0.0f)
                 {
@@ -115,7 +115,7 @@ namespace flex
 
     void Camera::HandleZoom(float deltaTime)
     {
-        auto window = Window::Get()->GetHandle();
+        auto window = Window::Get();
 
         // Handle mouse wheel
         float wheelDelta = 0.0f;
@@ -129,15 +129,6 @@ namespace flex
         }
         
         // Handle keyboard zoom controls
-        if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_KP_ADD) == GLFW_PRESS)
-        {
-            wheelDelta -= controls.zoomSensitivity * deltaTime * 10.0f;
-        }
-        if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS ||  glfwGetKey(window, GLFW_KEY_KP_SUBTRACT) == GLFW_PRESS)
-        {
-            wheelDelta += controls.zoomSensitivity * deltaTime * 10.0f;
-        }
-        
         if (wheelDelta != 0.0f)
         {
             // Apply zoom velocity for smooth zooming

@@ -2,39 +2,40 @@
 
 #include "ImGuiContext.h"
 
-#include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_opengl3.h>
-
-#include <GLFW/glfw3.h>
+#include "Renderer/Window.h"
 
 namespace flex
 {
-    ImGuiContext::ImGuiContext(GLFWwindow *window)
+    ImGuiContext::ImGuiContext(Window *window)
         : m_Window(window)
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
         ImGui::StyleColorsDark();
-        ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
+        ImGui_ImplSDL3_InitForOpenGL(window->GetHandle(), window->GetGLContext());
         ImGui_ImplOpenGL3_Init("#version 460");
+    }
+
+    void ImGuiContext::PollEvents(SDL_Event* event)
+    {
+        ImGui_ImplSDL3_ProcessEvent(event);
     }
 
     void ImGuiContext::Shutdown()
     {
         ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
+        ImGui_ImplSDL3_Shutdown();
         ImGui::DestroyContext();
     }
     
     void ImGuiContext::NewFrame()
     {
 		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
+		ImGui_ImplSDL3_NewFrame();
 		ImGui::NewFrame();
     }
     
@@ -42,12 +43,5 @@ namespace flex
     {
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        const ImGuiIO& io = ImGui::GetIO();
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(m_Window);
-        }
     }
 }

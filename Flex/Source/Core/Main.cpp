@@ -18,6 +18,7 @@
 #include "ImGuiContext.h"
 #include "Scene/Model.h"
 #include "Renderer/CascadedShadowMap.h"
+#include "Camera.h"
 #include "Renderer/Material.h"
 #include "Renderer/Shader.h"
 #include "Renderer/UniformBuffer.h"
@@ -26,7 +27,6 @@
 #include "Renderer/Mesh.h"
 #include "Renderer/Framebuffer.h"
 #include "Renderer/Bloom.h"
-#include "Renderer/Gizmo.h"
 #include "Renderer/SSAO.h"
 #include "Renderer/Window.h"
 #include "Math/Math.hpp"
@@ -188,13 +188,8 @@ int main(int argc, char **argv)
     flex::Renderer::Init();
 
     flex::Camera camera;
-    flex::Gizmo gizmo;
     Screen screen;
 
-    // Initialize gizmo at origin
-    gizmo.SetPosition(glm::vec3(0.0f, 0.0f, 0.0f));
-    gizmo.SetMode(flex::GizmoMode::TRANSLATE);
-    // Initialize camera with proper spherical coordinates
     camera.target = glm::vec3(0.0f);
     camera.distance = 5.5f;
     camera.yaw = glm::radians(90.0f);
@@ -209,9 +204,6 @@ int main(int argc, char **argv)
     Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
     TextRenderer::Init();
 
-    float currentTime = 0.0;
-    float prevTime = 0.0;
-    float deltaTime = 0.0;
     float FPS = 0.0;
     float statusUpdateInterval = 0.0;
 
@@ -316,54 +308,29 @@ int main(int argc, char **argv)
         }
     });
 
-    window.SetKeyboardCallback([&](int key, int scancode, int action, int mods)
-    {
-        switch (action)
-        {
-            case GLFW_PRESS:
-            {
-                if (key == GLFW_KEY_F11)
-                {
-                    window.ToggleFullScreen();
-                }
-
-                if (glfwGetKey(window.GetHandle(), GLFW_KEY_LEFT_CONTROL) && key == GLFW_KEY_R)
-                {
-                    PBRShader.Reload();
-                    screen.shader.Reload();
-                    shadowDepthShader.Reload();
-                }
-                else if (key == GLFW_KEY_ESCAPE)
-                {
-                    glfwSetWindowShouldClose(window.GetHandle(), 1);
-                }
-                break;
-            }
-            case GLFW_REPEAT:
-            {
-                break;
-            }
-            default:
-            {
-                break;
-            }
-        }
-    });
-
     // Render Here (main scene)
     ViewportData vpData = {};
     vpData.viewport = {0, 0, static_cast<uint32_t>(windowCreateInfo.width), static_cast<uint32_t>(windowCreateInfo.height)};
     vpData.isHovered = false;
 
-    flex::ImGuiContext imguiContext(window.GetHandle());
+    flex::ImGuiContext imguiContext(&window);
 
     // window.Show();
 
+    uint64_t prevCount = SDL_GetPerformanceCounter();
+    float freq = static_cast<float>(SDL_GetPerformanceFrequency());
+
+    SDL_Event event;
     while (window.IsLooping())
     {
-        currentTime = static_cast<float>(glfwGetTime());
-        deltaTime = currentTime - prevTime;
-        prevTime = currentTime;
+        while (SDL_PollEvent(&event)) {
+            flex::ImGuiContext::PollEvents(&event);
+            window.PollEvents(&event);
+        }
+
+        const uint64_t currentCount = SDL_GetPerformanceCounter();
+        const float deltaTime = static_cast<float>(currentCount - prevCount) / freq;
+        prevCount = currentCount;
         FPS = 1.0f / deltaTime;
 
         statusUpdateInterval -= deltaTime;
@@ -374,19 +341,12 @@ int main(int argc, char **argv)
             statusUpdateInterval = 1.0;
         }
 
-        // Gizmo mode switching
-        if (glfwGetKey(window.GetHandle(), GLFW_KEY_Q) == GLFW_PRESS)
-            gizmo.SetMode(flex::GizmoMode::TRANSLATE);
-        else if (glfwGetKey(window.GetHandle(), GLFW_KEY_W) == GLFW_PRESS)
-            gizmo.SetMode(flex::GizmoMode::ROTATE);
-        else if (glfwGetKey(window.GetHandle(), GLFW_KEY_E) == GLFW_PRESS)
-            gizmo.SetMode(flex::GizmoMode::SCALE);
-
         if (!vpData.isHovered)
         {
             camera.mouse.scroll = glm::ivec2(0);
             camera.mouse.position = glm::ivec2(0);
         }
+
         camera.HandleOrbit(deltaTime);
         camera.HandlePan();
         camera.HandleZoom(deltaTime);
@@ -397,9 +357,6 @@ int main(int argc, char **argv)
         screen.inverseProjection = glm::inverse(camera.projection);
         camera.lens.focalDistance = camera.distance;
 
-        // Update gizmo
-        gizmo.Update(camera, window.GetHandle(), deltaTime);
-        
         // Update camera matrices with the current aspect ratio
         const float aspect = static_cast<float>(vpData.viewport.width) / static_cast<float>(vpData.viewport.height);
         camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0f / 9.0f);

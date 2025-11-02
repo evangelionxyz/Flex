@@ -14,15 +14,14 @@ add_executable(FlexEngine
 
 target_include_directories(FlexEngine PRIVATE
     "Source"
-    "${THIRDPARTY_DIR}/glfw/include"
-    "${THIRDPARTY_DIR}/glad/include"
+    "${THIRDPARTY_DIR}/sdl3/include"
     "${THIRDPARTY_DIR}/stb"
     "${THIRDPARTY_DIR}/glm"
     "${THIRDPARTY_DIR}/json"
     "${THIRDPARTY_DIR}/tinygltf/include"
 )
 
-target_link_libraries(FlexEngine PRIVATE glfw imgui MSDF_ATLAS_GEN MSDFGEN FREETYPE)
+target_link_libraries(FlexEngine PRIVATE SDL3::SDL3 imgui MSDF_ATLAS_GEN MSDFGEN FREETYPE)
 
 add_custom_command(TARGET FlexEngine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR} $<TARGET_FILE_DIR:FlexEngine>/Resources

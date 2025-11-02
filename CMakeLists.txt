@@ -7,7 +7,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Flex/Resources")
 set(THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty")
 
-add_subdirectory("${THIRDPARTY_DIR}/glfw")
+add_subdirectory("${THIRDPARTY_DIR}/sdl3")
+
 include("${THIRDPARTY_DIR}/msdfgen.cmake")
 include("${THIRDPARTY_DIR}/msdfatlasgen.cmake")
 include("${THIRDPARTY_DIR}/freetype.cmake")
