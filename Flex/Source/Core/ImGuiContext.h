@@ -19,7 +19,7 @@ namespace flex
     
         static void NewFrame();
         static void Shutdown();
-        void Render();
+        static void Render();
 
     private: 
         Window *m_Window;
