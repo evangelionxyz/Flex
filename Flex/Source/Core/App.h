@@ -190,6 +190,12 @@ namespace flex
         void Run();
     private:
         void OnImGuiRender();
+        void UIViewport();
+        void UISettings();
+
+        void UISceneHierarchy();
+        void UISceneProperties();
+
         void OnMouseScroll(float xoffset, float yoffset);
         void OnMouseMotion(const glm::vec2 &position, const glm::vec2 &delta);
 

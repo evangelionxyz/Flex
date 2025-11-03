@@ -10,7 +10,7 @@ namespace flex
         windowCI.fullscreen = false;
         windowCI.title = "Flex Engine - OpenGL 4.6 Renderer";
         windowCI.width = 1280;
-        windowCI.height = 640;
+        windowCI.height = 720;
         m_Window = CreateRef<Window>(windowCI);
 
         // Initialize Window Callbacks
@@ -332,6 +332,14 @@ namespace flex
 
     void App::OnImGuiRender()
     {
+        UIViewport();
+        UISettings();
+        UISceneHierarchy();
+        UISceneProperties();
+    }
+
+    void App::UIViewport()
+    {
         ImGui::Begin("Viewport");
         {
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
@@ -347,8 +355,159 @@ namespace flex
         }
         m_Vp.isHovered = ImGui::IsWindowHovered();
         ImGui::End();
+    }
 
-        if (ImGui::Begin("Models", nullptr))
+    void App::UISettings()
+    {
+        // ============ Scene Settings ============
+        if (ImGui::Begin("Settings", nullptr))
+        {
+            constexpr ImGuiTreeNodeFlags treeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+
+            ImGui::Text("FPS: %.1f", m_FrameData.fps);
+            ImGui::Text("Delta ms: %.3f", m_FrameData.deltaTime * 1000.0);
+
+            // ============ Camera Settings ============
+            if (ImGui::TreeNodeEx("Camera Settings", treeFlags))
+            {
+                // Projection type selector
+                static const std::array<const char*, 2> projLabels = { "Perspective", "Orthographic" };
+                int projIndex = m_Camera.projectionType == ProjectionType::Perspective ? 0 : 1;
+                if (ImGui::Combo("Projection", &projIndex, projLabels.data(), projLabels.size()))
+                {
+                    m_Camera.projectionType = projIndex == 0 ? ProjectionType::Perspective : ProjectionType::Orthographic;
+
+                    const float aspect = static_cast<float>(m_Vp.viewport.width) / static_cast<float>(m_Vp.viewport.height);
+                    m_Camera.UpdateMatrices(aspect);
+                }
+                if (m_Camera.projectionType == ProjectionType::Perspective)
+                {
+                    ImGui::SliderFloat("FOV", &m_Camera.fov, 10.0f, 120.0f);
+                }
+                else
+                {
+                    ImGui::SliderFloat("Ortho Size", &m_Camera.orthoSize, 1.0f, 200.0f);
+                }
+
+                ImGui::SeparatorText("Camera");
+                ImGui::SliderFloat("Yaw", &m_Camera.yaw, -glm::pi<float>(), glm::pi<float>());
+                ImGui::SliderFloat("Pitch", &m_Camera.pitch, -1.5f, 1.5f);
+                ImGui::SliderFloat("Distance", &m_Camera.distance, 0.1f, 50.0f);
+                ImGui::SliderFloat("Exposure", &m_Camera.lens.exposure, 0.1f, 5.0f, "%.2f");
+                ImGui::SliderFloat("Gamma", &m_Camera.lens.gamma, 0.1f, 5.0f, "%.2f");
+
+                ImGui::TreePop();
+            }
+
+            // ============ Environment Settings ============
+            if (ImGui::TreeNodeEx("Environment", treeFlags))
+            {
+                // ============ Sun Settings ============
+                ImGui::SeparatorText("Sun");
+                ImGui::ColorEdit3("Light Color", &m_SceneData.lightColor.x);
+                ImGui::SliderFloat("Light Intensity", &m_SceneData.lightColor.w, 0.0f, 10.0f);
+                ImGui::SliderFloat("Sun Azimuth", &m_SceneData.lightAngle.x, 0.0f, 2.0f * glm::pi<float>());
+                ImGui::SliderFloat("Sun Elevation", &m_SceneData.lightAngle.y, -0.5f, 1.5f);
+
+                // ============ Fog Settings ============
+                ImGui::SeparatorText("Fog");
+                ImGui::ColorEdit3("Fog Color", &m_SceneData.fogColor.x);
+                ImGui::SliderFloat("Fog Density", &m_SceneData.fogDensity, 0.0f, 0.1f, "%.4f");
+                ImGui::SliderFloat("Fog Start", &m_SceneData.fogStart, 0.1f, 100.0f);
+                ImGui::SliderFloat("Fog End", &m_SceneData.fogEnd, 1.0f, 200.0f);
+
+                // ============ Shadows Settings ============
+                ImGui::SeparatorText("Shadows");
+                {
+                    auto& data = m_CSM->GetData();
+                    bool changed = false;
+                    changed |= ImGui::SliderFloat("Strength", &data.shadowStrength, 0.0f, 1.0f);
+                    changed |= ImGui::DragFloat("Min Bias", &data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
+                    changed |= ImGui::DragFloat("Max Bias", &data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
+                    changed |= ImGui::SliderFloat("PCF Radius", &data.pcfRadius, 0.1f, 4.0f);
+
+                    static const std::array<const char*, 3> resolutionLabels = { "Low - 1024px", "Medium - 2048px", "High - 4096px" };
+                    int cascadeQualityIndex = static_cast<int>(m_CSM->GetQuality());
+
+                    if (ImGui::Combo("Resolution", &cascadeQualityIndex, resolutionLabels.data(), resolutionLabels.size()))
+                    {
+                        auto quality = static_cast<CascadedQuality>(cascadeQualityIndex);
+                        m_CSM->Resize(quality);
+                    }
+
+                    ImGui::Separator();
+                    ImGui::Text("Shadow Debug");
+                    ImGui::RadioButton("Off##ShadowDbg", &m_Camera.controls.debugShadowMode, 0); ImGui::SameLine();
+                    ImGui::RadioButton("Cascades", &m_Camera.controls.debugShadowMode, 1); ImGui::SameLine();
+                    ImGui::RadioButton("Visibility", &m_Camera.controls.debugShadowMode, 2);
+                    if (changed) m_CSM->Upload();
+                }
+
+                ImGui::TreePop();
+            }
+
+            // ============ Post Processing Settings ============
+            if (ImGui::TreeNodeEx("Post Processing", treeFlags))
+            {
+                ImGui::SeparatorText("DOF");
+                ImGui::Checkbox("Enable DOF", &m_Camera.lens.enableDOF);
+                ImGui::SliderFloat("Focal Length", &m_Camera.lens.focalLength, 10.0f, 200.0f);
+                ImGui::SliderFloat("FStop", &m_Camera.lens.fStop, 0.7f, 16.0f);
+                ImGui::SliderFloat("Focus Range", &m_Camera.lens.focusRange, 0.7f, 16.0f);
+                ImGui::SliderFloat("Blur Amount", &m_Camera.lens.blurAmount, 0.5f, 20.0f);
+
+                ImGui::SeparatorText("Vignette");
+                ImGui::Checkbox("Enable Vignette", &m_Camera.postProcessing.enableVignette);
+                ImGui::SliderFloat("Vignette Radius", &m_Camera.postProcessing.vignetteRadius, 0.1f, 1.2f);
+                ImGui::SliderFloat("Vignette Softness", &m_Camera.postProcessing.vignetteSoftness, 0.001f, 1.0f);
+                ImGui::SliderFloat("Vignette Intensity", &m_Camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
+                ImGui::ColorEdit3("Vignette Color", &m_Camera.postProcessing.vignetteColor.x);
+
+                ImGui::SeparatorText("Chromatic Aberation");
+                ImGui::Checkbox("Enable Chromatic Aberation", &m_Camera.postProcessing.enableChromAb);
+                ImGui::SliderFloat("Amount", &m_Camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
+                ImGui::SliderFloat("Radial", &m_Camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
+
+                ImGui::SeparatorText("Bloom");
+                ImGui::Checkbox("Enable Bloom", &m_Camera.postProcessing.enableBloom);
+                ImGui::DragFloat("Threshold", &m_Bloom->settings.threshold, 0.025, 0.0f, FLT_MAX);
+                ImGui::DragFloat("Intensity", &m_Bloom->settings.intensity, 0.025, 0.0f, FLT_MAX);
+                ImGui::DragFloat("Knee", &m_Bloom->settings.knee, 0.25, 0.0f, FLT_MAX);
+                ImGui::DragFloat("Radius", &m_Bloom->settings.radius, 0.025, 0.0f, 1.0f);
+                ImGui::SliderInt("Iterations", &m_Bloom->settings.iterations, 1, 8);
+
+                ImGui::SeparatorText("SSAO");
+                ImGui::Checkbox("Enable SSAO", &m_Camera.postProcessing.enableSSAO);
+                ImGui::Checkbox("Debug SSAO", &m_Camera.postProcessing.debugSSAO);
+                ImGui::DragFloat("AO Radius", &m_Camera.postProcessing.aoRadius, 0.01f, 0.05f, 5.0f);
+                ImGui::DragFloat("AO Bias", &m_Camera.postProcessing.aoBias, 0.001f, 0.0f, 0.2f, "%.4f");
+                ImGui::DragFloat("AO Intensity", &m_Camera.postProcessing.aoIntensity, 0.01f, 0.0f, 4.0f);
+                ImGui::DragFloat("AO Power", &m_Camera.postProcessing.aoPower, 0.01f, 0.1f, 4.0f);
+
+                ImGui::TreePop();
+            }
+
+            // ============ Render Mode ============
+            if (ImGui::TreeNodeEx("Render Mode", treeFlags))
+            {
+                int mode = static_cast<int>(m_SceneData.renderMode);
+                if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
+                if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
+                if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
+                if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
+                if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
+                m_SceneData.renderMode = static_cast<float>(mode);
+
+                ImGui::TreePop();
+            }
+        }
+
+        ImGui::End();
+    }
+
+    void App::UISceneHierarchy()
+    {
+        if (ImGui::Begin("Scene", nullptr))
         {
             for (size_t i = 0; i < m_Scene.models.size(); ++i)
             {
@@ -426,125 +585,11 @@ namespace flex
             }
         }
         ImGui::End();
+    }
 
-        // Example stats window
-        if (ImGui::Begin("Stats", nullptr))
-        {
-            ImGui::Text("FPS: %.1f", m_FrameData.fps);
-            ImGui::Text("Delta ms: %.3f", m_FrameData.deltaTime * 1000.0);
-            ImGui::Separator();
-            // Projection type selector
-            {
-                static const std::array<const char*, 2> projLabels = { "Perspective", "Orthographic" };
-                int projIndex = m_Camera.projectionType == ProjectionType::Perspective ? 0 : 1;
-                if (ImGui::Combo("Projection", &projIndex, projLabels.data(), projLabels.size()))
-                {
-                    m_Camera.projectionType = projIndex == 0 ? ProjectionType::Perspective : ProjectionType::Orthographic;
-
-                    const float aspect = static_cast<float>(m_Vp.viewport.width) / static_cast<float>(m_Vp.viewport.height);
-                    m_Camera.UpdateMatrices(aspect);
-                }
-                if (m_Camera.projectionType == ProjectionType::Perspective)
-                {
-                    ImGui::SliderFloat("FOV", &m_Camera.fov, 10.0f, 120.0f);
-                }
-                else
-                {
-                    ImGui::SliderFloat("Ortho Size", &m_Camera.orthoSize, 1.0f, 200.0f);
-                }
-            }
-
-            ImGui::SeparatorText("Sun");
-            ImGui::ColorEdit3("Light Color", &m_SceneData.lightColor.x);
-            ImGui::SliderFloat("Light Intensity", &m_SceneData.lightColor.w, 0.0f, 10.0f);
-            ImGui::SliderFloat("Sun Azimuth", &m_SceneData.lightAngle.x, 0.0f, 2.0f * glm::pi<float>());
-            ImGui::SliderFloat("Sun Elevation", &m_SceneData.lightAngle.y, -0.5f, 1.5f);
-
-            ImGui::SeparatorText("Fog");
-            ImGui::ColorEdit3("Fog Color", &m_SceneData.fogColor.x);
-            ImGui::SliderFloat("Fog Density", &m_SceneData.fogDensity, 0.0f, 0.1f, "%.4f");
-            ImGui::SliderFloat("Fog Start", &m_SceneData.fogStart, 0.1f, 100.0f);
-            ImGui::SliderFloat("Fog End", &m_SceneData.fogEnd, 1.0f, 200.0f);
-
-            ImGui::SeparatorText("Shadows");
-            {
-                auto& data = m_CSM->GetData();
-                bool changed = false;
-                changed |= ImGui::SliderFloat("Strength", &data.shadowStrength, 0.0f, 1.0f);
-                changed |= ImGui::DragFloat("Min Bias", &data.minBias, 0.00001f, 0.0f, 0.01f, "%.6f");
-                changed |= ImGui::DragFloat("Max Bias", &data.maxBias, 0.00001f, 0.0f, 0.01f, "%.6f");
-                changed |= ImGui::SliderFloat("PCF Radius", &data.pcfRadius, 0.1f, 4.0f);
-
-                static const std::array<const char*, 3> resolutionLabels = { "Low - 1024px", "Medium - 2048px", "High - 4096px" };
-                int cascadeQualityIndex = static_cast<int>(m_CSM->GetQuality());
-
-                if (ImGui::Combo("Resolution", &cascadeQualityIndex, resolutionLabels.data(), resolutionLabels.size()))
-                {
-                    auto quality = static_cast<CascadedQuality>(cascadeQualityIndex);
-                    m_CSM->Resize(quality);
-                }
-
-                ImGui::Separator();
-                ImGui::Text("Shadow Debug");
-                ImGui::RadioButton("Off##ShadowDbg", &m_Camera.controls.debugShadowMode, 0); ImGui::SameLine();
-                ImGui::RadioButton("Cascades", &m_Camera.controls.debugShadowMode, 1); ImGui::SameLine();
-                ImGui::RadioButton("Visibility", &m_Camera.controls.debugShadowMode, 2);
-                if (changed) m_CSM->Upload();
-            }
-
-            ImGui::SeparatorText("Camera");
-            ImGui::SliderFloat("Yaw", &m_Camera.yaw, -glm::pi<float>(), glm::pi<float>());
-            ImGui::SliderFloat("Pitch", &m_Camera.pitch, -1.5f, 1.5f);
-            ImGui::SliderFloat("Distance", &m_Camera.distance, 0.1f, 50.0f);
-            ImGui::SliderFloat("Exposure", &m_Camera.lens.exposure, 0.1f, 5.0f, "%.2f");
-            ImGui::SliderFloat("Gamma", &m_Camera.lens.gamma, 0.1f, 5.0f, "%.2f");
-
-            ImGui::SeparatorText("DOF");
-            ImGui::Checkbox("Enable DOF", &m_Camera.lens.enableDOF);
-            ImGui::SliderFloat("Focal Length", &m_Camera.lens.focalLength, 10.0f, 200.0f);
-            ImGui::SliderFloat("FStop", &m_Camera.lens.fStop, 0.7f, 16.0f);
-            ImGui::SliderFloat("Focus Range", &m_Camera.lens.focusRange, 0.7f, 16.0f);
-            ImGui::SliderFloat("Blur Amount", &m_Camera.lens.blurAmount, 0.5f, 20.0f);
-
-            ImGui::SeparatorText("Vignette");
-            ImGui::Checkbox("Enable Vignette", &m_Camera.postProcessing.enableVignette);
-            ImGui::SliderFloat("Vignette Radius", &m_Camera.postProcessing.vignetteRadius, 0.1f, 1.2f);
-            ImGui::SliderFloat("Vignette Softness", &m_Camera.postProcessing.vignetteSoftness, 0.001f, 1.0f);
-            ImGui::SliderFloat("Vignette Intensity", &m_Camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
-            ImGui::ColorEdit3("Vignette Color", &m_Camera.postProcessing.vignetteColor.x);
-
-            ImGui::SeparatorText("Chromatic Aberation");
-            ImGui::Checkbox("Enable Chromatic Aberation", &m_Camera.postProcessing.enableChromAb);
-            ImGui::SliderFloat("Amount", &m_Camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
-            ImGui::SliderFloat("Radial", &m_Camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
-
-            ImGui::SeparatorText("Bloom");
-            ImGui::Checkbox("Enable Bloom", &m_Camera.postProcessing.enableBloom);
-            ImGui::DragFloat("Threshold", &m_Bloom->settings.threshold, 0.025, 0.0f, FLT_MAX);
-            ImGui::DragFloat("Intensity", &m_Bloom->settings.intensity, 0.025, 0.0f, FLT_MAX);
-            ImGui::DragFloat("Knee", &m_Bloom->settings.knee, 0.25, 0.0f, FLT_MAX);
-            ImGui::DragFloat("Radius", &m_Bloom->settings.radius, 0.025, 0.0f, 1.0f);
-            ImGui::SliderInt("Iterations", &m_Bloom->settings.iterations, 1, 8);
-
-            ImGui::SeparatorText("SSAO");
-            ImGui::Checkbox("Enable SSAO", &m_Camera.postProcessing.enableSSAO);
-            ImGui::Checkbox("Debug SSAO", &m_Camera.postProcessing.debugSSAO);
-            ImGui::DragFloat("AO Radius", &m_Camera.postProcessing.aoRadius, 0.01f, 0.05f, 5.0f);
-            ImGui::DragFloat("AO Bias", &m_Camera.postProcessing.aoBias, 0.001f, 0.0f, 0.2f, "%.4f");
-            ImGui::DragFloat("AO Intensity", &m_Camera.postProcessing.aoIntensity, 0.01f, 0.0f, 4.0f);
-            ImGui::DragFloat("AO Power", &m_Camera.postProcessing.aoPower, 0.01f, 0.1f, 4.0f);
-
-            if (ImGui::CollapsingHeader("Render Mode", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                int mode = static_cast<int>(m_SceneData.renderMode);
-                if (ImGui::RadioButton("Color", mode == RENDER_MODE_COLOR)) mode = RENDER_MODE_COLOR;
-                if (ImGui::RadioButton("Normals", mode == RENDER_MODE_NORMALS)) mode = RENDER_MODE_NORMALS;
-                if (ImGui::RadioButton("Metallic", mode == RENDER_MODE_METALLIC)) mode = RENDER_MODE_METALLIC;
-                if (ImGui::RadioButton("Roughness", mode == RENDER_MODE_ROUGHNESS)) mode = RENDER_MODE_ROUGHNESS;
-                if (ImGui::RadioButton("Depth", mode == RENDER_MODE_DEPTH)) mode = RENDER_MODE_DEPTH;
-                m_SceneData.renderMode = static_cast<float>(mode);
-            }
-        }
+    void App::UISceneProperties()
+    {
+        ImGui::Begin("Properties", nullptr);
 
         ImGui::End();
     }

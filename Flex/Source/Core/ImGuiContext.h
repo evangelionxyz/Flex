@@ -14,13 +14,10 @@ namespace flex
     {
     public:
         explicit ImGuiContext(Window *window);
-
         static void PollEvents(SDL_Event* event);
-    
         static void NewFrame();
         static void Shutdown();
         static void Render();
-
     private: 
         Window *m_Window;
     };
