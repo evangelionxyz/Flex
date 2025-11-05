@@ -2,6 +2,8 @@
 
 #include "App.h"
 
+#include "Physics/JoltPhysics.h"
+
 namespace flex
 {
     App::App(int argc, char** argv)
@@ -34,10 +36,17 @@ namespace flex
         TextRenderer::Init();
 
         m_Screen = CreateRef<Screen>();
+
+        m_MainScene = CreateRef<Scene>();
+        m_MainScene->CreateEntity("Evangelion");
+        JoltPhysics::Init();
     }
 
     App::~App()
     {
+        m_MainScene.reset();
+
+        JoltPhysics::Shutdown();
         ImGuiContext::Shutdown();
         TextRenderer::Shutdown();
         Renderer::Shutdown();
@@ -77,8 +86,8 @@ namespace flex
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
 
         // Load model from glTF file
-        m_Scene.AddModel("Resources/models/damaged_helmet.gltf");
-        m_Scene.AddModel("Resources/models/scene.glb");
+        m_ModelData.AddModel("Resources/models/damaged_helmet.gltf");
+        m_ModelData.AddModel("Resources/models/scene.glb");
 
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
@@ -189,7 +198,7 @@ namespace flex
                 m_CSM->BeginCascade(ci);
                 shadowDepthShader.Use();
                 shadowDepthShader.SetUniform("u_CascadeIndex", ci);
-                for (const auto& model : m_Scene.models)
+                for (const auto& model : m_ModelData.models)
                 {
                     model->RenderDepth(shadowDepthShader);
                 }
@@ -210,7 +219,7 @@ namespace flex
             PBRShader.SetUniform("u_ShadowMap", 6);
             PBRShader.SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
-            for (const auto& model : m_Scene.models)
+            for (const auto& model : m_ModelData.models)
             {
                 model->Render(PBRShader, m_EnvMap);
             }
@@ -509,10 +518,25 @@ namespace flex
     {
         if (ImGui::Begin("Scene", nullptr))
         {
-            for (size_t i = 0; i < m_Scene.models.size(); ++i)
+            for (const auto& [uuid, entity] : m_MainScene->entities)
+            {
+                TagComponent& tag = m_MainScene->GetComponent<TagComponent>(entity);
+                if (ImGui::TreeNodeEx(tag.name.c_str()))
+                {
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                    {
+                        m_SelectedEntity = entity;
+                    }
+
+                    ImGui::TreePop();
+                }
+            }
+#if 0
+            ImGui::Separator();
+            for (size_t i = 0; i < m_ModelData.models.size(); ++i)
             {
                 ImGui::PushID(i);
-                const auto& model = m_Scene.models[i];
+                const auto& model = m_ModelData.models[i];
                 std::stringstream ss;
                 ss << "Model " << static_cast<int>(i);
                 if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
@@ -520,7 +544,7 @@ namespace flex
                     bool removing = false;
                     if (ImGui::Button("Remove"))
                     {
-                        removing = m_Scene.RemoveModel(static_cast<int>(i));
+                        removing = m_ModelData.RemoveModel(static_cast<int>(i));
                     }
 
                     if (removing)
@@ -583,6 +607,7 @@ namespace flex
 
                 ImGui::PopID();
             }
+#endif
         }
         ImGui::End();
     }
@@ -590,6 +615,12 @@ namespace flex
     void App::UISceneProperties()
     {
         ImGui::Begin("Properties", nullptr);
+
+        if (m_SelectedEntity != entt::null)
+        {
+            TagComponent& tag = m_MainScene->GetComponent<TagComponent>(m_SelectedEntity);
+            ImGui::Text("%s", tag.name.c_str());
+        }
 
         ImGui::End();
     }

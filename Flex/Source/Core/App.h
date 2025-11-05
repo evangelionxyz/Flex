@@ -24,6 +24,7 @@
 
 #include "ImGuiContext.h"
 #include "Scene/Model.h"
+#include "Scene/Scene.h"
 #include "Renderer/CascadedShadowMap.h"
 #include "Camera.h"
 #include "Renderer/Material.h"
@@ -148,7 +149,7 @@ namespace flex
         float padding[2];
     };
 
-    struct Scene
+    struct ModelData
     {
         void AddModel(const std::string& filename)
         {
@@ -209,10 +210,13 @@ namespace flex
         Ref<Bloom> m_Bloom;
         Ref<SSAO> m_SSAO;
         Ref<Screen> m_Screen;
+        Ref<Scene> m_MainScene;
+
+        entt::entity m_SelectedEntity = { entt::null };
 
         ViewportData m_Vp;
         Camera m_Camera;
-        Scene m_Scene;
+        ModelData m_ModelData;
         SceneData m_SceneData;
         FrameData m_FrameData;
     };
