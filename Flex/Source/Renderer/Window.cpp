@@ -53,8 +53,7 @@ namespace flex
         SDL_GL_SetSwapInterval(1);
 
 #if _WIN32
-        SDL_PropertiesID prop = SDL_GetWindowProperties(m_Handle);
-        HWND hwnd = (HWND)SDL_GetPropertyType(prop, SDL_PROP_WINDOW_WIN32_HWND_POINTER);
+        HWND hwnd = (HWND)GetNativeWindow();
         BOOL useDarkMode = TRUE;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDarkMode, sizeof(useDarkMode));
 
@@ -248,7 +247,19 @@ namespace flex
         return m_MouseButtonStates[button];
     }
 
-    Window *Window::Get()
+	void* Window::GetNativeWindow()
+	{
+#ifdef _WIN32
+		SDL_PropertiesID prop = SDL_GetWindowProperties(m_Handle);
+		return (void *)SDL_GetPropertyType(prop, SDL_PROP_WINDOW_WIN32_HWND_POINTER);
+#elif __linux__
+        SDL_PropertiesID prop = SDL_GetWindowProperties(m_Handle);
+		return (void*)SDL_GetPropertyType(prop, SDL_PROP_WINDOW_X11_DISPLAY_POINTER);
+#endif
+        return nullptr;
+	}
+
+	Window* Window::Get()
     {
         return s_Window;
     }

@@ -4,6 +4,11 @@
 #include "Physics/JoltPhysics.h"
 #include "Scene/Components.h"
 
+#include "SDL3/SDL_dialog.h"
+
+#include <ImGuizmo.h>
+#include <glm/gtx/euler_angles.hpp>
+
 namespace flex
 {
     App::App(int argc, char** argv)
@@ -39,15 +44,6 @@ namespace flex
         m_Screen = CreateRef<Screen>();
 
         m_MainScene = CreateRef<Scene>();
-        {
-            auto e = m_MainScene->CreateEntity("Entity");
-            auto &tr = m_MainScene->AddComponent<TransformComponent>(e);
-            auto &box = m_MainScene->AddComponent<BoxColliderComponent>(e);
-            //auto &mc = m_MainScene->AddComponent<MeshComponent>(e);
-            auto &rb = m_MainScene->AddComponent<RigidbodyComponent>(e);
-            rb.useGravity = true;
-            rb.allowSleeping = true;
-        }
     }
 
     App::~App()
@@ -96,9 +92,21 @@ namespace flex
         // Create skybox mesh
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
 
-        // Load model from glTF file
-        m_ModelData.AddModel("Resources/models/damaged_helmet.gltf");
-        m_ModelData.AddModel("Resources/models/scene.glb");
+        // Load default glTF assets into the scene graph
+        const auto helmetEntities = m_MainScene->LoadModel("Resources/models/damaged_helmet.gltf");
+        const auto sceneEntities = m_MainScene->LoadModel("Resources/models/scene.glb");
+
+        if (m_SelectedEntity == entt::null)
+        {
+            if (!helmetEntities.empty())
+            {
+                m_SelectedEntity = helmetEntities.front();
+            }
+            else if (!sceneEntities.empty())
+            {
+                m_SelectedEntity = sceneEntities.front();
+            }
+        }
 
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
@@ -209,10 +217,7 @@ namespace flex
                 m_CSM->BeginCascade(ci);
                 shadowDepthShader->Use();
                 shadowDepthShader->SetUniform("u_CascadeIndex", ci);
-                for (const auto& model : m_ModelData.models)
-                {
-                    model->RenderDepth(shadowDepthShader);
-                }
+                m_MainScene->RenderDepth(shadowDepthShader);
             }
             m_CSM->EndCascade();
             glCullFace(GL_BACK);
@@ -230,10 +235,7 @@ namespace flex
             PBRShader->SetUniform("u_ShadowMap", 6);
             PBRShader->SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
-            for (const auto& model : m_ModelData.models)
-            {
-                model->Render(PBRShader, m_EnvMap);
-            }
+            m_MainScene->Render(PBRShader, m_EnvMap);
 
             // Only render on perspective mode
             if (m_Camera.projectionType == ProjectionType::Perspective)
@@ -363,6 +365,32 @@ namespace flex
         ImGui::Begin("Viewport");
         {
             ImGui::Button("Play");
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Translate", m_GizmoOperation == ImGuizmo::TRANSLATE))
+            {
+                m_GizmoOperation = ImGuizmo::TRANSLATE;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Rotate", m_GizmoOperation == ImGuizmo::ROTATE))
+            {
+                m_GizmoOperation = ImGuizmo::ROTATE;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Scale", m_GizmoOperation == ImGuizmo::SCALE))
+            {
+                m_GizmoOperation = ImGuizmo::SCALE;
+            }
+            ImGui::SameLine();
+            const bool isLocalMode = m_GizmoMode == ImGuizmo::LOCAL;
+            if (ImGui::RadioButton("Local", isLocalMode))
+            {
+                m_GizmoMode = ImGuizmo::LOCAL;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("World", !isLocalMode))
+            {
+                m_GizmoMode = ImGuizmo::WORLD;
+            }
 
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
             m_Vp.viewport.width = viewportSize.x;
@@ -372,10 +400,30 @@ namespace flex
             const uint32_t colorTex = m_ViewportFB->GetColorAttachment(0);
             if (colorTex != 0)
             {
+                ImGuizmo::BeginFrame();
                 ImGui::Image(colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+
+                if (m_SelectedEntity != entt::null && m_MainScene->HasComponent<TransformComponent>(m_SelectedEntity))
+                {
+                    auto& transform = m_MainScene->GetComponent<TransformComponent>(m_SelectedEntity);
+                    glm::mat4 model = math::ComposeTransform(transform);
+                    glm::mat4 view = m_Camera.view;
+                    glm::mat4 projection = m_Camera.projection;
+
+                    const ImVec2 gizmoMin = ImGui::GetItemRectMin();
+                    const ImVec2 gizmoMax = ImGui::GetItemRectMax();
+                    ImGuizmo::SetOrthographic(m_Camera.projectionType == ProjectionType::Orthographic);
+                    ImGuizmo::SetDrawlist();
+                    ImGuizmo::SetRect(gizmoMin.x, gizmoMin.y, gizmoMax.x - gizmoMin.x, gizmoMax.y - gizmoMin.y);
+
+                    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), m_GizmoOperation, m_GizmoMode, glm::value_ptr(model)))
+                    {
+                        math::DecomposeTransform(model, transform);
+                    }
+                }
             }
         }
-        m_Vp.isHovered = ImGui::IsWindowHovered();
+        m_Vp.isHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         ImGui::End();
     }
 
@@ -536,7 +584,7 @@ namespace flex
                 TagComponent& tag = m_MainScene->GetComponent<TagComponent>(entity);
                 if (ImGui::TreeNodeEx(tag.name.c_str()))
                 {
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
                     {
                         m_SelectedEntity = entity;
                     }
@@ -544,83 +592,6 @@ namespace flex
                     ImGui::TreePop();
                 }
             }
-#if 0
-            ImGui::Separator();
-            for (size_t i = 0; i < m_ModelData.models.size(); ++i)
-            {
-                ImGui::PushID(i);
-                const auto& model = m_ModelData.models[i];
-                std::stringstream ss;
-                ss << "Model " << static_cast<int>(i);
-                if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
-                {
-                    bool removing = false;
-                    if (ImGui::Button("Remove"))
-                    {
-                        removing = m_ModelData.RemoveModel(static_cast<int>(i));
-                    }
-
-                    if (removing)
-                    {
-                        ImGui::PopID();
-                        break;
-                    }
-
-                    for (const MeshNode& node : model->GetScene().nodes)
-                    {
-                        ImGui::PushID(node.name.c_str());
-                        for (const Ref<Mesh>& mesh : node.meshes)
-                        {
-                            if (ImGui::CollapsingHeader(node.name.c_str()))
-                            {
-                                // ====== Transforms ======
-                                glm::vec3 translation, scale, skew;
-                                glm::vec4 perspective;
-                                glm::quat orientation;
-                                glm::decompose(mesh->localTransform, scale, orientation, translation, skew, perspective);
-
-                                glm::vec3 eulerRotation = glm::eulerAngles(orientation);
-                                eulerRotation = glm::degrees(eulerRotation);
-
-                                bool editing = ImGui::DragFloat3("Position", &translation.x, 0.025f);
-                                editing |= ImGui::DragFloat3("Rotation", &eulerRotation.x, 0.025f);
-                                editing |= ImGui::DragFloat3("Scale", &scale.x, 0.025f);
-
-                                if (editing)
-                                {
-                                    orientation = glm::quat(glm::radians(eulerRotation));
-                                    mesh->localTransform = glm::translate(glm::mat4(1.0f), translation) * glm::toMat4(orientation) * glm::scale(glm::mat4(1.0f), scale);
-                                }
-
-                                // ====== Material ======
-                                const auto& mat = mesh->material;
-                                std::stringstream matSS;
-                                matSS << "Material - \"" << mat->name << "\"";
-                                ImGui::SeparatorText(matSS.str().c_str());
-
-                                glm::vec3 factorVec = mat->params.baseColorFactor;
-                                if (ImGui::ColorEdit3("Base Color", &factorVec.x)) mat->params.baseColorFactor = glm::vec4(factorVec, 1.0f);
-                                factorVec = mat->params.emissiveFactor;
-                                if (ImGui::ColorEdit3("Emissive", &factorVec.x)) mat->params.emissiveFactor = glm::vec4(factorVec, 1.0f);
-                                ImGui::SliderFloat("Metallic", &mat->params.metallicFactor, 0.0f, 1.0f);
-                                ImGui::SliderFloat("Roughness", &mat->params.roughnessFactor, 0.0f, 1.0f);
-                                ImGui::SliderFloat("Occlusion", &mat->params.occlusionStrength, 0.0f, 1.0f);
-
-                                static glm::vec2 imageSize = { 64.0f, 64.0f };
-                                UIDrawImage(mat->baseColorTexture, imageSize.x, imageSize.y, "BaseColor");
-                                UIDrawImage(mat->emissiveTexture, imageSize.x, imageSize.y, "Emissive");
-                                UIDrawImage(mat->normalTexture, imageSize.x, imageSize.y, "Normal");
-                                UIDrawImage(mat->metallicRoughnessTexture, imageSize.x, imageSize.y, "MetalRough");
-                                UIDrawImage(mat->occlusionTexture, imageSize.x, imageSize.y, "Occlusion");
-                            }
-                        }
-                        ImGui::PopID();
-                    }
-                }
-
-                ImGui::PopID();
-            }
-#endif
         }
         ImGui::End();
     }
@@ -652,16 +623,16 @@ namespace flex
 
             if (m_MainScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
             {
-				auto& rb = m_MainScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
+                auto& rb = m_MainScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Rigidbody", treeNodeFlags))
                 {
-					ImGui::DragFloat("Mass", &rb.mass, 0.25f);
-					ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.1f);
+                    ImGui::DragFloat("Mass", &rb.mass, 0.25f);
+                    ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.1f);
                     ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f);
 
                     ImGui::Checkbox("Is Static", &rb.isStatic);
                     ImGui::Checkbox("Use Gravity", &rb.useGravity);
-					ImGui::Checkbox("Allow Sleeping", &rb.allowSleeping);
+                    ImGui::Checkbox("Allow Sleeping", &rb.allowSleeping);
 
                     ImGui::TreePop();
                 }
@@ -682,7 +653,54 @@ namespace flex
 
                     ImGui::TreePop();
                 }
-			}
+            }
+
+            if (m_MainScene->HasComponent<MeshComponent>(m_SelectedEntity))
+            {
+                auto& mc = m_MainScene->GetComponent<MeshComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Mesh", treeNodeFlags))
+                {
+                    if (ImGui::Button("Load Mesh"))
+                    {
+                        SDL_Log("Opening file dialog...");
+
+                        SDL_DialogFileFilter filters[] =
+                        {
+                            { "3D Model Files", "gltf;glb" },
+                            { "All Files", "*" }
+                        };
+
+                        SDL_ShowOpenFileDialog(
+                            OnMeshFileSelected,
+                            this,
+                            m_Window->GetHandle(),
+                            filters,
+                            std::size(filters),
+                            nullptr,
+                            false
+                        );
+
+                        SDL_Log("SDL_ShowOpenFileDialog called");
+                    }
+
+                    if (!mc.meshPath.empty())
+                    {
+                        ImGui::Text("Mesh: %s", mc.meshPath.c_str());
+                    }
+                    else
+                    {
+                        ImGui::Text("No mesh assigned");
+                    }
+
+                    if (!m_PendingMeshFilepath.empty())
+                    {
+                        ImGui::Separator();
+                        ImGui::Text("Last imported: %s", m_PendingMeshFilepath.c_str());
+                    }
+
+                    ImGui::TreePop();
+                }
+            }
         }
 
         ImGui::End();
@@ -690,6 +708,9 @@ namespace flex
 
     void App::OnMouseScroll(float xoffset, float yoffset)
     {
+        if (ImGuizmo::IsUsing())
+            return;
+
         if (m_Vp.isHovered)
         {
             m_Camera.HandleZoom(yoffset);
@@ -698,10 +719,33 @@ namespace flex
 
     void App::OnMouseMotion(const glm::vec2& position, const glm::vec2& delta)
     {
+        if (ImGuizmo::IsUsing())
+            return;
+
         if (m_Vp.isHovered)
         {
             m_Camera.HandleOrbit(delta);
             m_Camera.HandlePan(delta);
         }
     }
+
+	void App::OnMeshFileSelected(void* userData, const char* const* filelist, int filter)
+	{
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("File dialog cancelled (no file selected)");
+            return;
+        }
+
+        App* app = static_cast<App*>(userData);
+        app->m_PendingMeshFilepath = std::string(filelist[0]);
+        const auto createdEntities = app->m_MainScene->LoadModel(app->m_PendingMeshFilepath);
+        if (!createdEntities.empty())
+        {
+            app->m_SelectedEntity = createdEntities.front();
+        }
+        
+        SDL_Log("File selected: %s", filelist[0]);
+	}
+
 }

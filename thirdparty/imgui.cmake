@@ -8,7 +8,22 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/thirdparty/imgui/imgui.cpp")
         thirdparty/imgui/backends/imgui_impl_sdl3.cpp
         thirdparty/imgui/backends/imgui_impl_opengl3.cpp
     )
-    add_library(imgui STATIC ${IMGUI_CORE_SRC})
+
+    file(GLOB IMGUIZMO_SRC
+        thirdparty/imguizmo/GraphEditor.cpp
+        thirdparty/imguizmo/GraphEditor.h
+        thirdparty/imguizmo/ImCurveEdit.cpp
+        thirdparty/imguizmo/ImCurveEdit.h
+        thirdparty/imguizmo/ImGradient.cpp
+        thirdparty/imguizmo/ImGradient.h
+        thirdparty/imguizmo/ImGuizmo.cpp
+        thirdparty/imguizmo/ImGuizmo.h
+        thirdparty/imguizmo/ImSequencer.cpp
+        thirdparty/imguizmo/ImSequencer.h
+        thirdparty/imguizmo/ImZoomSlider.h
+    )
+    
+    add_library(imgui STATIC ${IMGUI_CORE_SRC} ${IMGUIZMO_SRC})
     target_include_directories(imgui PUBLIC
         thirdparty/imgui
         thirdparty/imgui/backends

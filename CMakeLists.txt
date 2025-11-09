@@ -19,15 +19,13 @@ add_subdirectory("${THIRDPARTY_DIR}/sdl3")
 set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "Disable warnings as errors for Jolt" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build Jolt as a static library" FORCE)
 set(USE_STATIC_MSVC_RUNTIME_LIBRARY OFF CACHE BOOL "Use dynamic MSVC runtime library" FORCE)
-add_subdirectory("${THIRDPARTY_DIR}/jolt/Build")
 
-# Configure Jolt with static library settings
-target_compile_definitions(Jolt PRIVATE 
-    JPH_FLOATING_POINT_EXCEPTIONS_ENABLED
-    JPH_DEBUG_RENDERER
-    JPH_PROFILE_ENABLED
-    JPH_OBJECT_STREAM
-)
+# Set Jolt configuration options BEFORE adding the subdirectory
+set(FLOATING_POINT_EXCEPTIONS_ENABLED ON CACHE BOOL "Enable floating point exceptions" FORCE)
+set(DEBUG_RENDERER_IN_DEBUG_AND_RELEASE ON CACHE BOOL "Enable debug renderer" FORCE)
+set(PROFILER_IN_DEBUG_AND_RELEASE ON CACHE BOOL "Enable profiler" FORCE)
+
+add_subdirectory("${THIRDPARTY_DIR}/jolt/Build")
 
 add_subdirectory(Flex)
 add_subdirectory(Tests)

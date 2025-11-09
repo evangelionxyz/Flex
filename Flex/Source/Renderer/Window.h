@@ -74,6 +74,8 @@ namespace flex
         bool IsKeyModPressed(SDL_Keymod mod);
         bool IsMouseButtonPressed(uint32_t button);
 
+        void* GetNativeWindow();
+
         uint32_t GetWidth() const { return m_Data.width; }
         uint32_t GetHeight() const { return m_Data.height; }
         glm::vec2 GetMousePosition() const { return m_MousePosition; }

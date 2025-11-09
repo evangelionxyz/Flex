@@ -23,7 +23,6 @@
 #include <stb_image_write.h>
 
 #include "ImGuiContext.h"
-#include "Scene/Model.h"
 #include "Scene/Scene.h"
 #include "Renderer/CascadedShadowMap.h"
 #include "Camera.h"
@@ -39,6 +38,7 @@
 #include "Renderer/Window.h"
 #include "Math/Math.hpp"
 
+#include <ImGuizmo.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace flex
@@ -125,7 +125,7 @@ namespace flex
 
             shader = Renderer::CreateShaderFromFile(
                 {
-                    ShaderData{ "Resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER },
+                    ShaderData{ "Resources/shaders/screen.vert.glsl", GL_VERTEX_SHADER },
                     ShaderData{ "Resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER },
 				}, "ScreenShader");
         }
@@ -148,26 +148,6 @@ namespace flex
         float fogStart = 10.0f;
         float fogEnd = 50.0f;
         float padding[2];
-    };
-
-    struct ModelData
-    {
-        void AddModel(const std::string& filename)
-        {
-            auto& model = models.emplace_back();
-            model = Model::Create(filename);
-        }
-
-        bool RemoveModel(int index)
-        {
-            if (index >= models.size())
-                return false;
-
-            models.erase(models.begin() + index);
-            return true;
-        }
-
-        std::vector<std::shared_ptr<Model>> models;
     };
 
     struct ViewportData
@@ -201,6 +181,8 @@ namespace flex
         void OnMouseScroll(float xoffset, float yoffset);
         void OnMouseMotion(const glm::vec2 &position, const glm::vec2 &delta);
 
+        static void OnMeshFileSelected(void* userData, const char* const* filelist, int filter);
+
     private:
         Ref<Window> m_Window;
         Ref<Framebuffer> m_SceneFB;
@@ -217,9 +199,13 @@ namespace flex
 
         ViewportData m_Vp;
         Camera m_Camera;
-        ModelData m_ModelData;
         SceneData m_SceneData;
         FrameData m_FrameData;
+
+        std::string m_PendingMeshFilepath;
+
+        ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
+        ImGuizmo::MODE m_GizmoMode = ImGuizmo::LOCAL;
     };
 }
 

@@ -1,18 +1,14 @@
 // Copyright (c) 2025 Flex Engine | Evangelion Manuhutu
 
-#include "JoltPhysics.h"
-#include "Scene/Scene.h"
-#include "Scene/Components.h"
-
 #ifndef GLM_ENABLE_EXPERIMENTAL
 	#define GLM_ENABLE_EXPERIMENTAL
 #endif
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#ifndef JPH_DISABLE_CUSTOM_ALLOCATOR
-	#define JPH_DISABLE_CUSTOM_ALLOCATOR
-#endif
+#include "JoltPhysics.h"
+#include "Scene/Scene.h"
+#include "Scene/Components.h"
 
 namespace flex
 {
