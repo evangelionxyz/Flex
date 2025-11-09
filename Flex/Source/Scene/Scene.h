@@ -3,7 +3,7 @@
 #ifndef SCENE_H
 #define SCENE_H
 
-#include "entt.h"
+#include "entt/entt.hpp"
 #include "Core/UUID.h"
 
 #include "Physics/JoltPhysics.h"

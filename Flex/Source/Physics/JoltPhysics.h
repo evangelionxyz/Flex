@@ -4,7 +4,7 @@
 #define PHYSICS3D_H
 
 #include "Core/Types.h"
-#include "Scene/entt.h"
+#include "entt/entt.hpp"
 
 #include <Jolt/Jolt.h>
 
