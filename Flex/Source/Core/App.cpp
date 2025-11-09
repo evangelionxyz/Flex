@@ -4,12 +4,15 @@
 #include "Physics/JoltPhysics.h"
 #include "Scene/Components.h"
 #include "Renderer/Material.h"
+#include "Renderer/Renderer2D.h"
 
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_events.h"
 
 #include <ImGuizmo.h>
 #include <glm/gtx/euler_angles.hpp>
+#include <algorithm>
+#include <iterator>
 #include <cstring>
 
 namespace flex
@@ -39,6 +42,7 @@ namespace flex
 
         // Initialize Renderer
         Renderer::Init();
+        Renderer2D::Init();
 
         m_Camera.target = glm::vec3(0.0f);
         m_Camera.distance = 5.5f;
@@ -68,6 +72,7 @@ namespace flex
         JoltPhysics::Shutdown();
         ImGuiContext::Shutdown();
         TextRenderer::Shutdown();
+        Renderer2D::Shutdown();
         Renderer::Shutdown();
     }
 
@@ -108,19 +113,19 @@ namespace flex
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
 
         // Load default glTF assets into the scene graph
-        const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
-        const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
-        if (m_SelectedEntity == entt::null)
-        {
-            if (!helmetEntities.empty())
-            {
-                m_SelectedEntity = helmetEntities.front();
-            }
-            else if (!sceneEntities.empty())
-            {
-                m_SelectedEntity = sceneEntities.front();
-            }
-        }
+        // const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
+        // const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
+        // if (m_SelectedEntity == entt::null)
+        // {
+        //     if (!helmetEntities.empty())
+        //     {
+        //         m_SelectedEntity = helmetEntities.front();
+        //     }
+        //     else if (!sceneEntities.empty())
+        //     {
+        //         m_SelectedEntity = sceneEntities.front();
+        //     }
+        // }
 
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
@@ -203,6 +208,8 @@ namespace flex
             cameraData.view = m_Camera.view; // new field used by shadows (also u_View uniform separately)
             cameraUbo->SetData(&cameraData, sizeof(cameraData));
 
+            Renderer2D::BeginBatch(cameraData.viewProjection);
+
             // Update scene data
             sceneUbo->SetData(&m_SceneData, sizeof(SceneData));
 
@@ -257,6 +264,8 @@ namespace flex
             PBRShader->SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
             m_ActiveScene->Render(PBRShader, m_EnvMap);
+
+            Renderer2D::EndBatch();
 
             // Only render on perspective mode
             if (m_Camera.projectionType == ProjectionType::Perspective)
@@ -737,8 +746,14 @@ namespace flex
             static entt::entity bufferedEntity = entt::null;
             if (bufferedEntity != m_SelectedEntity)
             {
-                std::strncpy(nameBuffer, tag.name.c_str(), sizeof(nameBuffer) - 1);
-                nameBuffer[sizeof(nameBuffer) - 1] = '\0';
+                constexpr std::size_t kBufferSize = sizeof(nameBuffer);
+                std::fill(std::begin(nameBuffer), std::end(nameBuffer), '\0');
+                const std::size_t copyLength = std::min(tag.name.size(), kBufferSize - 1);
+                if (copyLength > 0)
+                {
+                    std::memcpy(nameBuffer, tag.name.data(), copyLength);
+                    nameBuffer[copyLength] = '\0';
+                }
                 bufferedEntity = m_SelectedEntity;
             }
 
@@ -1016,6 +1031,12 @@ namespace flex
             case SDLK_R:
             {
                 m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
+                break;
+            }
+            case SDLK_DELETE:
+            {
+                m_ActiveScene->DestroyEntity(m_SelectedEntity);
+                m_SelectedEntity = entt::null;
                 break;
             }
         }
