@@ -7,12 +7,16 @@
 #include "Renderer/Material.h"
 #include "Renderer/Mesh.h"
 #include "Renderer/Renderer.h"
+#include "Renderer/Renderer2D.h"
 #include "Math/Math.hpp"
 
 #include <filesystem>
 #include <unordered_map>
 #include <type_traits>
 #include <format>
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 namespace flex
 {
@@ -24,7 +28,7 @@ namespace flex
 			if constexpr (std::is_same_v<Component, RigidbodyComponent>)
 			{
 				Component copy = component;
-				copy.body = nullptr;
+				copy.bodyID = JPH::BodyID();
 				return copy;
 			}
 			else if constexpr (std::is_same_v<Component, BoxColliderComponent>)
@@ -204,6 +208,55 @@ namespace flex
 				meshComponent.meshInstance->mesh->vertexArray->Bind();
 				Renderer::DrawIndexed(meshComponent.meshInstance->mesh->vertexArray);
 			});
+	}
+
+	void Scene::DebugDrawColliders() const
+	{
+		if (!registry)
+		{
+			return;
+		}
+
+		auto view = registry->view<TransformComponent, BoxColliderComponent>();
+		constexpr glm::vec3 kLocalCorners[8] = {
+			{ -0.5f, -0.5f, -0.5f },
+			{  0.5f, -0.5f, -0.5f },
+			{  0.5f,  0.5f, -0.5f },
+			{ -0.5f,  0.5f, -0.5f },
+			{ -0.5f, -0.5f,  0.5f },
+			{  0.5f, -0.5f,  0.5f },
+			{  0.5f,  0.5f,  0.5f },
+			{ -0.5f,  0.5f,  0.5f }
+		};
+
+		constexpr uint32_t kEdgeIndices[12][2] = {
+			{0, 1}, {1, 2}, {2, 3}, {3, 0},
+			{4, 5}, {5, 6}, {6, 7}, {7, 4},
+			{0, 4}, {1, 5}, {2, 6}, {3, 7}
+		};
+
+		const glm::vec4 kDebugColor = { 0.9f, 0.0f, 0.9f, 1.0f };
+
+		view.each([&](const TransformComponent& transform, const BoxColliderComponent& box)
+		{
+			const glm::quat rotation = glm::quat(glm::radians(transform.rotation));
+			const glm::vec3 worldOffset = rotation * (box.offset * transform.scale);
+			const glm::vec3 worldScale = transform.scale * box.scale * 2.0f;
+			const glm::mat4 colliderTransform = glm::translate(glm::mat4(1.0f), transform.position + worldOffset)
+				* glm::toMat4(rotation)
+				* glm::scale(glm::mat4(1.0f), worldScale);
+
+			glm::vec3 worldCorners[8];
+			for (size_t i = 0; i < 8; ++i)
+			{
+				worldCorners[i] = glm::vec3(colliderTransform * glm::vec4(kLocalCorners[i], 1.0f));
+			}
+
+			for (const auto& edge : kEdgeIndices)
+			{
+				Renderer2D::DrawLine(worldCorners[edge[0]], worldCorners[edge[1]], kDebugColor);
+			}
+		});
 	}
 
 	std::vector<entt::entity> Scene::LoadModel(const std::string& filepath, const glm::mat4& rootTransform)

@@ -8,15 +8,13 @@
 #include <string>
 #include <glm/glm.hpp>
 
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/BodyID.h>
+
 #include "Scene.h"
 #include "Renderer/Mesh.h"
 #include "Core/Types.h"
 #include "Core/UUID.h"
-
-namespace JPH
-{
-    class Body;
-}
 
 namespace flex
 {
@@ -96,7 +94,7 @@ namespace flex
         float gravityFactor = 1.0f;
         glm::vec3 centerOfMass = { 0.0f, 0.0f, 0.0f };
 
-        JPH::Body* body = nullptr;
+        JPH::BodyID bodyID = JPH::BodyID();
 
         RigidbodyComponent() = default;
 	};

@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <iterator>
 #include <cstring>
+#include <cstdint>
 
 namespace flex
 {
@@ -108,6 +109,9 @@ namespace flex
         createInfo.filter = FilterMode::LINEAR;
 
         m_EnvMap = CreateRef<Texture2D>(createInfo, "Resources/hdr/rogland_clear_night_4k.hdr");
+
+        createInfo.format = Format::RGBA8;
+        m_FallbackTexture = CreateRef<Texture2D>(createInfo, "Resources/textures/fallback.jpg");
 
         // Create skybox mesh
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
@@ -264,6 +268,11 @@ namespace flex
             PBRShader->SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
             m_ActiveScene->Render(PBRShader, m_EnvMap);
+
+            if (m_ActiveScene)
+            {
+                m_ActiveScene->DebugDrawColliders();
+            }
 
             Renderer2D::EndBatch();
 
@@ -586,7 +595,7 @@ namespace flex
                 // ============ Fog Settings ============
                 ImGui::SeparatorText("Fog");
                 ImGui::ColorEdit3("Fog Color", &m_SceneData.fogColor.x);
-                ImGui::SliderFloat("Fog Density", &m_SceneData.fogDensity, 0.0f, 0.1f, "%.4f");
+                ImGui::DragFloat("Fog Density", &m_SceneData.fogDensity, 0.0f, 0.0f, 1000.0f);
                 ImGui::SliderFloat("Fog Start", &m_SceneData.fogStart, 0.1f, 100.0f);
                 ImGui::SliderFloat("Fog End", &m_SceneData.fogEnd, 1.0f, 200.0f);
 
@@ -768,9 +777,9 @@ namespace flex
 
                 if (ImGui::TreeNodeEx("Transform", treeNodeFlags))
                 {
-                    ImGui::DragFloat3("Position", &tr.position.x, 0.25);
-                    ImGui::DragFloat3("Rotation", &tr.rotation.x, 0.25);
-                    ImGui::DragFloat3("Scale", &tr.scale.x, 0.25);
+                    ImGui::DragFloat3("Position", &tr.position.x, 0.025);
+                    ImGui::DragFloat3("Rotation", &tr.rotation.x, 0.025);
+                    ImGui::DragFloat3("Scale", &tr.scale.x, 0.025);
 
                     ImGui::TreePop();
                 }
@@ -781,9 +790,9 @@ namespace flex
                 auto& rb = m_ActiveScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Rigidbody", treeNodeFlags))
                 {
-                    ImGui::DragFloat("Mass", &rb.mass, 0.25f);
-                    ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.1f);
-                    ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f);
+                    ImGui::DragFloat("Mass", &rb.mass, 0.025f);
+                    ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.01f);
+                    ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f, 0.0f, 100.0f);
 
                     ImGui::Checkbox("Is Static", &rb.isStatic);
                     ImGui::Checkbox("Use Gravity", &rb.useGravity);
@@ -798,13 +807,13 @@ namespace flex
                 auto& box = m_ActiveScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Box Collider", treeNodeFlags))
                 {
-                    ImGui::DragFloat3("Size", &box.scale.x, 0.1f);
-                    ImGui::DragFloat3("Offset", &box.offset.x, 0.1f);
+                    ImGui::DragFloat3("Size", &box.scale.x, 0.01f);
+                    ImGui::DragFloat3("Offset", &box.offset.x, 0.01f);
 
-                    ImGui::DragFloat("Density", &box.density, 0.1f);
-                    ImGui::DragFloat("Friction", &box.friction, 0.1f);
-                    ImGui::DragFloat("Static Friction", &box.staticFriction, 0.1f);
-                    ImGui::DragFloat("Restitution", &box.restitution, 0.1f);
+                    ImGui::DragFloat("Density", &box.density, 0.1f, 0.0f, 100.0f);
+                    ImGui::DragFloat("Friction", &box.friction, 0.1f, 0.0f, 100.0f);
+                    ImGui::DragFloat("Static Friction", &box.staticFriction, 100.0f);
+                    ImGui::DragFloat("Restitution", &box.restitution, 0.1f, 0.0f, 100.0f);
 
                     ImGui::TreePop();
                 }
@@ -877,18 +886,40 @@ namespace flex
                         ImGui::SliderFloat("Occlusion", &material->params.occlusionStrength, 0.0f, 1.0f);
 
                         ImGui::SeparatorText("Textures");
-                        ImGui::Text("Base Color: %s", material->baseColorTexture ? "Assigned" : "None");
-                        ImGui::Text("Emissive: %s", material->emissiveTexture ? "Assigned" : "None");
-                        ImGui::Text("Metallic/Roughness: %s", material->metallicRoughnessTexture ? "Assigned" : "None");
-                        ImGui::Text("Normal: %s", material->normalTexture ? "Assigned" : "None");
-                        ImGui::Text("Occlusion: %s", material->occlusionTexture ? "Assigned" : "None");
+                        auto drawTexturePreview = [this](const char* label, const Ref<Texture2D>& texture)
+                        {
+                            ImGui::PushID(label);
+                            
+                            const Ref<Texture2D>& previewTexture = texture ? texture : m_FallbackTexture;
+                            if (previewTexture)
+                            {
+                                const ImTextureID textureID = static_cast<ImTextureID>(previewTexture->GetHandle());
+                                ImGui::Image(textureID, ImVec2(64.0f, 64.0f), ImVec2(0, 1), ImVec2(1, 0));
+                                ImGui::NewLine();
+                            }
+                            else
+                            {
+                                ImGui::Dummy(ImVec2(64.0f, 64.0f));
+                                ImGui::NewLine();
+                            }
+                            ImGui::SameLine();
+                            ImGui::Text("%s", label);
+                            
+                            ImGui::PopID();
+                        };
+
+                        drawTexturePreview("Base Color", material->baseColorTexture);
+                        drawTexturePreview("Emissive", material->emissiveTexture);
+                        drawTexturePreview("Metallic/Roughness", material->metallicRoughnessTexture);
+                        drawTexturePreview("Normal", material->normalTexture);
+                        drawTexturePreview("Occlusion", material->occlusionTexture);
                     }
 
                     ImGui::TreePop();
                 }
             }
 
-            if (ImGui::Button("Add Component"))
+            if (ImGui::Button("Add Component", ImVec2(ImGui::GetContentRegionAvail().x, 24.0f)))
             {
                 ImGui::OpenPopup("AddComponentPopup");
             }
@@ -966,6 +997,7 @@ namespace flex
 
         const bool ctrl = (mod & (SDL_KMOD_LCTRL | SDL_KMOD_RCTRL)) != 0;
         const bool shift = (mod & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT)) != 0;
+        const bool alt = (mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) != 0;
 
         if (ctrl)
         {
@@ -973,6 +1005,8 @@ namespace flex
             {
                 if (key == SDLK_S)
                 {
+                    // Save runtime on alt pressed
+                    m_SaveRuntime = alt;
                     SaveSceneAs();
                 }
                 return;
@@ -982,7 +1016,10 @@ namespace flex
             {
                 case SDLK_S:
                 {
+                    // Save runtime on alt pressed
+                    m_SaveRuntime = alt;
                     SaveScene();
+
                     break;
                 }
                 case SDLK_D:
@@ -1117,6 +1154,11 @@ namespace flex
         }
 
         Ref<Scene> sceneToSave = m_EditorScene ? m_EditorScene : m_ActiveScene;
+        
+        // Force save runtime
+        if (m_SaveRuntime)
+            sceneToSave = m_ActiveScene;
+
         if (!sceneToSave)
         {
             SDL_Log("SaveSceneToPath: no scene is available to save");

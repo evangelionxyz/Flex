@@ -31,6 +31,7 @@ namespace flex
 
         void Render(const Ref<Shader>& shader, const Ref<Texture2D>& environmentTexture);
         void RenderDepth(const Ref<Shader>& shader);
+        void DebugDrawColliders() const;
 
         bool IsPlaying() const { return m_IsPlaying; }
 

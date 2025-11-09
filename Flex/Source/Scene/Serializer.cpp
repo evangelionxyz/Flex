@@ -315,7 +315,7 @@ namespace flex
 			rb.moveX = rbJson.value("MoveX", true);
 			rb.moveY = rbJson.value("MoveY", true);
 			rb.moveZ = rbJson.value("MoveZ", true);
-			rb.body = nullptr;
+			rb.bodyID = JPH::BodyID();
 		}
 
 		if (entityData.contains("BoxCollider"))

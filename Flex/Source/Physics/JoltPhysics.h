@@ -18,6 +18,7 @@
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
 // STL includes
@@ -233,34 +234,34 @@ namespace flex
 		void CreateBoxCollider(entt::entity entity);
 		void CreateSphereCollider(entt::entity entity);
 
-		void AddForce(const JPH::Body& body, const glm::vec3& force);
-		void AddTorque(const JPH::Body& body, const glm::vec3& torque);
-		void AddForceAndTorque(const JPH::Body& body, const glm::vec3& force, const glm::vec3& torque);
-		void AddAngularImpulse(const JPH::Body& body, const glm::vec3& impulse);
-		void ActivateBody(const JPH::Body& body);
-		void DeactivateBody(const JPH::Body& body);
-		void DestroyBody(const JPH::Body& body);
-		bool IsActive(const JPH::Body& body);
-		void MoveKinematic(const JPH::Body& body, const glm::vec3& targetPosition, const glm::vec3& targetRotation, float deltaTime);
-		void AddImpulse(const JPH::Body& body, const glm::vec3& impulse);
-		void AddLinearVelocity(const JPH::Body& body, const glm::vec3& velocity);
-		void SetPosition(const JPH::Body& body, const glm::vec3& position, bool activate);
-		void SetEulerAngleRotation(const JPH::Body& body, const glm::vec3& rotation, bool activate);
-		void SetRotation(const JPH::Body& body, const glm::quat& rotation, bool activate);
-		void SetLinearVelocity(const JPH::Body& body, const glm::vec3& vel);
-		void SetFriction(const JPH::Body& body, float value);
-		void SetRestitution(const JPH::Body& body, float value);
-		void SetGravityFactor(const JPH::Body& body, float value);
-		float GetRestitution(const JPH::Body& body);
-		float GetFriction(const JPH::Body& body);
-		float GetGravityFactor(const JPH::Body& body);
-		glm::vec3 GetPosition(const JPH::Body& body);
-		glm::vec3 GetEulerAngles(const JPH::Body& body);
-		glm::quat GetRotation(const JPH::Body& body);
-		glm::vec3 GetCenterOfMassPosition(const JPH::Body& body);
-		glm::vec3 GetLinearVelocity(const JPH::Body& body);
-		void SetMaxLinearVelocity(JPH::Body& body, float max);
-		void SetMaxAngularVelocity(JPH::Body& body, float max);
+		void AddForce(JPH::BodyID bodyID, const glm::vec3& force);
+		void AddTorque(JPH::BodyID bodyID, const glm::vec3& torque);
+		void AddForceAndTorque(JPH::BodyID bodyID, const glm::vec3& force, const glm::vec3& torque);
+		void AddAngularImpulse(JPH::BodyID bodyID, const glm::vec3& impulse);
+		void ActivateBody(JPH::BodyID bodyID);
+		void DeactivateBody(JPH::BodyID bodyID);
+		void DestroyBody(JPH::BodyID bodyID);
+		bool IsActive(JPH::BodyID bodyID);
+		void MoveKinematic(JPH::BodyID bodyID, const glm::vec3& targetPosition, const glm::vec3& targetRotation, float deltaTime);
+		void AddImpulse(JPH::BodyID bodyID, const glm::vec3& impulse);
+		void AddLinearVelocity(JPH::BodyID bodyID, const glm::vec3& velocity);
+		void SetPosition(JPH::BodyID bodyID, const glm::vec3& position, bool activate);
+		void SetEulerAngleRotation(JPH::BodyID bodyID, const glm::vec3& rotation, bool activate);
+		void SetRotation(JPH::BodyID bodyID, const glm::quat& rotation, bool activate);
+		void SetLinearVelocity(JPH::BodyID bodyID, const glm::vec3& vel);
+		void SetFriction(JPH::BodyID bodyID, float value);
+		void SetRestitution(JPH::BodyID bodyID, float value);
+		void SetGravityFactor(JPH::BodyID bodyID, float value);
+		float GetRestitution(JPH::BodyID bodyID);
+		float GetFriction(JPH::BodyID bodyID);
+		float GetGravityFactor(JPH::BodyID bodyID);
+		glm::vec3 GetPosition(JPH::BodyID bodyID);
+		glm::vec3 GetEulerAngles(JPH::BodyID bodyID);
+		glm::quat GetRotation(JPH::BodyID bodyID);
+		glm::vec3 GetCenterOfMassPosition(JPH::BodyID bodyID);
+		glm::vec3 GetLinearVelocity(JPH::BodyID bodyID);
+		void SetMaxLinearVelocity(JPH::BodyID bodyID, float max);
+		void SetMaxAngularVelocity(JPH::BodyID bodyID, float max);
 
 		JPH::BodyInterface* GetBodyInterface() { return m_BodyInterface; }
 	private:
