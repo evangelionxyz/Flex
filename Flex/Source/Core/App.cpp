@@ -3,9 +3,26 @@
 #include "App.h"
 #include "Physics/JoltPhysics.h"
 #include "Scene/Components.h"
+#include "Renderer/Material.h"
+
+#include "SDL3/SDL_dialog.h"
+#include "SDL3/SDL_events.h"
+
+#include <ImGuizmo.h>
+#include <glm/gtx/euler_angles.hpp>
+#include <cstring>
 
 namespace flex
 {
+    namespace
+    {
+        const SDL_DialogFileFilter kSceneFileFilters[] =
+        {
+            { "Flex Scene", "json" },
+            { "All Files", "*" }
+        };
+    }
+
     App::App(int argc, char** argv)
     {
         WindowCreateInfo windowCI;
@@ -16,6 +33,7 @@ namespace flex
         m_Window = CreateRef<Window>(windowCI);
 
         // Initialize Window Callbacks
+        m_Window->SetKeyboardCallback([this](SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod) { App::OnKeyPressed(key, scancode, type, mod); });
         m_Window->SetMouseMotionCallback([this](const glm::vec2 &position, const glm::vec2 &delta) { App::OnMouseMotion(position, delta); });
         m_Window->SetScrollCallback([this](float x, float y) { App::OnMouseScroll(x, y); });
 
@@ -38,21 +56,14 @@ namespace flex
         JoltPhysics::Init();
         m_Screen = CreateRef<Screen>();
 
-        m_MainScene = CreateRef<Scene>();
-        {
-            auto e = m_MainScene->CreateEntity("Entity");
-            auto &tr = m_MainScene->AddComponent<TransformComponent>(e);
-            auto &box = m_MainScene->AddComponent<BoxColliderComponent>(e);
-            //auto &mc = m_MainScene->AddComponent<MeshComponent>(e);
-            auto &rb = m_MainScene->AddComponent<RigidbodyComponent>(e);
-            rb.useGravity = true;
-            rb.allowSleeping = true;
-        }
+        m_EditorScene = CreateRef<Scene>();
+        m_ActiveScene = m_EditorScene;
     }
 
     App::~App()
     {
-        m_MainScene.reset();
+        m_ActiveScene.reset();
+        m_EditorScene.reset();
 
         JoltPhysics::Shutdown();
         ImGuiContext::Shutdown();
@@ -96,9 +107,20 @@ namespace flex
         // Create skybox mesh
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
 
-        // Load model from glTF file
-        m_ModelData.AddModel("Resources/models/damaged_helmet.gltf");
-        m_ModelData.AddModel("Resources/models/scene.glb");
+        // Load default glTF assets into the scene graph
+        const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
+        const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
+        if (m_SelectedEntity == entt::null)
+        {
+            if (!helmetEntities.empty())
+            {
+                m_SelectedEntity = helmetEntities.front();
+            }
+            else if (!sceneEntities.empty())
+            {
+                m_SelectedEntity = sceneEntities.front();
+            }
+        }
 
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
@@ -148,6 +170,8 @@ namespace flex
                 ImGuiContext::PollEvents(&event);
             }
 
+            ProcessPendingSceneActions();
+
             const uint64_t currentCount = SDL_GetPerformanceCounter();
             m_FrameData.deltaTime = static_cast<float>(currentCount - prevCount) / freq;
             prevCount = currentCount;
@@ -159,6 +183,11 @@ namespace flex
                 auto title = std::format("Flex Engine - OpenGL 4.6 Renderer FPS {:.3f} | {:.3f}", m_FrameData.fps, m_FrameData.deltaTime * 1000.0f);
                 m_Window->SetWindowTitle(title);
                 statusUpdateInterval = 1.0;
+            }
+
+            if (m_ActiveScene)
+            {
+                m_ActiveScene->Update(m_FrameData.deltaTime);
             }
 
             m_Camera.OnUpdate(m_FrameData.deltaTime);
@@ -209,10 +238,7 @@ namespace flex
                 m_CSM->BeginCascade(ci);
                 shadowDepthShader->Use();
                 shadowDepthShader->SetUniform("u_CascadeIndex", ci);
-                for (const auto& model : m_ModelData.models)
-                {
-                    model->RenderDepth(shadowDepthShader);
-                }
+                m_ActiveScene->RenderDepth(shadowDepthShader);
             }
             m_CSM->EndCascade();
             glCullFace(GL_BACK);
@@ -230,10 +256,7 @@ namespace flex
             PBRShader->SetUniform("u_ShadowMap", 6);
             PBRShader->SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
-            for (const auto& model : m_ModelData.models)
-            {
-                model->Render(PBRShader, m_EnvMap);
-            }
+            m_ActiveScene->Render(PBRShader, m_EnvMap);
 
             // Only render on perspective mode
             if (m_Camera.projectionType == ProjectionType::Perspective)
@@ -350,6 +373,68 @@ namespace flex
         }
     }
 
+    void App::OnScenePlay()
+    {
+        if (!m_ActiveScene || m_ActiveScene->IsPlaying())
+        {
+            return;
+        }
+
+        if (!m_EditorScene)
+        {
+            m_EditorScene = m_ActiveScene ? m_ActiveScene : CreateRef<Scene>();
+        }
+
+        uint64_t selectedUUIDValue = 0;
+        bool hasSelection = false;
+        if (m_SelectedEntity != entt::null && m_EditorScene->IsValid(m_SelectedEntity) && m_EditorScene->HasComponent<TagComponent>(m_SelectedEntity))
+        {
+            selectedUUIDValue = static_cast<uint64_t>(m_EditorScene->GetComponent<TagComponent>(m_SelectedEntity).uuid);
+            hasSelection = true;
+        }
+
+        Ref<Scene> runtimeScene = m_EditorScene->Clone();
+        m_ActiveScene = runtimeScene;
+        m_ActiveScene->Start();
+
+        if (hasSelection)
+        {
+            m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));
+        }
+        else
+        {
+            m_SelectedEntity = entt::null;
+        }
+    }
+
+    void App::OnSceneStop()
+    {
+        if (!m_ActiveScene || !m_ActiveScene->IsPlaying())
+        {
+            return;
+        }
+
+        uint64_t selectedUUIDValue = 0;
+        bool hasSelection = false;
+        if (m_SelectedEntity != entt::null && m_ActiveScene->IsValid(m_SelectedEntity) && m_ActiveScene->HasComponent<TagComponent>(m_SelectedEntity))
+        {
+            selectedUUIDValue = static_cast<uint64_t>(m_ActiveScene->GetComponent<TagComponent>(m_SelectedEntity).uuid);
+            hasSelection = true;
+        }
+
+        m_ActiveScene->Stop();
+        m_ActiveScene = m_EditorScene;
+
+        if (hasSelection && m_ActiveScene)
+        {
+            m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));
+        }
+        else
+        {
+            m_SelectedEntity = entt::null;
+        }
+    }
+
     void App::OnImGuiRender()
     {
         UIViewport();
@@ -362,7 +447,45 @@ namespace flex
     {
         ImGui::Begin("Viewport");
         {
-            ImGui::Button("Play");
+            const char *playStopStr = m_ActiveScene->IsPlaying() ? "Stop" : "Play";
+            if (ImGui::Button(playStopStr))
+            {
+                if (m_ActiveScene->IsPlaying())
+                {
+                    OnSceneStop();
+                }
+                else
+                {
+                    OnScenePlay();
+                }
+            }
+
+            ImGui::SameLine();
+            ImGui::TextUnformatted("Operation");
+            ImGui::SameLine();
+            static const char* kGizmoOperationLabels[] = { "Translate", "Rotate", "Scale" };
+            int operationIndex = 0;
+            switch (m_GizmoOperation)
+            {
+            case ImGuizmo::ROTATE: operationIndex = 1; break;
+            case ImGuizmo::SCALE: operationIndex = 2; break;
+            default: operationIndex = 0; break;
+            }
+            ImGui::SetNextItemWidth(140.0f);
+            if (ImGui::Combo("##GizmoOperation", &operationIndex, kGizmoOperationLabels, IM_ARRAYSIZE(kGizmoOperationLabels)))
+            {
+                m_GizmoOperation = operationIndex == 0 ? ImGuizmo::TRANSLATE : operationIndex == 1 ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
+            }
+            ImGui::SameLine();
+            ImGui::TextUnformatted("Mode");
+            ImGui::SameLine();
+            static const char* kGizmoModeLabels[] = { "Local", "World" };
+            int modeIndex = m_GizmoMode == ImGuizmo::LOCAL ? 0 : 1;
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::Combo("##GizmoMode", &modeIndex, kGizmoModeLabels, IM_ARRAYSIZE(kGizmoModeLabels)))
+            {
+                m_GizmoMode = modeIndex == 0 ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
+            }
 
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
             m_Vp.viewport.width = viewportSize.x;
@@ -372,10 +495,30 @@ namespace flex
             const uint32_t colorTex = m_ViewportFB->GetColorAttachment(0);
             if (colorTex != 0)
             {
+                ImGuizmo::BeginFrame();
                 ImGui::Image(colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+
+                if (m_SelectedEntity != entt::null && m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
+                {
+                    auto& transform = m_ActiveScene->GetComponent<TransformComponent>(m_SelectedEntity);
+                    glm::mat4 model = math::ComposeTransform(transform);
+                    glm::mat4 view = m_Camera.view;
+                    glm::mat4 projection = m_Camera.projection;
+
+                    const ImVec2 gizmoMin = ImGui::GetItemRectMin();
+                    const ImVec2 gizmoMax = ImGui::GetItemRectMax();
+                    ImGuizmo::SetOrthographic(m_Camera.projectionType == ProjectionType::Orthographic);
+                    ImGuizmo::SetDrawlist();
+                    ImGuizmo::SetRect(gizmoMin.x, gizmoMin.y, gizmoMax.x - gizmoMin.x, gizmoMax.y - gizmoMin.y);
+
+                    if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), m_GizmoOperation, m_GizmoMode, glm::value_ptr(model)))
+                    {
+                        math::DecomposeTransform(model, transform);
+                    }
+                }
             }
         }
-        m_Vp.isHovered = ImGui::IsWindowHovered();
+        m_Vp.isHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         ImGui::End();
     }
 
@@ -529,14 +672,14 @@ namespace flex
 
     void App::UISceneHierarchy()
     {
-        if (ImGui::Begin("Scene", nullptr))
+        if (ImGui::Begin("Hierarchy", nullptr))
         {
-            for (const auto& [uuid, entity] : m_MainScene->entities)
+            for (const auto& [uuid, entity] : m_ActiveScene->entities)
             {
-                TagComponent& tag = m_MainScene->GetComponent<TagComponent>(entity);
+                TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(entity);
                 if (ImGui::TreeNodeEx(tag.name.c_str()))
                 {
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
                     {
                         m_SelectedEntity = entity;
                     }
@@ -544,83 +687,39 @@ namespace flex
                     ImGui::TreePop();
                 }
             }
-#if 0
-            ImGui::Separator();
-            for (size_t i = 0; i < m_ModelData.models.size(); ++i)
+
+            if (ImGui::BeginPopupContextWindow("HierarchyContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
             {
-                ImGui::PushID(i);
-                const auto& model = m_ModelData.models[i];
-                std::stringstream ss;
-                ss << "Model " << static_cast<int>(i);
-                if (ImGui::CollapsingHeader(ss.str().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+                if (ImGui::MenuItem("Create Empty Entity"))
                 {
-                    bool removing = false;
-                    if (ImGui::Button("Remove"))
-                    {
-                        removing = m_ModelData.RemoveModel(static_cast<int>(i));
-                    }
+                    std::string baseName = "Entity";
+                    std::string candidate = baseName;
+                    int suffix = 1;
 
-                    if (removing)
+                    auto nameExists = [&](const std::string& name)
                     {
-                        ImGui::PopID();
-                        break;
-                    }
-
-                    for (const MeshNode& node : model->GetScene().nodes)
-                    {
-                        ImGui::PushID(node.name.c_str());
-                        for (const Ref<Mesh>& mesh : node.meshes)
+                        for (const auto& [existingUUID, existingEntity] : m_ActiveScene->entities)
                         {
-                            if (ImGui::CollapsingHeader(node.name.c_str()))
+                            if (m_ActiveScene->GetComponent<TagComponent>(existingEntity).name == name)
                             {
-                                // ====== Transforms ======
-                                glm::vec3 translation, scale, skew;
-                                glm::vec4 perspective;
-                                glm::quat orientation;
-                                glm::decompose(mesh->localTransform, scale, orientation, translation, skew, perspective);
-
-                                glm::vec3 eulerRotation = glm::eulerAngles(orientation);
-                                eulerRotation = glm::degrees(eulerRotation);
-
-                                bool editing = ImGui::DragFloat3("Position", &translation.x, 0.025f);
-                                editing |= ImGui::DragFloat3("Rotation", &eulerRotation.x, 0.025f);
-                                editing |= ImGui::DragFloat3("Scale", &scale.x, 0.025f);
-
-                                if (editing)
-                                {
-                                    orientation = glm::quat(glm::radians(eulerRotation));
-                                    mesh->localTransform = glm::translate(glm::mat4(1.0f), translation) * glm::toMat4(orientation) * glm::scale(glm::mat4(1.0f), scale);
-                                }
-
-                                // ====== Material ======
-                                const auto& mat = mesh->material;
-                                std::stringstream matSS;
-                                matSS << "Material - \"" << mat->name << "\"";
-                                ImGui::SeparatorText(matSS.str().c_str());
-
-                                glm::vec3 factorVec = mat->params.baseColorFactor;
-                                if (ImGui::ColorEdit3("Base Color", &factorVec.x)) mat->params.baseColorFactor = glm::vec4(factorVec, 1.0f);
-                                factorVec = mat->params.emissiveFactor;
-                                if (ImGui::ColorEdit3("Emissive", &factorVec.x)) mat->params.emissiveFactor = glm::vec4(factorVec, 1.0f);
-                                ImGui::SliderFloat("Metallic", &mat->params.metallicFactor, 0.0f, 1.0f);
-                                ImGui::SliderFloat("Roughness", &mat->params.roughnessFactor, 0.0f, 1.0f);
-                                ImGui::SliderFloat("Occlusion", &mat->params.occlusionStrength, 0.0f, 1.0f);
-
-                                static glm::vec2 imageSize = { 64.0f, 64.0f };
-                                UIDrawImage(mat->baseColorTexture, imageSize.x, imageSize.y, "BaseColor");
-                                UIDrawImage(mat->emissiveTexture, imageSize.x, imageSize.y, "Emissive");
-                                UIDrawImage(mat->normalTexture, imageSize.x, imageSize.y, "Normal");
-                                UIDrawImage(mat->metallicRoughnessTexture, imageSize.x, imageSize.y, "MetalRough");
-                                UIDrawImage(mat->occlusionTexture, imageSize.x, imageSize.y, "Occlusion");
+                                return true;
                             }
                         }
-                        ImGui::PopID();
-                    }
-                }
+                        return false;
+                    };
 
-                ImGui::PopID();
+                    while (nameExists(candidate))
+                    {
+                        candidate = std::format("{} ({})", baseName, suffix);
+                        ++suffix;
+                    }
+
+                    entt::entity newEntity = m_ActiveScene->CreateEntity(candidate);
+                    m_ActiveScene->AddComponent<TransformComponent>(newEntity);
+                    m_SelectedEntity = newEntity;
+                }
+                ImGui::EndPopup();
             }
-#endif
         }
         ImGui::End();
     }
@@ -633,12 +732,24 @@ namespace flex
 
         if (m_SelectedEntity != entt::null)
         {
-            TagComponent& tag = m_MainScene->GetComponent<TagComponent>(m_SelectedEntity);
-            ImGui::Text("%s", tag.name.c_str());
-
-            if (m_MainScene->HasComponent<TransformComponent>(m_SelectedEntity))
+            TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(m_SelectedEntity);
+            static char nameBuffer[256] = { 0 };
+            static entt::entity bufferedEntity = entt::null;
+            if (bufferedEntity != m_SelectedEntity)
             {
-                auto& tr = m_MainScene->GetComponent<TransformComponent>(m_SelectedEntity);
+                std::strncpy(nameBuffer, tag.name.c_str(), sizeof(nameBuffer) - 1);
+                nameBuffer[sizeof(nameBuffer) - 1] = '\0';
+                bufferedEntity = m_SelectedEntity;
+            }
+
+            if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer)))
+            {
+                tag.name = nameBuffer[0] ? nameBuffer : "Entity";
+            }
+
+            if (m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
+            {
+                auto& tr = m_ActiveScene->GetComponent<TransformComponent>(m_SelectedEntity);
 
                 if (ImGui::TreeNodeEx("Transform", treeNodeFlags))
                 {
@@ -650,26 +761,26 @@ namespace flex
                 }
             }
 
-            if (m_MainScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
+            if (m_ActiveScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
             {
-				auto& rb = m_MainScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
+                auto& rb = m_ActiveScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Rigidbody", treeNodeFlags))
                 {
-					ImGui::DragFloat("Mass", &rb.mass, 0.25f);
-					ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.1f);
+                    ImGui::DragFloat("Mass", &rb.mass, 0.25f);
+                    ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.1f);
                     ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f);
 
                     ImGui::Checkbox("Is Static", &rb.isStatic);
                     ImGui::Checkbox("Use Gravity", &rb.useGravity);
-					ImGui::Checkbox("Allow Sleeping", &rb.allowSleeping);
+                    ImGui::Checkbox("Allow Sleeping", &rb.allowSleeping);
 
                     ImGui::TreePop();
                 }
             }
 
-            if (m_MainScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
+            if (m_ActiveScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
             {
-                auto& box = m_MainScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
+                auto& box = m_ActiveScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Box Collider", treeNodeFlags))
                 {
                     ImGui::DragFloat3("Size", &box.scale.x, 0.1f);
@@ -682,7 +793,127 @@ namespace flex
 
                     ImGui::TreePop();
                 }
-			}
+            }
+
+            if (m_ActiveScene->HasComponent<MeshComponent>(m_SelectedEntity))
+            {
+                auto& mc = m_ActiveScene->GetComponent<MeshComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Mesh", treeNodeFlags))
+                {
+                    if (ImGui::Button("Load Mesh"))
+                    {
+                        SDL_Log("Opening file dialog...");
+
+                        SDL_DialogFileFilter filters[] =
+                        {
+                            { "3D Model Files", "gltf;glb" },
+                            { "All Files", "*" }
+                        };
+
+                        SDL_ShowOpenFileDialog(
+                            OnMeshFileSelected,
+                            this,
+                            m_Window->GetHandle(),
+                            filters,
+                            std::size(filters),
+                            nullptr,
+                            false
+                        );
+
+                        SDL_Log("SDL_ShowOpenFileDialog called");
+                    }
+
+                    if (!mc.meshPath.empty())
+                    {
+                        ImGui::Text("Mesh: %s", mc.meshPath.c_str());
+                    }
+                    else
+                    {
+                        ImGui::Text("No mesh assigned");
+                    }
+
+                    if (!m_PendingMeshFilepath.empty())
+                    {
+                        ImGui::Separator();
+                        ImGui::Text("Last imported: %s", m_PendingMeshFilepath.c_str());
+                    }
+
+                    if (mc.meshInstance && mc.meshInstance->material)
+                    {
+                        Ref<Material> material = mc.meshInstance->material;
+                        ImGui::SeparatorText("Material");
+
+                        if (!material->name.empty())
+                        {
+                            ImGui::Text("Name: %s", material->name.c_str());
+                        }
+
+                        static const char* kMaterialTypeLabels[] = { "Opaque", "Transparent" };
+                        int materialTypeIndex = material->type == MaterialType::Opaque ? 0 : 1;
+                        if (ImGui::Combo("Type", &materialTypeIndex, kMaterialTypeLabels, IM_ARRAYSIZE(kMaterialTypeLabels)))
+                        {
+                            material->type = materialTypeIndex == 0 ? MaterialType::Opaque : MaterialType::Transparent;
+                        }
+
+                        ImGui::ColorEdit4("Base Color", &material->params.baseColorFactor.x);
+                        ImGui::ColorEdit3("Emissive", &material->params.emissiveFactor.x);
+                        ImGui::SliderFloat("Metallic", &material->params.metallicFactor, 0.0f, 1.0f);
+                        ImGui::SliderFloat("Roughness", &material->params.roughnessFactor, 0.0f, 1.0f);
+                        ImGui::SliderFloat("Occlusion", &material->params.occlusionStrength, 0.0f, 1.0f);
+
+                        ImGui::SeparatorText("Textures");
+                        ImGui::Text("Base Color: %s", material->baseColorTexture ? "Assigned" : "None");
+                        ImGui::Text("Emissive: %s", material->emissiveTexture ? "Assigned" : "None");
+                        ImGui::Text("Metallic/Roughness: %s", material->metallicRoughnessTexture ? "Assigned" : "None");
+                        ImGui::Text("Normal: %s", material->normalTexture ? "Assigned" : "None");
+                        ImGui::Text("Occlusion: %s", material->occlusionTexture ? "Assigned" : "None");
+                    }
+
+                    ImGui::TreePop();
+                }
+            }
+
+            if (ImGui::Button("Add Component"))
+            {
+                ImGui::OpenPopup("AddComponentPopup");
+            }
+
+            if (ImGui::BeginPopup("AddComponentPopup"))
+            {
+                if (!m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Transform"))
+                    {
+                        m_ActiveScene->AddComponent<TransformComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<MeshComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Mesh"))
+                    {
+                        m_ActiveScene->AddComponent<MeshComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Rigidbody"))
+                    {
+                        m_ActiveScene->AddComponent<RigidbodyComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Box Collider"))
+                    {
+                        m_ActiveScene->AddComponent<BoxColliderComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                ImGui::EndPopup();
+            }
         }
 
         ImGui::End();
@@ -690,6 +921,9 @@ namespace flex
 
     void App::OnMouseScroll(float xoffset, float yoffset)
     {
+        if (ImGuizmo::IsUsing())
+            return;
+
         if (m_Vp.isHovered)
         {
             m_Camera.HandleZoom(yoffset);
@@ -698,10 +932,323 @@ namespace flex
 
     void App::OnMouseMotion(const glm::vec2& position, const glm::vec2& delta)
     {
+        if (ImGuizmo::IsUsing())
+            return;
+
         if (m_Vp.isHovered)
         {
             m_Camera.HandleOrbit(delta);
             m_Camera.HandlePan(delta);
         }
     }
+
+    void App::OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod)
+    {
+        if (type != SDL_EVENT_KEY_DOWN)
+        {
+            return;
+        }
+
+        const bool ctrl = (mod & (SDL_KMOD_LCTRL | SDL_KMOD_RCTRL)) != 0;
+        const bool shift = (mod & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT)) != 0;
+
+        if (ctrl)
+        {
+            if (shift)
+            {
+                if (key == SDLK_S)
+                {
+                    SaveSceneAs();
+                }
+                return;
+            }
+
+            switch (key)
+            {
+                case SDLK_S:
+                {
+                    SaveScene();
+                    break;
+                }
+                case SDLK_D:
+                {
+                    if (m_SelectedEntity != entt::null)
+                    {
+                        m_ActiveScene->DuplicateEntity(m_SelectedEntity);
+                    }
+                    break;
+                }
+                case SDLK_O:
+                {
+                    OpenScene();
+                    break;
+                }
+                case SDLK_N:
+                {
+                    NewScene();
+                    break;
+                }
+            }
+            return;
+        }
+
+        if (shift)
+        {
+            if (key == SDLK_W)
+            {
+                m_GizmoMode = m_GizmoMode == ImGuizmo::MODE::WORLD ? ImGuizmo::MODE::LOCAL : ImGuizmo::MODE::WORLD;
+            }
+            return;
+        }
+
+        switch (key)
+        {
+            case SDLK_T:
+            {
+                m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+                break;
+            }
+            case SDLK_S:
+            {
+                m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
+                break;
+            }
+            case SDLK_R:
+            {
+                m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
+                break;
+            }
+        }
+    }
+
+    void App::SaveScene()
+    {
+        if (!m_EditorScene && !m_ActiveScene)
+        {
+            SDL_Log("SaveScene: no scene is available to save");
+            return;
+        }
+
+        if (m_CurrentScenePath.empty())
+        {
+            SaveSceneAs();
+            return;
+        }
+
+        SaveSceneToPath(m_CurrentScenePath);
+    }
+
+    void App::SaveSceneAs()
+    {
+        if (!m_EditorScene && !m_ActiveScene)
+        {
+            SDL_Log("SaveSceneAs: no scene is available to save");
+            return;
+        }
+
+        m_SaveDialogDefaultLocation.clear();
+        if (!m_CurrentScenePath.empty())
+        {
+            m_SaveDialogDefaultLocation = m_CurrentScenePath.string();
+        }
+
+        const char* defaultLocation = m_SaveDialogDefaultLocation.empty() ? nullptr : m_SaveDialogDefaultLocation.c_str();
+        SDL_ShowSaveFileDialog(OnSceneSaveFileSelected, this, m_Window->GetHandle(), kSceneFileFilters, static_cast<int>(sizeof(kSceneFileFilters) / sizeof(kSceneFileFilters[0])), defaultLocation);
+    }
+
+    void App::OpenScene()
+    {
+        if (m_ActiveScene && m_ActiveScene->IsPlaying())
+        {
+            OnSceneStop();
+        }
+
+        if (m_SaveDialogDefaultLocation.empty() && !m_CurrentScenePath.empty())
+        {
+            m_SaveDialogDefaultLocation = m_CurrentScenePath.string();
+        }
+
+        const char* defaultLocation = m_SaveDialogDefaultLocation.empty() ? nullptr : m_SaveDialogDefaultLocation.c_str();
+        SDL_ShowOpenFileDialog(
+            OnSceneOpenFileSelected,
+            this,
+            m_Window->GetHandle(),
+            kSceneFileFilters,
+            static_cast<int>(sizeof(kSceneFileFilters) / sizeof(kSceneFileFilters[0])),
+            defaultLocation,
+            false);
+    }
+
+    void App::NewScene()
+    {
+        m_SelectedEntity = entt::null;
+
+        m_ActiveScene = CreateRef<Scene>();
+        m_EditorScene = m_ActiveScene->Clone();
+    }
+
+    void App::SaveSceneToPath(const std::filesystem::path& filepath)
+    {
+        if (filepath.empty())
+        {
+            SDL_Log("SaveSceneToPath: filepath is empty");
+            return;
+        }
+
+        Ref<Scene> sceneToSave = m_EditorScene ? m_EditorScene : m_ActiveScene;
+        if (!sceneToSave)
+        {
+            SDL_Log("SaveSceneToPath: no scene is available to save");
+            return;
+        }
+
+        std::filesystem::path destination = filepath;
+        if (destination.extension().empty())
+        {
+            destination.replace_extension(".json");
+        }
+
+        SceneSerializer serializer(sceneToSave);
+        if (!serializer.Serialize(destination))
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to save scene to %s", destination.string().c_str());
+            return;
+        }
+
+        m_CurrentScenePath = destination;
+        SDL_Log("Scene saved to %s", destination.string().c_str());
+    }
+
+    void App::OpenSceneFromPath(const std::filesystem::path &filepath)
+    {
+        if (filepath.empty())
+        {
+            SDL_Log("OpenSceneFromPath: filepath is empty");
+            return;
+        }
+
+        std::filesystem::path scenePath = filepath;
+        if (scenePath.extension().empty())
+        {
+            scenePath.replace_extension(".json");
+        }
+
+        if (!std::filesystem::exists(scenePath))
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Scene file does not exist: %s", scenePath.string().c_str());
+            return;
+        }
+
+        if (m_ActiveScene && m_ActiveScene->IsPlaying())
+        {
+            OnSceneStop();
+        }
+
+        Ref<Scene> loadedScene = CreateRef<Scene>();
+        SceneSerializer serializer(loadedScene);
+        if (!serializer.Deserialize(scenePath))
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open scene %s", scenePath.string().c_str());
+            return;
+        }
+
+        m_EditorScene = loadedScene;
+        m_ActiveScene = m_EditorScene;
+        m_SelectedEntity = entt::null;
+        m_CurrentScenePath = scenePath;
+        m_SaveDialogDefaultLocation = scenePath.string();
+
+        SDL_Log("Scene opened from %s", scenePath.string().c_str());
+    }
+
+    void App::ProcessPendingSceneActions()
+    {
+        std::optional<std::filesystem::path> sceneToOpen;
+        {
+            std::lock_guard<std::mutex> lock(m_SceneDialogMutex);
+            if (m_PendingSceneOpenPath.has_value())
+            {
+                sceneToOpen = std::move(m_PendingSceneOpenPath);
+                m_PendingSceneOpenPath.reset();
+            }
+        }
+
+        if (sceneToOpen)
+        {
+            OpenSceneFromPath(*sceneToOpen);
+        }
+    }
+
+    void App::OnSceneSaveFileSelected(void* userData, const char* const* filelist, int filter)
+    {
+        App* app = static_cast<App*>(userData);
+        if (!app)
+        {
+            return;
+        }
+
+        app->m_SaveDialogDefaultLocation.clear();
+
+        if (filelist == nullptr)
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Scene save dialog failed");
+            return;
+        }
+
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("Scene save dialog cancelled");
+            return;
+        }
+
+        app->SaveSceneToPath(std::filesystem::path(filelist[0]));
+    }
+
+    void App::OnSceneOpenFileSelected(void * userData, const char * const * filelist, int filter)
+    {
+        App* app = static_cast<App*>(userData);
+        if (!app)
+        {
+            return;
+        }
+
+        app->m_SaveDialogDefaultLocation.clear();
+
+        if (filelist == nullptr)
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Scene open dialog failed");
+            return;
+        }
+
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("Scene open dialog cancelled");
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(app->m_SceneDialogMutex);
+            app->m_PendingSceneOpenPath = std::filesystem::path(filelist[0]);
+        }
+    }
+
+    void App::OnMeshFileSelected(void* userData, const char* const* filelist, int filter)
+	{
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("File dialog cancelled (no file selected)");
+            return;
+        }
+
+        App* app = static_cast<App*>(userData);
+        app->m_PendingMeshFilepath = std::string(filelist[0]);
+        const auto createdEntities = app->m_ActiveScene->LoadModel(app->m_PendingMeshFilepath);
+        if (!createdEntities.empty())
+        {
+            app->m_SelectedEntity = createdEntities.front();
+        }
+        
+        SDL_Log("File selected: %s", filelist[0]);
+	}
+
 }

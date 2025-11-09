@@ -16,8 +16,9 @@ namespace flex
         glBufferData(GL_UNIFORM_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
         glBindBufferBase(GL_UNIFORM_BUFFER, m_BindIndex, m_Handle);
     
-        int err = glGetError();
-        assert(err == GL_NO_ERROR);
+        assert(m_Handle != 0 && "Failed to create Uniform buffer!");
+
+        assert(glGetError() == GL_NO_ERROR);
     }
     
     UniformBuffer::~UniformBuffer()

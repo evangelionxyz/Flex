@@ -19,6 +19,7 @@ target_include_directories(FlexEngine PRIVATE
     "${THIRDPARTY_DIR}/glm"
     "${THIRDPARTY_DIR}/jolt"
     "${THIRDPARTY_DIR}/json"
+    "${THIRDPARTY_DIR}/imguizmo"
     "${THIRDPARTY_DIR}/entt/single_include"
     "${THIRDPARTY_DIR}/tinygltf/include"
 

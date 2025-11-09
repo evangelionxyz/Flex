@@ -3,9 +3,10 @@
 #ifndef COMPONENTS_H
 #define COMPONENTS_H
 
+#include <algorithm>
+#include <set>
 #include <string>
 #include <glm/glm.hpp>
-#include <set>
 
 #include "Scene.h"
 #include "Renderer/Mesh.h"
@@ -24,7 +25,7 @@ namespace flex
     struct TagComponent
     {
         std::string name;
-        Scene *scene;
+        Scene *scene = nullptr;
 
         UUID uuid;
         UUID parent = UUID(0);
@@ -121,6 +122,7 @@ namespace flex
     {
         std::string meshPath;
         Ref<MeshInstance> meshInstance;
+        int meshIndex = -1;
         
         MeshComponent() = default;
     };

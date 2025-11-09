@@ -11,6 +11,8 @@ namespace flex
         glCreateBuffers(1, &m_Handle);
         glBindBuffer(GL_ARRAY_BUFFER, m_Handle);
         glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+
+        assert(m_Handle != 0 && "Failed to create Vertex buffer!");
     }
 
     VertexBuffer::VertexBuffer(uint64_t size)
@@ -18,6 +20,8 @@ namespace flex
         glCreateBuffers(1, &m_Handle);
         glBindBuffer(GL_ARRAY_BUFFER, m_Handle);
         glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+
+        assert(m_Handle != 0 && "Failed to create Vertex buffer!");
     }
 
     VertexBuffer::~VertexBuffer()

@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <format>
 #include <memory>
+#include <optional>
+#include <mutex>
 
 #include "UIHelper.h"
 
@@ -23,7 +25,6 @@
 #include <stb_image_write.h>
 
 #include "ImGuiContext.h"
-#include "Scene/Model.h"
 #include "Scene/Scene.h"
 #include "Renderer/CascadedShadowMap.h"
 #include "Camera.h"
@@ -39,6 +40,9 @@
 #include "Renderer/Window.h"
 #include "Math/Math.hpp"
 
+#include "Scene/Serializer.h"
+
+#include <ImGuizmo.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace flex
@@ -125,7 +129,7 @@ namespace flex
 
             shader = Renderer::CreateShaderFromFile(
                 {
-                    ShaderData{ "Resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER },
+                    ShaderData{ "Resources/shaders/screen.vert.glsl", GL_VERTEX_SHADER },
                     ShaderData{ "Resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER },
 				}, "ScreenShader");
         }
@@ -150,26 +154,6 @@ namespace flex
         float padding[2];
     };
 
-    struct ModelData
-    {
-        void AddModel(const std::string& filename)
-        {
-            auto& model = models.emplace_back();
-            model = Model::Create(filename);
-        }
-
-        bool RemoveModel(int index)
-        {
-            if (index >= models.size())
-                return false;
-
-            models.erase(models.begin() + index);
-            return true;
-        }
-
-        std::vector<std::shared_ptr<Model>> models;
-    };
-
     struct ViewportData
     {
         Viewport viewport;
@@ -191,6 +175,9 @@ namespace flex
         
         void Run();
     private:
+        void OnScenePlay();
+        void OnSceneStop();
+
         void OnImGuiRender();
         void UIViewport();
         void UISettings();
@@ -200,6 +187,20 @@ namespace flex
 
         void OnMouseScroll(float xoffset, float yoffset);
         void OnMouseMotion(const glm::vec2 &position, const glm::vec2 &delta);
+        void OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod);
+
+        static void OnMeshFileSelected(void* userData, const char* const* filelist, int filter);
+        static void OnSceneSaveFileSelected(void* userData, const char* const* filelist, int filter);
+        static void OnSceneOpenFileSelected(void* userData, const char* const* filelist, int filter);
+
+        void SaveScene();
+        void SaveSceneAs();
+        void OpenScene();
+        void NewScene();
+
+        void SaveSceneToPath(const std::filesystem::path &filepath);
+        void OpenSceneFromPath(const std::filesystem::path &filepath);
+        void ProcessPendingSceneActions();
 
     private:
         Ref<Window> m_Window;
@@ -211,15 +212,25 @@ namespace flex
         Ref<Bloom> m_Bloom;
         Ref<SSAO> m_SSAO;
         Ref<Screen> m_Screen;
-        Ref<Scene> m_MainScene;
+
+        Ref<Scene> m_ActiveScene;
+        Ref<Scene> m_EditorScene;
 
         entt::entity m_SelectedEntity = { entt::null };
 
         ViewportData m_Vp;
         Camera m_Camera;
-        ModelData m_ModelData;
         SceneData m_SceneData;
         FrameData m_FrameData;
+
+        std::string m_PendingMeshFilepath;
+        std::filesystem::path m_CurrentScenePath;
+        std::string m_SaveDialogDefaultLocation;
+        std::optional<std::filesystem::path> m_PendingSceneOpenPath;
+        std::mutex m_SceneDialogMutex;
+
+        ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
+        ImGuizmo::MODE m_GizmoMode = ImGuizmo::LOCAL;
     };
 }
 

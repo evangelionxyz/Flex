@@ -8,12 +8,16 @@
 
 #include "Physics/JoltPhysics.h"
 
+#include <glm/glm.hpp>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace flex
 {
     class JoltPhysicsScene;
     class Texture2D;
+    class Shader;
 
     class Scene
     {
@@ -25,9 +29,16 @@ namespace flex
         void Stop();
         void Update(float deltaTime);
 
-        void Render(const glm::mat4 &viewProjection, const Ref<Texture2D>& environmentTexture);
+        void Render(const Ref<Shader>& shader, const Ref<Texture2D>& environmentTexture);
+        void RenderDepth(const Ref<Shader>& shader);
+
+        bool IsPlaying() const { return m_IsPlaying; }
+
+        std::vector<entt::entity> LoadModel(const std::string& filepath, const glm::mat4& rootTransform = glm::mat4(1.0f));
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
+        entt::entity DuplicateEntity(entt::entity entity);
+        Ref<Scene> Clone() const;
 
         template<typename T, typename... Args>
         T& AddComponent(entt::entity entity, Args &&... args)
@@ -78,7 +89,6 @@ namespace flex
         Ref<JoltPhysicsScene> joltPhysicsScene;
 
     private:
-
         bool m_IsPlaying = false;
     };
 }

@@ -1,18 +1,14 @@
 // Copyright (c) 2025 Flex Engine | Evangelion Manuhutu
 
-#include "JoltPhysics.h"
-#include "Scene/Scene.h"
-#include "Scene/Components.h"
-
 #ifndef GLM_ENABLE_EXPERIMENTAL
 	#define GLM_ENABLE_EXPERIMENTAL
 #endif
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#ifndef JPH_DISABLE_CUSTOM_ALLOCATOR
-	#define JPH_DISABLE_CUSTOM_ALLOCATOR
-#endif
+#include "JoltPhysics.h"
+#include "Scene/Scene.h"
+#include "Scene/Components.h"
 
 namespace flex
 {
@@ -81,13 +77,13 @@ namespace flex
 	{
 		m_PhysicsSystem.Init(cNumBodies, cNumBodyMutexes, cMaxBodyPairs,
 			cMaxContactConstraints, s_JoltInstance->broadPhaseLayer,
-			s_JoltInstance->objectVsBroadPhaseLayerFilter, s_JoltInstance->objectLayerPairFilter);
+			s_JoltInstance->objectVsBroadPhaseLayerFilter,
+			s_JoltInstance->objectLayerPairFilter);
 
 		// m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
 		// m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
 		m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
 		m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
-		m_PhysicsSystem.SetGravity(GlmToJoltVec3(glm::vec3(0.0f, -9.8f, 0.0f)));
 		m_PhysicsSystem.OptimizeBroadPhase();
 
 		m_BodyInterface = &m_PhysicsSystem.GetBodyInterface();
@@ -104,6 +100,8 @@ namespace flex
 
     void JoltPhysicsScene::SimulationStart()
 	{
+		m_PhysicsSystem.SetGravity(GlmToJoltVec3(m_Scene->sceneGravity));
+
 		auto view = m_Scene->registry->view<TransformComponent, RigidbodyComponent>();
 		view.each([this](auto entity, auto &transform, auto &rb)
 		{

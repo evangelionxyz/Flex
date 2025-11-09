@@ -31,7 +31,7 @@ namespace flex
         std::function<void(float xoffset, float yoffset)> scrollCb;
         std::function<void(const glm::vec2&, const glm::vec2&)> mouseMotionCb;
         std::function<void(int width, int height, bool fullscreen)> fullscreenCb;
-        std::function<void(int key, int scancode, int action, int mods)> keyCb;
+        std::function<void(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod)> keyCb;
         std::function<void(const std::vector<std::string> &paths)> dropCb;
     };
 
@@ -61,7 +61,7 @@ namespace flex
         void Minimize() const;
         void Restore() const;
 
-        void SetKeyboardCallback(const std::function<void(int, int, int, int)> &keyCallback);
+        void SetKeyboardCallback(const std::function<void(SDL_Keycode, SDL_Scancode, SDL_EventType, SDL_Keymod)> &keyCallback);
         void SetResizeCallback(const std::function<void(int, int)> &resizeCb);
         void SetScrollCallback(const std::function<void(float, float)> &scrollCb);
         void SetMouseMotionCallback(const std::function<void(const glm::vec2&, const glm::vec2&)> &mouseMotion);
@@ -73,6 +73,8 @@ namespace flex
         bool IsKeyPressed(SDL_Keycode keycode);
         bool IsKeyModPressed(SDL_Keymod mod);
         bool IsMouseButtonPressed(uint32_t button);
+
+        void* GetNativeWindow();
 
         uint32_t GetWidth() const { return m_Data.width; }
         uint32_t GetHeight() const { return m_Data.height; }
