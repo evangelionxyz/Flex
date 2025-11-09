@@ -9,7 +9,7 @@ namespace flex
     {
         auto window = Window::Get();
 
-        if (window->IsMouseButtonPressed(SDL_BUTTON_LEFT))
+        if (window->IsMouseButtonPressed(SDL_BUTTON_RIGHT))
         {
             // Handle Zoom
             if (window->IsKeyModPressed(SDL_KMOD_LCTRL))
@@ -18,11 +18,11 @@ namespace flex
                 {
                     if (controls.enableInertia)
                     {
-                        zoomVelocity += delta.y;
+                        zoomVelocity += delta.y * 0.5f;
                     }
                     else
                     {
-                        distance -= delta.y;
+                        distance -= delta.y * 0.5f;
                         distance = glm::clamp(distance, controls.minDistance, controls.maxDistance);
                     }
                 }
