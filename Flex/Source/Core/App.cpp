@@ -3,6 +3,7 @@
 #include "App.h"
 #include "Physics/JoltPhysics.h"
 #include "Scene/Components.h"
+#include "Renderer/Material.h"
 
 #include "SDL3/SDL_dialog.h"
 
@@ -777,6 +778,37 @@ namespace flex
                     {
                         ImGui::Separator();
                         ImGui::Text("Last imported: %s", m_PendingMeshFilepath.c_str());
+                    }
+
+                    if (mc.meshInstance && mc.meshInstance->material)
+                    {
+                        Ref<Material> material = mc.meshInstance->material;
+                        ImGui::SeparatorText("Material");
+
+                        if (!material->name.empty())
+                        {
+                            ImGui::Text("Name: %s", material->name.c_str());
+                        }
+
+                        static const char* kMaterialTypeLabels[] = { "Opaque", "Transparent" };
+                        int materialTypeIndex = material->type == MaterialType::Opaque ? 0 : 1;
+                        if (ImGui::Combo("Type", &materialTypeIndex, kMaterialTypeLabels, IM_ARRAYSIZE(kMaterialTypeLabels)))
+                        {
+                            material->type = materialTypeIndex == 0 ? MaterialType::Opaque : MaterialType::Transparent;
+                        }
+
+                        ImGui::ColorEdit4("Base Color", &material->params.baseColorFactor.x);
+                        ImGui::ColorEdit3("Emissive", &material->params.emissiveFactor.x);
+                        ImGui::SliderFloat("Metallic", &material->params.metallicFactor, 0.0f, 1.0f);
+                        ImGui::SliderFloat("Roughness", &material->params.roughnessFactor, 0.0f, 1.0f);
+                        ImGui::SliderFloat("Occlusion", &material->params.occlusionStrength, 0.0f, 1.0f);
+
+                        ImGui::SeparatorText("Textures");
+                        ImGui::Text("Base Color: %s", material->baseColorTexture ? "Assigned" : "None");
+                        ImGui::Text("Emissive: %s", material->emissiveTexture ? "Assigned" : "None");
+                        ImGui::Text("Metallic/Roughness: %s", material->metallicRoughnessTexture ? "Assigned" : "None");
+                        ImGui::Text("Normal: %s", material->normalTexture ? "Assigned" : "None");
+                        ImGui::Text("Occlusion: %s", material->occlusionTexture ? "Assigned" : "None");
                     }
 
                     ImGui::TreePop();
