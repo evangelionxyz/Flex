@@ -1,0 +1,212 @@
+{
+    "Entities": [
+        {
+            "Entity": 332544971248342330,
+            "Mesh": {
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/damaged_helmet.gltf"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "node_damagedHelmet_-6514",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    90.00000762939453,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0000001192092896,
+                    1.0000001192092896
+                ]
+            }
+        },
+        {
+            "Entity": 3894337138336954971,
+            "Mesh": {
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    1.1271584033966064,
+                    1.576658010482788,
+                    -6.852005958557129
+                ],
+                "Rotation": [
+                    44.256309509277344,
+                    25.193758010864258,
+                    -27.08357048034668
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 9324001587843122061,
+            "Mesh": {
+                "MeshIndex": 5,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere.001",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    8.403923034667969,
+                    -0.07256174087524414,
+                    -6.627710342407227
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 3628107003596903922,
+            "Mesh": {
+                "MeshIndex": 1,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Plane",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    -2.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    12.774489402770996,
+                    12.774489402770996,
+                    12.774489402770996
+                ]
+            }
+        },
+        {
+            "Entity": 9123413879861689928,
+            "Mesh": {
+                "MeshIndex": 2,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Torus.002",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -10.323297500610352,
+                    -1.0732146501541138,
+                    9.174237251281738
+                ],
+                "Rotation": [
+                    -33.74121856689453,
+                    8.673473358154297,
+                    -20.8054141998291
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 12097150640338817803,
+            "Mesh": {
+                "MeshIndex": 3,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.004",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -7.996333599090576,
+                    0.3598824739456177,
+                    -4.7909770011901855
+                ],
+                "Rotation": [
+                    0.0,
+                    -55.972110748291016,
+                    0.0
+                ],
+                "Scale": [
+                    0.9999999403953552,
+                    1.0,
+                    0.9999999403953552
+                ]
+            }
+        },
+        {
+            "Entity": 7842061390292333817,
+            "Mesh": {
+                "MeshIndex": 4,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    9.701255798339844,
+                    -0.06102481111884117,
+                    6.846649646759033
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        }
+    ],
+    "SceneGravity": [
+        0.0,
+        -9.800000190734863,
+        0.0
+    ]
+}

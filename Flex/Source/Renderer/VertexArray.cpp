@@ -12,6 +12,8 @@ namespace flex
     {
         glCreateVertexArrays(1, &m_Handle);
         glBindVertexArray(m_Handle);
+
+        assert(m_Handle != 0 && "Failed to create Vertex array!");
     }
     
     void VertexArray::SetVertexBuffer(std::shared_ptr<VertexBuffer> vertexBuffer)

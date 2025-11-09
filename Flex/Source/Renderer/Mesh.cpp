@@ -176,6 +176,7 @@ namespace flex
                 Ref<MeshInstance> meshInstance = CreateRef<MeshInstance>();
                 meshInstance->mesh = mesh;
                 meshInstance->material = CreateRef<Material>();
+                meshInstance->meshIndex = static_cast<int>(scene.flatMeshes.size());
 
                 // Material
                 LoadMaterial(meshInstance, primitive, gltfModel.materials, textures);

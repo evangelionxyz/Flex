@@ -53,6 +53,7 @@ namespace flex
         Ref<Mesh> mesh;
         Ref<Material> material;
         int materialIndex = -1;
+        int meshIndex = -1;
 
         // Local (node) transform and resolved world transform
         glm::mat4 localTransform {1.0f};

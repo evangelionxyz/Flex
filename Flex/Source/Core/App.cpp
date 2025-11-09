@@ -6,6 +6,7 @@
 #include "Renderer/Material.h"
 
 #include "SDL3/SDL_dialog.h"
+#include "SDL3/SDL_events.h"
 
 #include <ImGuizmo.h>
 #include <glm/gtx/euler_angles.hpp>
@@ -13,6 +14,15 @@
 
 namespace flex
 {
+    namespace
+    {
+        const SDL_DialogFileFilter kSceneFileFilters[] =
+        {
+            { "Flex Scene", "json" },
+            { "All Files", "*" }
+        };
+    }
+
     App::App(int argc, char** argv)
     {
         WindowCreateInfo windowCI;
@@ -100,7 +110,6 @@ namespace flex
         // Load default glTF assets into the scene graph
         const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
         const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
-
         if (m_SelectedEntity == entt::null)
         {
             if (!helmetEntities.empty())
@@ -160,6 +169,8 @@ namespace flex
                 m_Window->PollEvents(&event);
                 ImGuiContext::PollEvents(&event);
             }
+
+            ProcessPendingSceneActions();
 
             const uint64_t currentCount = SDL_GetPerformanceCounter();
             m_FrameData.deltaTime = static_cast<float>(currentCount - prevCount) / freq;
@@ -933,11 +944,32 @@ namespace flex
 
     void App::OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod)
     {
-        if (mod == SDL_KMOD_LCTRL)
+        if (type != SDL_EVENT_KEY_DOWN)
         {
+            return;
+        }
+
+        const bool ctrl = (mod & (SDL_KMOD_LCTRL | SDL_KMOD_RCTRL)) != 0;
+        const bool shift = (mod & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT)) != 0;
+
+        if (ctrl)
+        {
+            if (shift)
+            {
+                if (key == SDLK_S)
+                {
+                    SaveSceneAs();
+                }
+                return;
+            }
+
             switch (key)
             {
-                // Duplicate Selected Entity
+                case SDLK_S:
+                {
+                    SaveScene();
+                    break;
+                }
                 case SDLK_D:
                 {
                     if (m_SelectedEntity != entt::null)
@@ -946,39 +978,257 @@ namespace flex
                     }
                     break;
                 }
+                case SDLK_O:
+                {
+                    OpenScene();
+                    break;
+                }
+                case SDLK_N:
+                {
+                    NewScene();
+                    break;
+                }
+            }
+            return;
+        }
+
+        if (shift)
+        {
+            if (key == SDLK_W)
+            {
+                m_GizmoMode = m_GizmoMode == ImGuizmo::MODE::WORLD ? ImGuizmo::MODE::LOCAL : ImGuizmo::MODE::WORLD;
+            }
+            return;
+        }
+
+        switch (key)
+        {
+            case SDLK_T:
+            {
+                m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+                break;
+            }
+            case SDLK_S:
+            {
+                m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
+                break;
+            }
+            case SDLK_R:
+            {
+                m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
+                break;
             }
         }
-        else if (mod == SDL_KMOD_LSHIFT)
+    }
+
+    void App::SaveScene()
+    {
+        if (!m_EditorScene && !m_ActiveScene)
         {
-            switch (key)
+            SDL_Log("SaveScene: no scene is available to save");
+            return;
+        }
+
+        if (m_CurrentScenePath.empty())
+        {
+            SaveSceneAs();
+            return;
+        }
+
+        SaveSceneToPath(m_CurrentScenePath);
+    }
+
+    void App::SaveSceneAs()
+    {
+        if (!m_EditorScene && !m_ActiveScene)
+        {
+            SDL_Log("SaveSceneAs: no scene is available to save");
+            return;
+        }
+
+        m_SaveDialogDefaultLocation.clear();
+        if (!m_CurrentScenePath.empty())
+        {
+            m_SaveDialogDefaultLocation = m_CurrentScenePath.string();
+        }
+
+        const char* defaultLocation = m_SaveDialogDefaultLocation.empty() ? nullptr : m_SaveDialogDefaultLocation.c_str();
+        SDL_ShowSaveFileDialog(OnSceneSaveFileSelected, this, m_Window->GetHandle(), kSceneFileFilters, static_cast<int>(sizeof(kSceneFileFilters) / sizeof(kSceneFileFilters[0])), defaultLocation);
+    }
+
+    void App::OpenScene()
+    {
+        if (m_ActiveScene && m_ActiveScene->IsPlaying())
+        {
+            OnSceneStop();
+        }
+
+        if (m_SaveDialogDefaultLocation.empty() && !m_CurrentScenePath.empty())
+        {
+            m_SaveDialogDefaultLocation = m_CurrentScenePath.string();
+        }
+
+        const char* defaultLocation = m_SaveDialogDefaultLocation.empty() ? nullptr : m_SaveDialogDefaultLocation.c_str();
+        SDL_ShowOpenFileDialog(
+            OnSceneOpenFileSelected,
+            this,
+            m_Window->GetHandle(),
+            kSceneFileFilters,
+            static_cast<int>(sizeof(kSceneFileFilters) / sizeof(kSceneFileFilters[0])),
+            defaultLocation,
+            false);
+    }
+
+    void App::NewScene()
+    {
+        m_SelectedEntity = entt::null;
+
+        m_ActiveScene = CreateRef<Scene>();
+        m_EditorScene = m_ActiveScene->Clone();
+    }
+
+    void App::SaveSceneToPath(const std::filesystem::path& filepath)
+    {
+        if (filepath.empty())
+        {
+            SDL_Log("SaveSceneToPath: filepath is empty");
+            return;
+        }
+
+        Ref<Scene> sceneToSave = m_EditorScene ? m_EditorScene : m_ActiveScene;
+        if (!sceneToSave)
+        {
+            SDL_Log("SaveSceneToPath: no scene is available to save");
+            return;
+        }
+
+        std::filesystem::path destination = filepath;
+        if (destination.extension().empty())
+        {
+            destination.replace_extension(".json");
+        }
+
+        SceneSerializer serializer(sceneToSave);
+        if (!serializer.Serialize(destination))
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to save scene to %s", destination.string().c_str());
+            return;
+        }
+
+        m_CurrentScenePath = destination;
+        SDL_Log("Scene saved to %s", destination.string().c_str());
+    }
+
+    void App::OpenSceneFromPath(const std::filesystem::path &filepath)
+    {
+        if (filepath.empty())
+        {
+            SDL_Log("OpenSceneFromPath: filepath is empty");
+            return;
+        }
+
+        std::filesystem::path scenePath = filepath;
+        if (scenePath.extension().empty())
+        {
+            scenePath.replace_extension(".json");
+        }
+
+        if (!std::filesystem::exists(scenePath))
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Scene file does not exist: %s", scenePath.string().c_str());
+            return;
+        }
+
+        if (m_ActiveScene && m_ActiveScene->IsPlaying())
+        {
+            OnSceneStop();
+        }
+
+        Ref<Scene> loadedScene = CreateRef<Scene>();
+        SceneSerializer serializer(loadedScene);
+        if (!serializer.Deserialize(scenePath))
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open scene %s", scenePath.string().c_str());
+            return;
+        }
+
+        m_EditorScene = loadedScene;
+        m_ActiveScene = m_EditorScene;
+        m_SelectedEntity = entt::null;
+        m_CurrentScenePath = scenePath;
+        m_SaveDialogDefaultLocation = scenePath.string();
+
+        SDL_Log("Scene opened from %s", scenePath.string().c_str());
+    }
+
+    void App::ProcessPendingSceneActions()
+    {
+        std::optional<std::filesystem::path> sceneToOpen;
+        {
+            std::lock_guard<std::mutex> lock(m_SceneDialogMutex);
+            if (m_PendingSceneOpenPath.has_value())
             {
-                case SDLK_W:
-                {
-                    m_GizmoMode = m_GizmoMode == ImGuizmo::MODE::WORLD ? ImGuizmo::MODE::LOCAL : ImGuizmo::MODE::WORLD;
-                    break;
-                }
+                sceneToOpen = std::move(m_PendingSceneOpenPath);
+                m_PendingSceneOpenPath.reset();
             }
         }
-        else
+
+        if (sceneToOpen)
         {
-            switch (key)
-            {
-                case SDLK_T:
-                {
-                    m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
-                    break;
-                }
-                case SDLK_S:
-                {
-                    m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
-                    break;
-                }
-                case SDLK_R:
-                {
-                    m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
-                    break;
-                }
-            }
+            OpenSceneFromPath(*sceneToOpen);
+        }
+    }
+
+    void App::OnSceneSaveFileSelected(void* userData, const char* const* filelist, int filter)
+    {
+        App* app = static_cast<App*>(userData);
+        if (!app)
+        {
+            return;
+        }
+
+        app->m_SaveDialogDefaultLocation.clear();
+
+        if (filelist == nullptr)
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Scene save dialog failed");
+            return;
+        }
+
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("Scene save dialog cancelled");
+            return;
+        }
+
+        app->SaveSceneToPath(std::filesystem::path(filelist[0]));
+    }
+
+    void App::OnSceneOpenFileSelected(void * userData, const char * const * filelist, int filter)
+    {
+        App* app = static_cast<App*>(userData);
+        if (!app)
+        {
+            return;
+        }
+
+        app->m_SaveDialogDefaultLocation.clear();
+
+        if (filelist == nullptr)
+        {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Scene open dialog failed");
+            return;
+        }
+
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("Scene open dialog cancelled");
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(app->m_SceneDialogMutex);
+            app->m_PendingSceneOpenPath = std::filesystem::path(filelist[0]);
         }
     }
 

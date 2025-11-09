@@ -267,6 +267,7 @@ namespace flex
 				MeshComponent& meshComponent = AddComponent<MeshComponent>(entity);
 				meshComponent.meshPath = filepath;
 				meshComponent.meshInstance = meshInstance;
+				meshComponent.meshIndex = meshInstance ? meshInstance->meshIndex : -1;
 				meshInstance->worldTransform = worldMatrix;
 
 				createdEntities.push_back(entity);

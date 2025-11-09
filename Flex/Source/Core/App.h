@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <format>
 #include <memory>
+#include <optional>
+#include <mutex>
 
 #include "UIHelper.h"
 
@@ -37,6 +39,8 @@
 #include "Renderer/SSAO.h"
 #include "Renderer/Window.h"
 #include "Math/Math.hpp"
+
+#include "Scene/Serializer.h"
 
 #include <ImGuizmo.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -186,6 +190,17 @@ namespace flex
         void OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod);
 
         static void OnMeshFileSelected(void* userData, const char* const* filelist, int filter);
+        static void OnSceneSaveFileSelected(void* userData, const char* const* filelist, int filter);
+        static void OnSceneOpenFileSelected(void* userData, const char* const* filelist, int filter);
+
+        void SaveScene();
+        void SaveSceneAs();
+        void OpenScene();
+        void NewScene();
+
+        void SaveSceneToPath(const std::filesystem::path &filepath);
+        void OpenSceneFromPath(const std::filesystem::path &filepath);
+        void ProcessPendingSceneActions();
 
     private:
         Ref<Window> m_Window;
@@ -209,6 +224,10 @@ namespace flex
         FrameData m_FrameData;
 
         std::string m_PendingMeshFilepath;
+        std::filesystem::path m_CurrentScenePath;
+        std::string m_SaveDialogDefaultLocation;
+        std::optional<std::filesystem::path> m_PendingSceneOpenPath;
+        std::mutex m_SceneDialogMutex;
 
         ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
         ImGuizmo::MODE m_GizmoMode = ImGuizmo::LOCAL;

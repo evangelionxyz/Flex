@@ -122,6 +122,7 @@ namespace flex
     {
         std::string meshPath;
         Ref<MeshInstance> meshInstance;
+        int meshIndex = -1;
         
         MeshComponent() = default;
     };
