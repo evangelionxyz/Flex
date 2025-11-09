@@ -3,6 +3,25 @@
         {
             "Entity": 332544971248342330,
             "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material_MR",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 1.0,
+                    "Type": "Opaque"
+                },
                 "MeshIndex": 0,
                 "MeshPath": "Resources/models/damaged_helmet.gltf"
             },
@@ -30,8 +49,75 @@
             }
         },
         {
+            "Entity": 3894337138336954971,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.8002356290817261,
+                        0.014957007020711899,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        0.6176470518112183,
+                        0.6176470518112183,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    2.3128573894500732,
+                    3.3021223545074463,
+                    -0.06477069854736328
+                ],
+                "Rotation": [
+                    44.25634765625,
+                    25.193849563598633,
+                    -27.08348274230957
+                ],
+                "Scale": [
+                    0.4099999666213989,
+                    0.4099988341331482,
+                    0.4099995195865631
+                ]
+            }
+        },
+        {
             "Entity": 6732513782048872294,
             "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.8002356290817261,
+                        0.014957007020711899,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
                 "MeshIndex": 0,
                 "MeshPath": "Resources/models/scene.glb"
             },
@@ -59,66 +145,27 @@
             }
         },
         {
-            "Entity": 3894337138336954971,
-            "Mesh": {
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Cube.001",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    1.7335264682769775,
-                    2.263937473297119,
-                    -2.9897053241729736
-                ],
-                "Rotation": [
-                    44.25634765625,
-                    25.193849563598633,
-                    -27.08348274230957
-                ],
-                "Scale": [
-                    0.4099999666213989,
-                    0.4099988341331482,
-                    0.4099995195865631
-                ]
-            }
-        },
-        {
-            "Entity": 3628107003596903922,
-            "Mesh": {
-                "MeshIndex": 1,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Plane",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    0.0,
-                    -2.0,
-                    0.0
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    12.774489402770996,
-                    12.774489402770996,
-                    12.774489402770996
-                ]
-            }
-        },
-        {
             "Entity": 9324001587843122061,
             "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.800000011920929,
+                        0.800000011920929,
+                        0.800000011920929,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
                 "MeshIndex": 5,
                 "MeshPath": "Resources/models/scene.glb"
             },
@@ -146,8 +193,123 @@
             }
         },
         {
+            "Entity": 3628107003596903922,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.001",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 1.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 1,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Plane",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    -2.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    12.774489402770996,
+                    12.774489402770996,
+                    12.774489402770996
+                ]
+            }
+        },
+        {
+            "Entity": 14192111772077071196,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.8002356290817261,
+                        0.014957007020711899,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        0.6176470518112183,
+                        0.6176470518112183,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (4)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.6161954998970032,
+                    3.3021223545074463,
+                    -0.06477069854736328
+                ],
+                "Rotation": [
+                    44.25634765625,
+                    25.193849563598633,
+                    -27.08348274230957
+                ],
+                "Scale": [
+                    0.4099999666213989,
+                    0.4099988341331482,
+                    0.4099995195865631
+                ]
+            }
+        },
+        {
             "Entity": 9123413879861689928,
             "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.3995848596096039,
+                        0.8005527257919312,
+                        0.26906394958496094,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.0,
+                    "Name": "Blue",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.5,
+                    "Type": "Opaque"
+                },
                 "MeshIndex": 2,
                 "MeshPath": "Resources/models/scene.glb"
             },
@@ -177,6 +339,25 @@
         {
             "Entity": 12097150640338817803,
             "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.8004403114318848,
+                        0.4813193678855896,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Orange",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.20078739523887634,
+                    "Type": "Opaque"
+                },
                 "MeshIndex": 3,
                 "MeshPath": "Resources/models/scene.glb"
             },
@@ -206,6 +387,25 @@
         {
             "Entity": 7842061390292333817,
             "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.800000011920929,
+                        0.800000011920929,
+                        0.800000011920929,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
                 "MeshIndex": 4,
                 "MeshPath": "Resources/models/scene.glb"
             },
@@ -229,6 +429,102 @@
                     1.0,
                     1.0,
                     1.0
+                ]
+            }
+        },
+        {
+            "Entity": 2623108388565353439,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.0,
+                        1.0,
+                        0.23529410362243652,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.20588243007659912,
+                        1.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (2)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    1.7335264682769775,
+                    2.263937473297119,
+                    -2.9897053241729736
+                ],
+                "Rotation": [
+                    44.25634765625,
+                    25.193849563598633,
+                    -27.08348274230957
+                ],
+                "Scale": [
+                    0.4099999666213989,
+                    0.4099988341331482,
+                    0.4099995195865631
+                ]
+            }
+        },
+        {
+            "Entity": 15714976859462876273,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.0,
+                        0.5177996158599854,
+                        0.8002356290817261,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.6561415195465088,
+                        0.22058820724487305,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (3)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.6162530779838562,
+                    1.978458046913147,
+                    1.3858287334442139
+                ],
+                "Rotation": [
+                    63.84366226196289,
+                    -15.711190223693848,
+                    -25.338624954223633
+                ],
+                "Scale": [
+                    0.4099999666213989,
+                    0.40999892354011536,
+                    0.4099995493888855
                 ]
             }
         }
