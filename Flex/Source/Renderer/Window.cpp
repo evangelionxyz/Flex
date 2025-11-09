@@ -104,7 +104,7 @@ namespace flex
 
             if (m_Data.keyCb)
             {
-                // m_Data.keyCb(key, scancode, action, mods);
+                m_Data.keyCb(event->key.key, event->key.scancode, event->key.type, event->key.mod);
             }
         }
         else if (event->type == SDL_EVENT_KEY_UP)
@@ -119,6 +119,11 @@ namespace flex
             m_ModifierStates[SDL_KMOD_RCTRL] = event->key.mod & SDL_KMOD_RCTRL;
 
             m_KeyCodeStates[event->key.key] = false;
+
+            if (m_Data.keyCb)
+            {
+                m_Data.keyCb(event->key.key, event->key.scancode, event->key.type, event->key.mod);
+            }
         }
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
         {
@@ -130,13 +135,20 @@ namespace flex
         }
         else if (event->type == SDL_EVENT_MOUSE_MOTION)
         {
-            m_MousePosition = { static_cast<float>(event->motion.x), static_cast<float>(event->motion.y) };
+            m_MousePosition = { event->motion.x, event->motion.y };
+            m_DeltaMousePosition = m_MousePosition - m_LastMousePosition;
+
+            if (m_Data.mouseMotionCb)
+            {
+                m_Data.mouseMotionCb(m_MousePosition, m_DeltaMousePosition);
+            }
         }
         else if (event->type == SDL_EVENT_MOUSE_WHEEL)
         {
+            m_MouseScroll = { event->wheel.x, event->wheel.y };
             if (m_Data.scrollCb)
             {
-                m_Data.scrollCb((int)event->wheel.x, (int)event->wheel.x);
+                m_Data.scrollCb(event->wheel.x, event->wheel.y);
             }
         }
         if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
@@ -150,8 +162,17 @@ namespace flex
         SDL_GL_SwapWindow(m_Handle);
     }
 
-    bool Window::IsLooping() const
+    bool Window::IsLooping()
     {
+        // Reset controls
+        m_MouseScroll = { 0.0f, 0.0f };
+        m_LastMousePosition = m_MousePosition;
+        
+        if (m_Data.scrollCb)
+        {
+            m_Data.scrollCb(0.0f, 0.0f);
+        }
+
         return m_Running;
     }
 
@@ -165,9 +186,14 @@ namespace flex
         m_Data.resizeCb = resizeCb;
     }
 
-    void Window::SetScrollCallback(const std::function<void(int, int)> &scrollCb)
+    void Window::SetScrollCallback(const std::function<void(float, float)> &scrollCb)
     {
         m_Data.scrollCb = scrollCb;
+    }
+
+    void Window::SetMouseMotionCallback(const std::function<void(const glm::vec2 &, const glm::vec2&)>& mouseMotion)
+    {
+        m_Data.mouseMotionCb = mouseMotion;
     }
 
     void Window::SetFullscreenCallback(const std::function<void(int, int, bool)> &fullscreenCb)

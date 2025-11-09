@@ -28,7 +28,8 @@ namespace flex
         bool maximize = false;
 
         std::function<void(int width, int height)> resizeCb;
-        std::function<void(int xOffset, int yOffset)> scrollCb;
+        std::function<void(float xoffset, float yoffset)> scrollCb;
+        std::function<void(const glm::vec2&, const glm::vec2&)> mouseMotionCb;
         std::function<void(int width, int height, bool fullscreen)> fullscreenCb;
         std::function<void(int key, int scancode, int action, int mods)> keyCb;
         std::function<void(const std::vector<std::string> &paths)> dropCb;
@@ -52,7 +53,7 @@ namespace flex
         void PollEvents(SDL_Event *event);
 
         void SwapBuffers();
-        bool IsLooping() const;
+        bool IsLooping();
         void SetWindowTitle(const std::string &title);
         
         void ToggleFullScreen();
@@ -62,9 +63,10 @@ namespace flex
 
         void SetKeyboardCallback(const std::function<void(int, int, int, int)> &keyCallback);
         void SetResizeCallback(const std::function<void(int, int)> &resizeCb);
-        void SetScrollCallback(const std::function<void(int, int)> &scrollCb);
+        void SetScrollCallback(const std::function<void(float, float)> &scrollCb);
+        void SetMouseMotionCallback(const std::function<void(const glm::vec2&, const glm::vec2&)> &mouseMotion);
         void SetFullscreenCallback(const std::function<void(int, int, bool)> &fullscreenCb);
-        void SetDropCallback(const std::function<void(const std::vector<std::string> &)> &dropCb) ;
+        void SetDropCallback(const std::function<void(const std::vector<std::string> &)> &dropCb);
 
         void Show();
 
@@ -75,6 +77,7 @@ namespace flex
         uint32_t GetWidth() const { return m_Data.width; }
         uint32_t GetHeight() const { return m_Data.height; }
         glm::vec2 GetMousePosition() const { return m_MousePosition; }
+        glm::vec2 GetMouseScroll() const { return m_MouseScroll; }
 
         static Window *Get();
 
@@ -89,7 +92,12 @@ namespace flex
         std::unordered_map<SDL_Keymod, bool> m_ModifierStates;
         std::unordered_map<SDL_Keycode, bool> m_KeyCodeStates;
         std::unordered_map<uint32_t, bool> m_MouseButtonStates;
+        
         glm::vec2 m_MousePosition;
+        glm::vec2 m_LastMousePosition;
+        glm::vec2 m_DeltaMousePosition;
+
+        glm::vec2 m_MouseScroll;
     };
 }
 

@@ -21,62 +21,62 @@ namespace flex
     {
         for (MeshNode &node : m_Scene.nodes)
         {
-            for (const std::shared_ptr<Mesh> &mesh : node.meshes)
+            for (const Ref<MeshInstance> &meshInstnace : node.meshInstances)
             {
                 
             }
         }
     }
 
-    void Model::Render(Shader &shader, const std::shared_ptr<Texture2D> &environmentTexture)
+    void Model::Render(Ref<Shader> &shader, const Ref<Texture2D> &environmentTexture)
     {
         for (MeshNode &node : m_Scene.nodes)
         {
-            for (const std::shared_ptr<Mesh> &mesh : node.meshes)
+            for (const Ref<MeshInstance> &meshInstance : node.meshInstances)
             {
-                if (mesh->material)
+                if (meshInstance->material)
                 {
                     // Apply material parameters
-                    m_MaterialUbo->SetData(&mesh->material->params, sizeof(Material::Params));
+                    m_MaterialUbo->SetData(&meshInstance->material->params, sizeof(Material::Params));
 
-                    mesh->material->occlusionTexture->Bind(4);
-                    shader.SetUniform("u_OcclusionTexture", 4);
+                    meshInstance->material->occlusionTexture->Bind(4);
+					shader->SetUniform("u_OcclusionTexture", 4);
         
-                    mesh->material->normalTexture->Bind(3);
-                    shader.SetUniform("u_NormalTexture", 3);
+                    meshInstance->material->normalTexture->Bind(3);
+                    shader->SetUniform("u_NormalTexture", 3);
         
-                    mesh->material->metallicRoughnessTexture->Bind(2);
-                    shader.SetUniform("u_MetallicRoughnessTexture", 2);
+                    meshInstance->material->metallicRoughnessTexture->Bind(2);
+                    shader->SetUniform("u_MetallicRoughnessTexture", 2);
         
-                    mesh->material->emissiveTexture->Bind(1);
-                    shader.SetUniform("u_EmissiveTexture", 1);
+                    meshInstance->material->emissiveTexture->Bind(1);
+                    shader->SetUniform("u_EmissiveTexture", 1);
         
-                    mesh->material->baseColorTexture->Bind(0);
-                    shader.SetUniform("u_BaseColorTexture", 0);
+                    meshInstance->material->baseColorTexture->Bind(0);
+                    shader->SetUniform("u_BaseColorTexture", 0);
                 }
         
                 // Bind environment last to guarantee it stays on unit 5
                 environmentTexture->Bind(5);
-                shader.SetUniform("u_EnvironmentTexture", 5);
+                shader->SetUniform("u_EnvironmentTexture", 5);
                 
                 // TODO: Calculate with mesh transform
-                shader.SetUniform("u_Transform", m_Transform * mesh->localTransform);
+                shader->SetUniform("u_Transform", m_Transform * meshInstance->localTransform);
         
-                mesh->vertexArray->Bind();
-                Renderer::DrawIndexed(mesh->vertexArray);
+                meshInstance->mesh->vertexArray->Bind();
+                Renderer::DrawIndexed(meshInstance->mesh->vertexArray);
             }
         }
     }
 
-    void Model::RenderDepth(Shader &shader)
+    void Model::RenderDepth(Ref<Shader> &shader)
     {
         for (MeshNode &node : m_Scene.nodes)
         {
-            for (const std::shared_ptr<Mesh> &mesh : node.meshes)
+            for (const Ref<MeshInstance> &meshInstance : node.meshInstances)
             {
-                shader.SetUniform("u_Model", m_Transform * mesh->localTransform);
-                mesh->vertexArray->Bind();
-                Renderer::DrawIndexed(mesh->vertexArray);
+                shader->SetUniform("u_Model", m_Transform * meshInstance->localTransform);
+                meshInstance->mesh->vertexArray->Bind();
+                Renderer::DrawIndexed(meshInstance->mesh->vertexArray);
             }
         }
     }
@@ -86,7 +86,7 @@ namespace flex
         m_Transform = transform;
     }
 
-    std::shared_ptr<Model> Model::Create(const std::string &filename)
+    Ref<Model> Model::Create(const std::string &filename)
     {
         return std::make_shared<Model>(filename);
     }

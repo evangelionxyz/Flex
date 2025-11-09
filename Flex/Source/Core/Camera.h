@@ -7,16 +7,6 @@
 
 namespace flex
 {
-    struct MouseState
-    {
-        glm::vec2 position;
-        glm::vec2 lastPosition;
-        glm::ivec2 scroll {0.0, 0.0};
-        bool leftButton = false;
-        bool middleButton = false;
-        bool rightButton = false;
-    };
-
     struct CameraBuffer
     {
         glm::mat4 viewProjection;
@@ -85,9 +75,6 @@ namespace flex
         float nearPlane = 0.1f;
         float farPlane = 550.0f;
         
-        // Mouse state
-        MouseState mouse;
-        
         CameraLens lens;
         PostProcessing postProcessing;
         ProjectionType projectionType = ProjectionType::Perspective;
@@ -106,6 +93,8 @@ namespace flex
             bool enableInertia = true;
             float inertiaDamping = 0.9f;
             float zoomDamping = 0.65f;
+
+            int debugShadowMode = 0; // 0 off, 1 cascade index, 2 visibilities
         };
         
         Controls controls;
@@ -119,14 +108,17 @@ namespace flex
         glm::mat4 view;
         glm::mat4 projection;
         
-        // Update camera with new position based on spherical coordinates
-        void UpdateSphericalPosition()
-        {
-            position.x = target.x + distance * cos(pitch) * cos(yaw);
-            position.y = target.y + distance * sin(pitch);
-            position.z = target.z + distance * cos(pitch) * sin(yaw);
-        }
-        
+        // Get camera direction vectors
+        glm::vec3 GetForward() const { return glm::normalize(target - position); }
+        glm::vec3 GetRight() const { return glm::normalize(glm::cross(GetForward(), up)); }
+        glm::vec3 GetUp() const { return glm::normalize(glm::cross(GetRight(), GetForward())); }
+
+        void HandleOrbit(const glm::vec2 &delta);
+        void HandlePan(const glm::vec2 &delta);
+        void HandleZoom(const float &offset);
+
+        void OnUpdate(float deltaTime);
+
         // Update view and projection matrices
         void UpdateMatrices(float aspectRatio)
         {
@@ -142,18 +134,9 @@ namespace flex
                 projection = glm::ortho(-halfW, halfW, -halfH, halfH, nearPlane, farPlane);
             }
         }
-        
-        // Get camera direction vectors
-        glm::vec3 GetForward() const { return glm::normalize(target - position); }
-        glm::vec3 GetRight() const { return glm::normalize(glm::cross(GetForward(), up)); }
-        glm::vec3 GetUp() const { return glm::normalize(glm::cross(GetRight(), GetForward())); }
 
-        void UpdateMouseState();
-        void HandleOrbit(float deltaTime);
-        void HandlePan();
-        void HandleZoom(float deltaTime);
-        void ApplyInertia(float deltaTime);
-        void UpdateCameraPosition();
+    private:
+        void UpdateSphericalPosition();
     };
 
 }

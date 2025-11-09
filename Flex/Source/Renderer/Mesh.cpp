@@ -15,12 +15,14 @@
 
 namespace flex
 {
+    // Definition of the static mesh cache
+    std::unordered_map<MeshKey, Ref<Mesh>, MeshKeyHasher, MeshKeyEqual> MeshLoader::m_MeshCache;
+
     Mesh::Mesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
     {
-        this->vertexArray = std::make_shared<VertexArray>();
-        this->vertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex));
-        this->indexBuffer = std::make_shared<IndexBuffer>(indices.data(), static_cast<uint32_t>(indices.size()));
-        this->material = std::make_shared<Material>();
+        this->vertexArray = CreateRef<VertexArray>();
+        this->vertexBuffer = CreateRef<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex));
+        this->indexBuffer = CreateRef<IndexBuffer>(indices.data(), static_cast<uint32_t>(indices.size()));
 
         vertexBuffer->SetAttributes(
             {
@@ -37,9 +39,19 @@ namespace flex
         vertexArray->SetIndexBuffer(indexBuffer);
     }
 
-    std::shared_ptr<Mesh> Mesh::Create(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+    Ref<Mesh> Mesh::Create(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
     {
-        return std::make_shared<Mesh>(vertices, indices);
+        return CreateRef<Mesh>(vertices, indices);
+    }
+
+    MeshInstance::MeshInstance(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+    {
+        mesh = Mesh::Create(vertices, indices);
+        material = CreateRef<Material>();
+    }
+    Ref<MeshInstance> MeshInstance::Create(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+    {
+        return CreateRef<MeshInstance>(vertices, indices);
     }
 
     // Helper to build mat4 from glTF node TRS
@@ -146,13 +158,30 @@ namespace flex
                 // Get indices
                 LoadIndicesData(indices, primitive, gltfModel);
 
-                auto mesh = Mesh::Create(vertices, indices);
+                // Try to reuse an existing mesh from the cache using the vertex/index counts as key
+                MeshKey key{ static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(indices.size()) };
+                Ref<Mesh> mesh;
+                auto it = m_MeshCache.find(key);
+                if (it != m_MeshCache.end())
+                {
+                    mesh = it->second;
+                }
+                else
+                {
+                    mesh = Mesh::Create(vertices, indices);
+                    m_MeshCache.emplace(key, mesh);
+                }
+
+                // Create Mesh Instance
+                Ref<MeshInstance> meshInstance = CreateRef<MeshInstance>();
+                meshInstance->mesh = mesh;
+                meshInstance->material = CreateRef<Material>();
 
                 // Material
-                LoadMaterial(mesh, primitive, gltfModel.materials, textures);
+                LoadMaterial(meshInstance, primitive, gltfModel.materials, textures);
 
-                scene.nodes[i].meshes.push_back(mesh);
-                scene.flatMeshes.push_back(mesh);
+                scene.nodes[i].meshInstances.push_back(meshInstance);
+                scene.flatMeshes.push_back(meshInstance);
             }
         }
 
@@ -161,7 +190,7 @@ namespace flex
         {
             MeshNode &n = scene.nodes[nodeIndex];
             n.world = parentWorld * n.local;
-            for (const auto &m : n.meshes)
+            for (const auto &m : n.meshInstances)
             {
                 m->localTransform = n.local;
                 m->worldTransform = n.world;
@@ -177,7 +206,7 @@ namespace flex
         return scene;
     }
 
-    std::shared_ptr<Mesh> MeshLoader::CreateFallbackQuad()
+    Ref<MeshInstance> MeshLoader::CreateFallbackQuad()
     {
         std::cout << "Creating fallback quad mesh\n";
         
@@ -193,17 +222,17 @@ namespace flex
             0, 2, 3
         };
 
-        std::shared_ptr<Mesh> fallbackMesh = Mesh::Create(vertices, indices);
+        Ref<MeshInstance> fallbackMeshInstance = MeshInstance::Create(vertices, indices);
         
         // Assign a default texture to fallback mesh
-        fallbackMesh->material->baseColorTexture = Renderer::GetMagentaTexture();
+        fallbackMeshInstance->material->baseColorTexture = Renderer::GetMagentaTexture();
         
-        return fallbackMesh;
+        return fallbackMeshInstance;
     }
 
-    std::vector<std::shared_ptr<Texture2D>> MeshLoader::LoadTexturesFromGLTF(const tinygltf::Model& model)
+    std::vector<Ref<Texture2D>> MeshLoader::LoadTexturesFromGLTF(const tinygltf::Model& model)
     {
-        std::vector<std::shared_ptr<Texture2D>> gltfTextures;
+        std::vector<Ref<Texture2D>> gltfTextures;
         std::cout << "Loading " << model.textures.size() << " textures from glTF\n";
         
         for (size_t i = 0; i < model.textures.size(); ++i)
@@ -225,12 +254,12 @@ namespace flex
                 createInfo.filter = FilterMode::LINEAR;
                 createInfo.format = Format::RGBA8;
 
-                std::shared_ptr<Texture2D> texture;
+                Ref<Texture2D> texture;
                 
                 if (!image.image.empty())
                 {
                     // Image data is embedded in the glTF
-                    texture = std::make_shared<Texture2D>(createInfo, (void*)image.image.data(), image.image.size());
+                    texture = CreateRef<Texture2D>(createInfo, (void*)image.image.data(), image.image.size());
                     std::cout << "    Loaded embedded texture\n";
                 }
                 else if (!image.uri.empty())
@@ -242,7 +271,7 @@ namespace flex
                     // Check if file exists
                     if (std::filesystem::exists(texturePath))
                     {
-                        texture = std::make_shared<Texture2D>(createInfo, texturePath);
+                        texture = CreateRef<Texture2D>(createInfo, texturePath);
                         std::cout << "    Loaded external texture: " << texturePath << "\n";
                     }
                 }
@@ -261,7 +290,7 @@ namespace flex
         return &buffer.data[bufferView.byteOffset + accessor.byteOffset];
     }
 
-    std::shared_ptr<Mesh> MeshLoader::CreateSkyboxCube()
+    Ref<MeshInstance> MeshLoader::CreateSkyboxCube()
     {
         std::cout << "Creating skybox cube mesh\n";
         
@@ -319,60 +348,65 @@ namespace flex
             20, 21, 22,  22, 23, 20
         };
 
-        std::shared_ptr<Mesh> skyboxMesh = Mesh::Create(vertices, indices);
+        Ref<MeshInstance> skyboxMeshInstance = MeshInstance::Create(vertices, indices);
 
-        return skyboxMesh;
+        return skyboxMeshInstance;
     }
 
-    void MeshLoader::LoadMaterial(const std::shared_ptr<Mesh>& mesh, const tinygltf::Primitive &primitive, const std::vector<tinygltf::Material> &materials, const std::vector<std::shared_ptr<Texture2D>> &loadedTextures)
+    void MeshLoader::LoadMaterial(const Ref<MeshInstance>& meshInstance, const tinygltf::Primitive &primitive, const std::vector<tinygltf::Material> &materials, const std::vector<Ref<Texture2D>> &loadedTextures)
     {
+        if (!meshInstance->material)
+        {
+            meshInstance->material = CreateRef<Material>();
+        }
+
         // Assign texture based on material
-        mesh->materialIndex = primitive.material;
+        meshInstance->materialIndex = primitive.material;
         if (primitive.material >= 0 && primitive.material < materials.size())
         {
             const tinygltf::Material& material = materials[primitive.material];
             std::cout << "  Material: " << material.name << "\n";
 
-            mesh->material->name = material.name;
-            mesh->material->params.baseColorFactor = {material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1], material.pbrMetallicRoughness.baseColorFactor[2], 1.0f };
-            mesh->material->params.emissiveFactor = {material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2], 1.0f };
-            mesh->material->params.metallicFactor = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
-            mesh->material->params.roughnessFactor = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
-            mesh->material->params.occlusionStrength = static_cast<float>(material.occlusionTexture.strength);
+            meshInstance->material->name = material.name;
+            meshInstance->material->params.baseColorFactor = {material.pbrMetallicRoughness.baseColorFactor[0], material.pbrMetallicRoughness.baseColorFactor[1], material.pbrMetallicRoughness.baseColorFactor[2], 1.0f };
+            meshInstance->material->params.emissiveFactor = {material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2], 1.0f };
+            meshInstance->material->params.metallicFactor = static_cast<float>(material.pbrMetallicRoughness.metallicFactor);
+            meshInstance->material->params.roughnessFactor = static_cast<float>(material.pbrMetallicRoughness.roughnessFactor);
+            meshInstance->material->params.occlusionStrength = static_cast<float>(material.occlusionTexture.strength);
             
             // base color texture
             const int baseColorIndex = material.pbrMetallicRoughness.baseColorTexture.index;
             if (baseColorIndex >= 0 && baseColorIndex < loadedTextures.size())
             {
-                mesh->material->baseColorTexture = loadedTextures[baseColorIndex];
+                meshInstance->material->baseColorTexture = loadedTextures[baseColorIndex];
             }
 
             // emissive texture
             const int emissiveIndex = material.emissiveTexture.index;
             if (emissiveIndex >= 0 && emissiveIndex < loadedTextures.size())
             {
-                mesh->material->emissiveTexture = loadedTextures[emissiveIndex];
+                meshInstance->material->emissiveTexture = loadedTextures[emissiveIndex];
             }
 
             // metallic roughness texture
             const int metallicRoughnessIndex = material.pbrMetallicRoughness.metallicRoughnessTexture.index;
             if (metallicRoughnessIndex >= 0 && metallicRoughnessIndex < loadedTextures.size())
             {
-                mesh->material->metallicRoughnessTexture = loadedTextures[metallicRoughnessIndex];
+                meshInstance->material->metallicRoughnessTexture = loadedTextures[metallicRoughnessIndex];
             }
 
             // normal texture
             const int normalIndex = material.normalTexture.index;
             if (normalIndex >= 0 && normalIndex < loadedTextures.size())
             {
-                mesh->material->normalTexture = loadedTextures[normalIndex];
+                meshInstance->material->normalTexture = loadedTextures[normalIndex];
             }
 
             // occlusion texture
             const int occlusionIndex = material.occlusionTexture.index;
             if (occlusionIndex >= 0 && occlusionIndex < loadedTextures.size())
             {
-                mesh->material->occlusionTexture = loadedTextures[occlusionIndex];
+                meshInstance->material->occlusionTexture = loadedTextures[occlusionIndex];
             }
         }
     }

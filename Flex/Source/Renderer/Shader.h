@@ -15,9 +15,9 @@ namespace flex
 {
     struct ShaderData
     {
-        std::string filepath;
-        uint32_t shader = 0;
+        std::string str; // filepath / source
         GLenum type;
+        uint32_t shader = 0;
     };
 
     class Shader
@@ -25,8 +25,8 @@ namespace flex
     public:
         Shader();
 
-        Shader &AddFromFile(const std::string &filepath, GLenum type);
-        Shader &AddFromString(const std::string &source, GLenum type);
+        Shader &CreateFromFile(const std::vector<ShaderData> &shaders);
+        Shader &CreateFromSource(const std::vector<ShaderData> &shaders);
         Shader &Compile();
         void Reload();
 

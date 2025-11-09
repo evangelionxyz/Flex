@@ -49,9 +49,9 @@ namespace flex
         std::vector<Level> m_Levels;           // Bloom mip chain levels
         std::shared_ptr<Framebuffer> m_FinalFB; // Final upsampled result
         
-        Shader m_DownsampleShader;
-        Shader m_BlurShader;
-        Shader m_UpsampleShader;
+        Ref<Shader> m_DownsampleShader;
+        Ref<Shader> m_BlurShader;
+		Ref<Shader> m_UpsampleShader;
         uint32_t m_Vao;
         
         int m_Width, m_Height;

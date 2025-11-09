@@ -9,6 +9,8 @@
 
 namespace flex
 {
+    class UniformBuffer;
+
     enum class MaterialType
     {
         Opaque,
@@ -30,13 +32,19 @@ namespace flex
             float occlusionStrength = 0.0f;
         } params;
 
-        std::shared_ptr<Texture2D> baseColorTexture;
-        std::shared_ptr<Texture2D> emissiveTexture;
-        std::shared_ptr<Texture2D> metallicRoughnessTexture;
-        std::shared_ptr<Texture2D> normalTexture;
-        std::shared_ptr<Texture2D> occlusionTexture;
+        Ref<Texture2D> baseColorTexture;
+        Ref<Texture2D> emissiveTexture;
+        Ref<Texture2D> metallicRoughnessTexture;
+        Ref<Texture2D> normalTexture;
+        Ref<Texture2D> occlusionTexture;
+
+        Ref<Shader> shader;
 
         MaterialType type = MaterialType::Opaque;
+
+        void UpdateData();
+    private:
+        Ref<UniformBuffer> m_Buffer;
     };
 }
 

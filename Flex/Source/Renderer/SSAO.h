@@ -32,8 +32,8 @@ namespace flex
         std::shared_ptr<Framebuffer> m_AOFB;   // raw AO
         std::shared_ptr<Framebuffer> m_BlurFB; // blurred AO
 
-        Shader m_AOShader;
-        Shader m_BlurShader;
+        Ref<Shader> m_AOShader;
+        Ref<Shader> m_BlurShader;
 
         std::vector<glm::vec4> m_Kernel; // 4D to keep std140 alignment simple when uploading manually if needed
         uint32_t m_NoiseTex = 0;

@@ -1,6 +1,9 @@
 // Copyright (c) 2025 Flex Engine | Evangelion Manuhutu
 
 #include "Bloom.h"
+
+#include "Renderer.h"
+
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
@@ -15,17 +18,24 @@ namespace flex
         }
 
         // Load high-quality shaders
-        m_DownsampleShader.AddFromFile("Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_DownsampleShader.AddFromFile("Resources/shaders/bloom_downsample.frag.glsl", GL_FRAGMENT_SHADER);
-        m_DownsampleShader.Compile();
+        m_DownsampleShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{ "Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER },
+                ShaderData{ "Resources/shaders/bloom_downsample.frag.glsl", GL_FRAGMENT_SHADER },
+            }, "BloomDownsample");
 
-        m_BlurShader.AddFromFile("Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_BlurShader.AddFromFile("Resources/shaders/bloom_blur.frag.glsl", GL_FRAGMENT_SHADER);
-        m_BlurShader.Compile();
-        
-        m_UpsampleShader.AddFromFile("Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_UpsampleShader.AddFromFile("Resources/shaders/bloom_upsample.frag.glsl", GL_FRAGMENT_SHADER);
-        m_UpsampleShader.Compile();
+        m_BlurShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{ "Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER },
+                ShaderData{ "Resources/shaders/bloom_blur.frag.glsl", GL_FRAGMENT_SHADER },
+			}, "BloomBlur");
+
+        m_UpsampleShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{ "Resources/shaders/bloom_fullscreen.vert.glsl", GL_VERTEX_SHADER },
+                ShaderData{ "Resources/shaders/bloom_upsample.frag.glsl", GL_FRAGMENT_SHADER },
+            }, "BloomUpsample");
+
 
         CreateMipFramebuffers(width, height);
     }
@@ -142,20 +152,20 @@ namespace flex
             glClearColor(0, 0, 0, 0);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            m_DownsampleShader.Use();
+            m_DownsampleShader->Use();
             glBindTextureUnit(0, prevTex);
-            m_DownsampleShader.SetUniform("u_Src", 0);
-            m_DownsampleShader.SetUniform("u_Intensity", settings.intensity);
-            m_DownsampleShader.SetUniform("u_Knee", settings.knee);
+            m_DownsampleShader->SetUniform("u_Src", 0);
+            m_DownsampleShader->SetUniform("u_Intensity", settings.intensity);
+            m_DownsampleShader->SetUniform("u_Knee", settings.knee);
             
             // Only apply threshold on first level
             if (i == 0)
             {
-                m_DownsampleShader.SetUniform("u_Threshold", settings.threshold);
+                m_DownsampleShader->SetUniform("u_Threshold", settings.threshold);
             }
             else
             {
-                m_DownsampleShader.SetUniform("u_Threshold", 0.0f);
+                m_DownsampleShader->SetUniform("u_Threshold", 0.0f);
             }
             
             glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -172,10 +182,10 @@ namespace flex
             lvl.fbBlurH->Bind(vp);
             glClear(GL_COLOR_BUFFER_BIT);
             
-            m_BlurShader.Use();
+            m_BlurShader->Use();
             glBindTextureUnit(0, lvl.fbDown->GetColorAttachment(0));
-            m_BlurShader.SetUniform("u_Src", 0);
-            m_BlurShader.SetUniform("u_Horizontal", 1);
+            m_BlurShader->SetUniform("u_Src", 0);
+            m_BlurShader->SetUniform("u_Horizontal", 1);
             glDrawArrays(GL_TRIANGLES, 0, 3);
 
             // Vertical blur: fbBlurH -> fbBlurV
@@ -183,18 +193,18 @@ namespace flex
             glClear(GL_COLOR_BUFFER_BIT);
             
             glBindTextureUnit(0, lvl.fbBlurH->GetColorAttachment(0));
-            m_BlurShader.SetUniform("u_Src", 0);
-            m_BlurShader.SetUniform("u_Horizontal", 0);
+            m_BlurShader->SetUniform("u_Src", 0);
+            m_BlurShader->SetUniform("u_Horizontal", 0);
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
 
-        // Phase 3: Upsample and combine from smallest to largest
+        // Phase 3: Up-sample and combine from smallest to largest
         if (maxLevels > 0 && m_FinalFB)
         {
             // Start with the smallest level
             uint32_t currentTex = m_Levels[maxLevels - 1].fbBlurV->GetColorAttachment(0);
             
-            // Upsample and combine each level
+            // Up-sample and combine each level
             for (int i = (int)maxLevels - 2; i >= 0; --i)
             {
                 auto &lvl = m_Levels[i];
@@ -213,12 +223,12 @@ namespace flex
                 
                 glClear(GL_COLOR_BUFFER_BIT);
                 
-                m_UpsampleShader.Use();
+                m_UpsampleShader->Use();
                 glBindTextureUnit(0, currentTex);  // Lower resolution
                 glBindTextureUnit(1, lvl.fbBlurV->GetColorAttachment(0));  // Current level
-                m_UpsampleShader.SetUniform("u_LowRes", 0);
-                m_UpsampleShader.SetUniform("u_HighRes", 1);
-                m_UpsampleShader.SetUniform("u_Radius", settings.radius * (float)(i + 1));
+                m_UpsampleShader->SetUniform("u_LowRes", 0);
+                m_UpsampleShader->SetUniform("u_HighRes", 1);
+                m_UpsampleShader->SetUniform("u_Radius", settings.radius * (float)(i + 1));
                 
                 glDrawArrays(GL_TRIANGLES, 0, 3);
                 
@@ -238,7 +248,9 @@ namespace flex
     uint32_t Bloom::GetBloomTexture() const
     {
         if (m_FinalFB)
+        {
             return m_FinalFB->GetColorAttachment(0);
+        }
         return 0;
     }
 }

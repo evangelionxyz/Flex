@@ -138,7 +138,7 @@ namespace flex
     {
         // Express capacity in glyphs for clarity
         static constexpr uint32_t MAX_GLYPHS   = 1024; // adjust as needed
-        static constexpr uint32_t MAX_VERTICES = MAX_GLYPHS * 4; // 4 verts per glyph
+        static constexpr uint32_t MAX_VERTICES = MAX_GLYPHS * 4; // 4 vertices per glyph
         static constexpr uint32_t MAX_INDICES  = MAX_GLYPHS * 6; // 6 indices per glyph
 
         static constexpr uint32_t MAX_FONTS = 32;
@@ -161,15 +161,18 @@ namespace flex
     {
         s_TextData = new TextRendererData();
 
-        s_TextData->shader = std::make_shared<Shader>();
-        s_TextData->shader->AddFromFile("Resources/shaders/text.vertex.glsl", GL_VERTEX_SHADER)
-            .AddFromFile("Resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER)
-            .Compile();
+        s_TextData->shader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{ "Resources/shaders/text.vert.glsl", GL_VERTEX_SHADER, 0 },
+                ShaderData{ "Resources/shaders/text.frag.glsl", GL_FRAGMENT_SHADER, 0 },
+            }, "TextShader");
 
         // Bind sampler array once (textures[0..31])
         s_TextData->shader->Use();
         for (int i = 0; i < 32; ++i)
+        {
             s_TextData->shader->SetUniform(std::string("textures[") + std::to_string(i) + "]", i);
+        }
 
         s_TextData->fonts = {nullptr};
         s_TextData->vertexPointerBase = new FontVertex[TextRendererData::MAX_VERTICES];
@@ -204,6 +207,8 @@ namespace flex
 
         s_TextData->vertexArray->SetVertexBuffer(s_TextData->vertexBuffer);
         s_TextData->vertexArray->SetIndexBuffer(s_TextData->indexBuffer);
+
+		assert(glGetError() == GL_NO_ERROR);
     }
 
     void TextRenderer::Shutdown()
