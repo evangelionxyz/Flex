@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Evangelion Manuhutu
 
 #include "Scene.h"
+#include "Components.h"
 
 #include "Renderer/Texture.h"
 #include "Renderer/Material.h"
@@ -193,6 +194,105 @@ namespace flex
 
 		entities[uuid] = newEntity;
 		return newEntity;
+	}
+
+	Ref<Scene> Scene::Clone() const
+	{
+		Ref<Scene> clonedScene = CreateRef<Scene>();
+		clonedScene->sceneGravity = sceneGravity;
+
+		for (const auto& [uuid, entity] : entities)
+		{
+			const TagComponent& sourceTag = registry->get<TagComponent>(entity);
+			entt::entity clonedEntity = clonedScene->CreateEntity(sourceTag.name, uuid);
+			TagComponent& clonedTag = clonedScene->GetComponent<TagComponent>(clonedEntity);
+			clonedTag.parent = sourceTag.parent;
+			clonedTag.children = sourceTag.children;
+		}
+
+		auto copyTransform = [this, &clonedScene](entt::entity entity, TransformComponent& component)
+		{
+			const UUID uuid = registry->get<TagComponent>(entity).uuid;
+			entt::entity clonedEntity = clonedScene->GetEntityByUUID(uuid);
+			if (clonedEntity == entt::null)
+			{
+				return;
+			}
+
+			if (clonedScene->HasComponent<TransformComponent>(clonedEntity))
+			{
+				clonedScene->GetComponent<TransformComponent>(clonedEntity) = component;
+			}
+			else
+			{
+				clonedScene->AddComponent<TransformComponent>(clonedEntity, component);
+			}
+		};
+		registry->view<TransformComponent>().each(copyTransform);
+
+		registry->view<MeshComponent>().each([this, &clonedScene](entt::entity entity, MeshComponent& component)
+		{
+			const UUID uuid = registry->get<TagComponent>(entity).uuid;
+			entt::entity clonedEntity = clonedScene->GetEntityByUUID(uuid);
+			if (clonedEntity == entt::null)
+			{
+				return;
+			}
+
+			MeshComponent componentCopy = component;
+			if (clonedScene->HasComponent<MeshComponent>(clonedEntity))
+			{
+				clonedScene->GetComponent<MeshComponent>(clonedEntity) = componentCopy;
+			}
+			else
+			{
+				clonedScene->AddComponent<MeshComponent>(clonedEntity, componentCopy);
+			}
+		});
+
+		registry->view<RigidbodyComponent>().each([this, &clonedScene](entt::entity entity, RigidbodyComponent& component)
+		{
+			const UUID uuid = registry->get<TagComponent>(entity).uuid;
+			entt::entity clonedEntity = clonedScene->GetEntityByUUID(uuid);
+			if (clonedEntity == entt::null)
+			{
+				return;
+			}
+
+			RigidbodyComponent componentCopy = component;
+			componentCopy.body = nullptr;
+			if (clonedScene->HasComponent<RigidbodyComponent>(clonedEntity))
+			{
+				clonedScene->GetComponent<RigidbodyComponent>(clonedEntity) = componentCopy;
+			}
+			else
+			{
+				clonedScene->AddComponent<RigidbodyComponent>(clonedEntity, componentCopy);
+			}
+		});
+
+		registry->view<BoxColliderComponent>().each([this, &clonedScene](entt::entity entity, BoxColliderComponent& component)
+		{
+			const UUID uuid = registry->get<TagComponent>(entity).uuid;
+			entt::entity clonedEntity = clonedScene->GetEntityByUUID(uuid);
+			if (clonedEntity == entt::null)
+			{
+				return;
+			}
+
+			BoxColliderComponent componentCopy = component;
+			componentCopy.shape = nullptr;
+			if (clonedScene->HasComponent<BoxColliderComponent>(clonedEntity))
+			{
+				clonedScene->GetComponent<BoxColliderComponent>(clonedEntity) = componentCopy;
+			}
+			else
+			{
+				clonedScene->AddComponent<BoxColliderComponent>(clonedEntity, componentCopy);
+			}
+		});
+
+		return clonedScene;
 	}
 
 	void Scene::DestroyEntity(const entt::entity entity)

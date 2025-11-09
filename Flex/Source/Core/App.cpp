@@ -43,12 +43,14 @@ namespace flex
         JoltPhysics::Init();
         m_Screen = CreateRef<Screen>();
 
-        m_ActiveScene = CreateRef<Scene>();
+        m_EditorScene = CreateRef<Scene>();
+        m_ActiveScene = m_EditorScene;
     }
 
     App::~App()
     {
         m_ActiveScene.reset();
+        m_EditorScene.reset();
 
         JoltPhysics::Shutdown();
         ImGuiContext::Shutdown();
@@ -359,12 +361,64 @@ namespace flex
 
     void App::OnScenePlay()
     {
+        if (!m_ActiveScene || m_ActiveScene->IsPlaying())
+        {
+            return;
+        }
+
+        if (!m_EditorScene)
+        {
+            m_EditorScene = m_ActiveScene ? m_ActiveScene : CreateRef<Scene>();
+        }
+
+        uint64_t selectedUUIDValue = 0;
+        bool hasSelection = false;
+        if (m_SelectedEntity != entt::null && m_EditorScene->IsValid(m_SelectedEntity) && m_EditorScene->HasComponent<TagComponent>(m_SelectedEntity))
+        {
+            selectedUUIDValue = static_cast<uint64_t>(m_EditorScene->GetComponent<TagComponent>(m_SelectedEntity).uuid);
+            hasSelection = true;
+        }
+
+        Ref<Scene> runtimeScene = m_EditorScene->Clone();
+        m_ActiveScene = runtimeScene;
         m_ActiveScene->Start();
+
+        if (hasSelection)
+        {
+            m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));
+        }
+        else
+        {
+            m_SelectedEntity = entt::null;
+        }
     }
 
     void App::OnSceneStop()
     {
+        if (!m_ActiveScene || !m_ActiveScene->IsPlaying())
+        {
+            return;
+        }
+
+        uint64_t selectedUUIDValue = 0;
+        bool hasSelection = false;
+        if (m_SelectedEntity != entt::null && m_ActiveScene->IsValid(m_SelectedEntity) && m_ActiveScene->HasComponent<TagComponent>(m_SelectedEntity))
+        {
+            selectedUUIDValue = static_cast<uint64_t>(m_ActiveScene->GetComponent<TagComponent>(m_SelectedEntity).uuid);
+            hasSelection = true;
+        }
+
         m_ActiveScene->Stop();
+        m_ActiveScene = m_EditorScene;
+
+        if (hasSelection && m_ActiveScene)
+        {
+            m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));
+        }
+        else
+        {
+            m_SelectedEntity = entt::null;
+        }
     }
 
     void App::OnImGuiRender()
