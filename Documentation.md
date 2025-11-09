@@ -1,19 +1,260 @@
 # Flex Engine Documentation
 
-## Engine At A Glance
-- **Flex** is a modern OpenGL renderer and sandbox focused on experimenting with physically based shading, real-time post-processing, and lightweight engine architecture.
-- Core tech stack: C++23, CMake, SDL3 windowing, GLAD, GLM, ImGui (docking), ImGuizmo, tinygltf, FreeType + msdfgen, Jolt Physics, and multiple in-house renderer utilities under `Flex/Source`.
-- The runtime exposes extensive tweakability: shader hot-reload (`Ctrl + R`), ImGui-powered inspectors, and runtime gizmos for manipulating scene entities.
-- Target use-cases: rendering R&D, prototyping game-engine subsystems, and educational exploration of GPU pipelines.
+## Project Overview
+
+**Flex Engine** is an educational game engine written in **C++23** for learning modern graphics programming, engine architecture, and real-time rendering techniques. Built on **OpenGL 4.6**, it serves as a playground for experimenting with physically-based rendering (PBR), post-processing effects, physics simulation, and scene management.
+
+### Purpose
+- **Educational**: Understand GPU pipelines, rendering algorithms, and game engine subsystems
+- **Experimental**: Rapid prototyping of rendering techniques and visual effects
+- **Approachable**: Clean C++23 codebase with modern practices (RAII, smart pointers, ECS)
+
+### Core Technologies
+- **Graphics API**: OpenGL 4.6 (via GLAD loader)
+- **Windowing**: SDL3 for cross-platform window management and input
+- **Mathematics**: GLM for vector/matrix operations
+- **Physics**: Jolt Physics for rigid body dynamics
+- **UI**: ImGui (docking branch) for editor interface
+- **Scene Graph**: EnTT entity-component-system (ECS)
+- **Asset Loading**: tinygltf for glTF 2.0 models, stb_image for textures
+- **Text Rendering**: FreeType + msdfgen for multi-channel signed distance field fonts
 
 ## Architecture Overview
-- **Core (`Flex/Source/Core`)**: `App` drives the main loop, SDL3 event processing, frame timing, and orchestrates subsystems. `Window` wraps SDL3 + OpenGL context creation, input state tracking, and fullscreen/maximize toggles. Utility classes such as `Camera`, `Buffer`, `UUID`, and `ImGuiContext` live here to provide platform-agnostic tools.
-- **Renderer (`Flex/Source/Renderer`)**: Encapsulates all GPU abstractions (vertex/index buffers, uniform buffers, framebuffer management) and mid-level features such as `Shader`, `Material`, `Bloom`, `SSAO`, `CascadedShadowMap`, and `Renderer2D`. `Screen` in `App` handles fullscreen compositing and post-processing parameter binding.
-- **Scene (`Flex/Source/Scene`)**: Uses the `entt` ECS to manage entities and components, loads assets via tinygltf, and serializes/deserializes scene graphs through `SceneSerializer` (nlohmann::json). A scene can be cloned, played, or stopped to swap between editor/runtime states.
-- **Physics (`Flex/Source/Physics`)**: Wraps Jolt Physics integration, exposing `JoltPhysicsScene` for runtime simulation and debug draw hooks.
-- **Math (`Flex/Source/Math`)**: Houses GLM extensions and math helpers (transforms, interpolation, random sampling) consumed by camera, renderer, and SSAO kernel generation.
-- **Resources (`Flex/Resources`)**: Contains bundled assets—GLTF models, HDR environment maps, PBR textures, shaders, fonts, and screenshots for reference.
-- **Tests (`Tests/`)**: Placeholder CMake target `FlexTest` for unit tests; this will host Google Test suites once the testing harness is connected (see below).
+
+Flex Engine is organized into modular subsystems that separate concerns and promote maintainability:
+
+### Core Systems (`Flex/Source/Core`)
+
+#### `App` Class
+The heart of the engine. Responsibilities include:
+- **Main Loop**: Drives the game loop with fixed/variable timestep
+- **Subsystem Initialization**: Boots renderer, physics, UI systems
+- **Scene Management**: Handles play/stop modes, scene switching, serialization
+- **Event Routing**: Dispatches SDL3 input events to camera, UI, and scene systems
+- **Viewport Management**: Manages ImGui viewport for in-editor rendering
+- **File Dialogs**: Integrates native file pickers for asset loading and scene save/load
+
+Key Methods:
+- `App::Run()`: Main game loop (event polling, update, render, swap buffers)
+- `App::OnScenePlay()` / `App::OnSceneStop()`: Runtime vs editor mode switching
+- `App::UIViewport()`: Renders scene output to an ImGui window
+- `App::SaveScene()` / `App::OpenScene()`: Scene serialization workflows
+
+#### `Window` Class
+Wraps SDL3 windowing and OpenGL context:
+- **Context Creation**: Initializes SDL3 window with OpenGL 4.6 core profile
+- **Input State Tracking**: Maintains key/mouse button states and modifier keys
+- **Event Callbacks**: Exposes callbacks for keyboard, mouse motion, scroll, and resize
+- **Platform Integration**: Sets native window properties (Windows dark mode, borders)
+- **Display Modes**: Fullscreen toggle, maximize, minimize, restore
+
+#### `Camera` Struct
+Orbital camera with spherical coordinates:
+- **Projection Types**: Perspective and orthographic modes
+- **Orbit Controls**: Yaw/pitch/distance with smooth inertia and damping
+- **Pan & Zoom**: Mouse-driven camera manipulation
+- **Lens Parameters**: Focal length, f-stop, focal distance for depth-of-field
+- **Post-Processing Settings**: Embedded `PostProcessing` struct for bloom, vignette, chromatic aberration, SSAO
+
+Key Fields:
+- `glm::vec3 position, target, up`: Camera transform
+- `float yaw, pitch, distance`: Spherical coordinates for orbit camera
+- `glm::mat4 view, projection`: Cached matrices updated per frame
+- `CameraLens lens`: Depth-of-field parameters
+- `PostProcessing postProcessing`: Effect toggles and parameters
+- `Controls controls`: Sensitivity, inertia, and debug settings
+
+#### `ImGuiContext` Class
+Manages ImGui integration:
+- **Docking Layout**: Configures multi-window editor layout
+- **Font Loading**: Loads custom fonts and icon fonts
+- **Style Customization**: Applies custom color schemes and UI styling
+- **Event Handling**: Forwards SDL3 events to ImGui backend
+
+#### `UUID` Class
+128-bit universally unique identifiers for entities:
+- Used as primary entity identifier in ECS and serialization
+- Enables stable entity references across scene save/load cycles
+
+### Renderer Systems (`Flex/Source/Renderer`)
+
+#### `Renderer` Namespace
+Core OpenGL abstraction layer:
+- `Renderer::Init()` / `Renderer::Shutdown()`: GL state setup
+- `Renderer::CreateShaderFromFile()`: Compiles and links GLSL programs
+- `Renderer::DrawIndexed()`: Issues indexed draw calls
+
+#### `VertexArray`, `VertexBuffer`, `IndexBuffer` Classes
+Modern OpenGL buffer abstractions:
+- **VAO Management**: `VertexArray` binds vertex attributes to buffers
+- **Buffer Uploads**: `VertexBuffer` and `IndexBuffer` wrap `glBufferData`
+- **Attribute Configuration**: `SetAttributes()` defines layout (position, normal, tangent, UV, etc.)
+
+#### `Shader` Class
+GLSL program management:
+- **Compilation**: Compiles vertex/fragment/compute shaders with error reporting
+- **Uniform Setting**: Type-safe uniform setters (`SetUniform<T>`)
+- **Hot-Reload**: Supports runtime recompilation for rapid iteration
+
+#### `Texture2D` Class
+Texture loading and binding:
+- **Format Support**: RGB8, RGBA8, RGBA16F, RGB32F, depth/stencil
+- **Filtering**: Nearest, Linear, Mipmaps
+- **Wrap Modes**: Repeat, Clamp, Mirror
+- **HDR Loading**: Uses stb_image for LDR, custom loader for HDR environment maps
+
+#### `Framebuffer` Class
+Offscreen render targets:
+- **Attachments**: Color (multiple render targets), depth, stencil
+- **Resize**: Dynamic resizing for viewport changes
+- **Binding**: Activates framebuffer and sets viewport in one call
+
+#### `Material` Class
+PBR material parameters and textures:
+- **Albedo/Base Color**: RGB texture + tint factor
+- **Metallic-Roughness**: Packed texture (R=occlusion, G=roughness, B=metallic)
+- **Normal Maps**: Tangent-space normal maps
+- **Emissive**: Self-illumination texture + intensity factor
+- **Occlusion**: Ambient occlusion texture
+- **Uniform Buffer**: Uploads material parameters to GPU via UBO (binding point 2)
+
+#### `Mesh` and `MeshInstance` Classes
+Geometry representation:
+- **Vertex Format**: Position, normal, tangent, bitangent, color, UV
+- **Mesh Caching**: `MeshLoader` caches meshes by vertex/index count to avoid duplication
+- **Scene Graph**: `MeshNode` and `MeshScene` preserve glTF node hierarchy and local transforms
+- **Fallback Geometry**: Quad and skybox cube generators for testing
+
+#### `Bloom` Class
+High-quality bloom post-processing:
+- **Mip Chain**: Generates multiple downsampled levels
+- **Separable Blur**: Horizontal then vertical Gaussian blur per level
+- **Upsample & Combine**: Blends blur levels for soft, natural bloom
+- **Settings**: Threshold, intensity, knee, radius, iteration count
+
+Structure:
+- `std::vector<Level> m_Levels`: Each level has three framebuffers (downsample, blur H, blur V)
+- `BloomSettings settings`: Runtime-adjustable parameters
+- `Build(uint32_t sourceTex)`: Generates bloom from HDR input
+
+#### `SSAO` Class
+Screen-space ambient occlusion:
+- **Kernel Generation**: Random hemisphere samples for occlusion tests
+- **Noise Texture**: 4x4 rotation vectors to break up sampling patterns
+- **Depth-Based**: Reconstructs world position from depth buffer
+- **Blur Pass**: Bilateral blur to reduce noise
+- **Parameters**: Radius, bias, power for artistic control
+
+#### `CascadedShadowMap` Class
+Directional light shadow mapping:
+- **Cascades**: 4 split frustums for varying shadow detail by distance
+- **Depth Array Texture**: Single 2D array texture for all cascades
+- **Dynamic Splits**: Adjusts split distances based on camera near/far planes
+- **Quality Presets**: Low (512x512), Medium (1024x1024), High (2048x2048)
+- **PCF Filtering**: Percentage-closer filtering for soft shadow edges
+
+Key Methods:
+- `Update()`: Recomputes light view-projection matrices per cascade
+- `BeginCascade(int index)`: Binds cascade layer for depth rendering
+- `BindTexture(int unit)`: Binds shadow depth array for sampling in PBR shader
+
+#### `Renderer2D` Class
+Immediate-mode 2D line rendering:
+- **Batching**: Accumulates line primitives and flushes in one draw call
+- **Debug Visualization**: Used for physics collider debug draw and gizmos
+- `DrawLine()`: Submits a line segment with color
+- `SetLineWidth()`: Adjusts line thickness
+
+#### `Font` and `TextRenderer` Classes
+Multi-channel signed distance field (MSDF) text rendering:
+- **Font Loading**: Uses FreeType + msdfgen to generate MSDF atlases
+- **High-Quality Rendering**: Sharp text at any scale without blurring
+- **Batched Rendering**: Builds vertex buffer of quads for text strings
+- **Kerning & Spacing**: Configurable line spacing and character kerning
+
+### Scene Systems (`Flex/Source/Scene`)
+
+#### `Scene` Class
+Entity-component-system container:
+- **EnTT Registry**: `entt::registry* registry` manages entities and components
+- **Entity Management**: Create, destroy, duplicate entities with stable UUIDs
+- **Model Loading**: `LoadModel()` parses glTF files into entities with `TransformComponent` and `MeshComponent`
+- **Play/Stop**: Starts/stops physics simulation, swaps between editor and runtime scenes
+- **Rendering**: `Render()` iterates entities with mesh components and draws them
+- **Serialization**: Saves scene graph to JSON via `SceneSerializer`
+
+Key Methods:
+- `CreateEntity(name, uuid)`: Spawns entity with `TagComponent` and `TransformComponent`
+- `AddComponent<T>(entity)` / `RemoveComponent<T>(entity)`: Component manipulation
+- `Clone()`: Deep copies the scene for runtime snapshot (play mode)
+
+#### ECS Components (`Scene/Components.h`)
+
+**`TagComponent`**
+- `std::string name`: Entity name for editor display
+- `UUID uuid`: Stable entity identifier
+- `UUID parent`: Parent entity for hierarchy
+- `std::set<UUID> children`: Child entities for scene graph
+
+**`TransformComponent`**
+- `glm::vec3 position, rotation, scale`: Local transform
+- Rotation stored as Euler angles in degrees
+
+**`MeshComponent`**
+- `std::string meshPath`: Asset path for mesh
+- `Ref<MeshInstance> meshInstance`: Loaded mesh data
+- `int meshIndex`: Index into glTF mesh array
+
+**`RigidbodyComponent`**
+- `float mass, friction, restitution`: Physics material properties
+- `bool useGravity, isStatic`: Physics behavior flags
+- `JPH::BodyID bodyID`: Handle to Jolt Physics body
+- `EMotionQuality`: Discrete or continuous collision detection
+
+**`BoxColliderComponent`**
+- `glm::vec3 scale, offset`: Collider dimensions and center offset
+- `float friction, restitution, density`: Material properties
+
+#### `SceneSerializer` Class
+JSON-based scene persistence:
+- **Serialization**: Traverses `entt::registry` and writes components to JSON
+- **Deserialization**: Parses JSON and reconstructs entities/components
+- **Component Handlers**: Custom serialization for `TransformComponent`, `MeshComponent`, `RigidbodyComponent`, `BoxColliderComponent`
+- Uses **nlohmann/json** for JSON parsing
+
+### Physics Systems (`Flex/Source/Physics`)
+
+#### `JoltPhysics` Namespace
+Global Jolt initialization:
+- **Singleton**: `JoltPhysics::Get()` provides global access
+- **Job System**: Multi-threaded physics update with configurable thread count
+- **Broad Phase Layers**: Separates static and dynamic objects for efficiency
+- **Collision Filters**: `ObjectLayerPairFilter` determines which layers collide
+
+#### `JoltPhysicsScene` Class
+Per-scene physics world:
+- **Body Creation**: Converts ECS components to Jolt bodies
+- **Simulation**: `Simulate(deltaTime)` steps physics world
+- **Transform Sync**: Updates `TransformComponent` from Jolt body positions/rotations
+- **Force/Impulse API**: Exposes methods to apply forces, torques, impulses
+- **Collision Shapes**: Supports box and sphere colliders (extensible to capsule, convex hull, mesh)
+
+Key Methods:
+- `InstantiateEntity(entity)`: Creates Jolt body from `RigidbodyComponent` + collider components
+- `SimulationStart()` / `SimulationStop()`: Activates/deactivates physics
+- `AddForce()`, `AddImpulse()`, `SetLinearVelocity()`: Physics manipulation
+- `CreateBoxCollider()`, `CreateSphereCollider()`: Collider instantiation
+
+Helper Functions:
+- `GlmToJoltVec3()` / `JoltToGlmVec3()`: Convert between GLM and Jolt vector types
+- `GlmToJoltQuat()` / `JoltToGlmQuat()`: Convert rotations
+
+### Mathematics (`Flex/Source/Math`)
+Utility functions built on GLM:
+- **Transform Composition**: Converts position/rotation/scale to matrices
+- **Interpolation**: Lerp, slerp for smooth transitions
+- **Random Sampling**: Hemisphere sampling for SSAO kernel generation
+- **Quaternion Helpers**: Euler angle conversions, rotation utilities
 
 ## Runtime Flow
 1. **Bootstrap**: `flex::App` initializes SDL3, creates an OpenGL context via `Window`, loads GL function pointers with GLAD, and prepares ImGui/ImGuizmo for editor tooling.
@@ -43,61 +284,97 @@ Use GitHub Actions to guarantee that every push and pull request builds across p
 - Produce build artifacts (optional) for quick smoke tests.
 - Provide fast feedback with caching and matrix builds.
 
-### Recommended Workflow (`.github/workflows/ci.yml`)
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-24.04]
-        build-type: [Debug, Release]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install dependencies (Linux)
-        if: contains(matrix.os, 'ubuntu')
-        run: sudo apt-get update && sudo apt-get install -y mesa-common-dev libgl1-mesa-dev libxinerama-dev libxcursor-dev libxi-dev libxrandr-dev ninja-build
-
-      - name: Install dependencies (Windows)
-        if: contains(matrix.os, 'windows')
-        run: choco install ninja --no-progress
-
-      - name: Configure CMake
-        run: cmake -S . -B build/${{ matrix.os }}-${{ matrix.build-type }} -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
-
-      - name: Build
-        run: cmake --build build/${{ matrix.os }}-${{ matrix.build-type }} --config ${{ matrix.build-type }}
-
-      - name: Run unit tests
-        run: ctest --test-dir build/${{ matrix.os }}-${{ matrix.build-type }} --output-on-failure
-
-      - name: Upload build artifacts (optional)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Flex-${{ matrix.os }}-${{ matrix.build-type }}
-          path: build/${{ matrix.os }}-${{ matrix.build-type }}
-```
-
 #### Notes
 - The workflow uses Ninja for consistent multi-platform builds; remove the generator or adjust installation if you prefer Visual Studio on Windows.
 - `submodules: recursive` is required because third-party dependencies (e.g., SDL3, Jolt) live under `thirdparty/`.
 - OpenGL development headers are pre-installed on Windows images; Linux jobs add Mesa development packages for the GL loader to link successfully.
 - When Google Test is wired in, `ctest` will discover and run `FlexTest`; until then, keep the step to catch regressions once the harness is ready.
 - Consider adding a nightly job for Release builds with asset packaging or static analysis (clang-tidy, sanitizers) as the project matures.
+
+## Third-Party Libraries
+
+Flex Engine leverages well-established open-source libraries to accelerate development and focus on learning core engine concepts:
+
+### Graphics & Windowing
+
+**SDL3 (`thirdparty/sdl3`)**
+- **Purpose**: Cross-platform windowing, input handling, and OpenGL context creation
+- **Features Used**: Window management, keyboard/mouse input, event system, file dialogs
+- **Why**: Industry-standard, well-documented, supports Windows, Linux, macOS
+
+**GLAD (`thirdparty/glad`)**
+- **Purpose**: OpenGL function loader
+- **Features Used**: Loads OpenGL 4.6 core profile functions at runtime
+- **Why**: Header-only, lightweight, supports multiple GL versions
+
+**GLM (`thirdparty/glm`)**
+- **Purpose**: Mathematics library for graphics
+- **Features Used**: Vectors, matrices, quaternions, transformations, projections
+- **Why**: GLSL-compatible syntax, header-only, fast compile times
+
+### UI & Editor
+
+**ImGui (`thirdparty/imgui`)**
+- **Purpose**: Immediate-mode GUI library for editor tooling
+- **Features Used**: Docking windows, property editors, viewport, statistics panels
+- **Why**: Fast prototyping, no XML/designers needed, docking branch for multi-window layouts
+
+**ImGuizmo (`thirdparty/imguizmo`)**
+- **Purpose**: 3D gizmos for object manipulation
+- **Features Used**: Translate, rotate, scale gizmos in viewport
+- **Why**: Seamless ImGui integration, visual transform editing
+
+### Asset Loading
+
+**tinygltf (`thirdparty/tinygltf`)**
+- **Purpose**: glTF 2.0 model loader
+- **Features Used**: Mesh, material, texture, scene graph parsing
+- **Why**: Header-only, supports embedded/external textures, preserves node hierarchy
+
+**stb (`thirdparty/stb`)**
+- **Purpose**: Single-file image loading/writing
+- **Features Used**: `stb_image.h` for PNG/JPG/HDR loading, `stb_image_write.h` for screenshots
+- **Why**: No dependencies, battle-tested, supports HDR
+
+### Text Rendering
+
+**FreeType (`thirdparty/freetype`)**
+- **Purpose**: TrueType/OpenType font rasterization
+- **Features Used**: Loads font glyphs, provides outline data to msdfgen
+- **Why**: Industry-standard font engine, high-quality text
+
+**msdfgen & msdf-atlas-gen (`thirdparty/msdfgen`, `thirdparty/msdfatlasgen`)**
+- **Purpose**: Multi-channel signed distance field (MSDF) generation
+- **Features Used**: Generates MSDF texture atlases for sharp text rendering at any scale
+- **Why**: Superior quality vs bitmap fonts, no blurring at large sizes
+
+### Physics
+
+**Jolt Physics (`thirdparty/jolt`)**
+- **Purpose**: High-performance 3D rigid body physics engine
+- **Features Used**: Bodies, shapes (box, sphere), collision detection, constraints
+- **Configuration**: Built as static library with debug renderer enabled
+- **Why**: Modern C++, faster than Bullet/PhysX, excellent documentation
+
+### Scene Management
+
+**EnTT (`thirdparty/entt`)**
+- **Purpose**: Fast and reliable entity-component-system (ECS)
+- **Features Used**: Entity registry, component storage, views for iteration
+- **Why**: Header-only, cache-friendly, zero-cost abstractions
+
+**nlohmann/json (`thirdparty/json`)**
+- **Purpose**: Modern C++ JSON library
+- **Features Used**: Scene serialization/deserialization
+- **Why**: Intuitive API, header-only, comprehensive type support
+
+### Testing (Planned)
+
+**Google Test (`thirdparty/googletest`)**
+- **Purpose**: C++ testing framework
+- **Status**: Integrated but not yet fully utilized (tests placeholder in `Tests/Source/Main.cpp`)
+- **Planned Use**: Unit tests for math utilities, serialization, renderer helpers
+- **Why**: Industry-standard, rich assertion macros, integrates with CTest
 
 ## Testing With Google Test
 Google Test will underpin the automated verification of math helpers, renderer utilities, and scene serialization. It enables expressive unit tests with fixtures, typed tests, and parameterized scenarios while integrating cleanly with CTest.

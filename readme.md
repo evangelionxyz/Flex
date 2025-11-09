@@ -1,107 +1,211 @@
-## OpenGL Samples / Experimental Renderer
+# Flex Engine
 
-Educational and experimental playground for modern OpenGL rendering. This project is used to explore real‑time rendering techniques, engine architecture patterns, and post‑processing pipelines while keeping the code relatively approachable.
+An educational game engine written in **C++23** for learning modern graphics programming, real-time rendering, and game engine architecture. Built on **OpenGL 4.6**, Flex Engine provides a clean, approachable codebase to experiment with physically-based rendering, post-processing effects, physics simulation, and scene management.
 
-### Screenshots
+## Screenshots
 
 Below are sample captures (PNG).
 
 | ![Shot 1](Flex/Resources/screenshots/image_01.png) | ![Shot 2](Flex/Resources/screenshots/image_02.png) |
 |-----------------------------------------------|-----------------------------------------------|
 | ![Shot 3](Flex/Resources/screenshots/image_03.png) | ![Shot 4](Flex/Resources/screenshots/image_04.png) |
-| ![Shot 5](Flex/Resources/screenshots/image_05.png) | ![Shot 6](Flex/Resources/screenshots/image_06.png) |
+| ![Shot 5](Flex/Resources/screenshots/image_05.png) | ![Shot 6](Flex/Resources/screenshots/image_07.png) |
 
-### Key Features
+## Key Features
 
-* GLFW + GLAD core profile setup (C++23, CMake build)
-* PBR style material sampling (albedo / normal / metallic-roughness / emissive / occlusion)
-* glTF model loading (tinygltf) + fallback mesh generation
-* Skybox / environment map sampling
-* **HDR Bloom** with two-pass separable blur and downsample pipeline
-* Depth of Field (toggleable) with circle of confusion based blur
-* Filmic tone mapping + exposure + gamma control
-* Vignette (radius / softness / intensity / color, invertable with minor shader tweak)
-* Chromatic aberration (radial amount / falloff)
-* **Compute shader support** for advanced post-processing effects
-* ImGui (docking branch) integrated for live tweaking
-* Gizmo (translate / rotate / scale modes)
-* Text rendering via FreeType + msdfgen atlas (distance field fonts)
-* Offscreen framebuffer -> full screen post process pass
+### Rendering
+* **Physically-Based Rendering (PBR)**: Metallic-roughness workflow with albedo, normal, emissive, occlusion textures
+* **Cascaded Shadow Maps**: 4-cascade directional shadows with PCF filtering
+* **HDR Bloom**: Multi-level downsample/blur/upsample pipeline with soft knee threshold
+* **Screen-Space Ambient Occlusion (SSAO)**: Depth-based AO with configurable radius/bias
+* **Depth of Field**: Lens simulation with focal distance, f-stop, and bokeh blur
+* **Post-Processing**: Vignette, chromatic aberration, tone mapping, exposure, gamma correction
+* **Environment Mapping**: HDR skybox rendering with environment lighting
+* **glTF 2.0 Support**: Full scene graph loading with materials, textures, and hierarchy
+
+### Engine
+* **Entity-Component-System**: EnTT for high-performance scene management
+* **Jolt Physics Integration**: Rigid body dynamics with box/sphere colliders
+* **Scene Serialization**: JSON-based save/load with stable entity UUIDs
+* **Play/Stop Mode**: Runtime simulation with editor state restoration
+* **ImGui Editor**: Docking layout with viewport, hierarchy, properties, statistics
+* **Hot-Reload**: Shader recompilation at runtime (Ctrl+R)
+* **MSDF Text Rendering**: Sharp text at any scale via multi-channel signed distance fields
+* **Transform Gizmos**: ImGuizmo integration for translate/rotate/scale in viewport
+
+### Platform
+* **SDL3 Windowing**: Cross-platform window management and input
+* **OpenGL 4.6 Core**: Modern rendering API with DSA (Direct State Access)
+* **C++23**: Modern language features for clean, maintainable code
 
 ### Controls (Default)
 
-* Mouse Left Drag: Orbit camera
+* Mouse Right Drag: Orbit camera
 * Mouse Middle Drag: Pan
 * Mouse Wheel / +/- : Zoom
-* Q / W / E: Gizmo Translate / Rotate / Scale
-* 1 / 2 / 3 / 4: Change debug render mode
-* F11: Toggle fullscreen
-* Ctrl + R: Hot reload shaders (PBR + screen)
-* ESC: Quit
 
-### Post Processing Parameters (ImGui Stats Window)
+## Building
 
-* **Bloom**: enable, threshold, intensity, blur passes
-* DOF: enable + focal length, f-stop, focus range, max blur
-* Exposure & Gamma
-* Vignette: enable, radius, softness, intensity, color
-* Chromatic Aberration: enable, amount, radial falloff
+### Prerequisites
 
-### Building
+**Windows**
+- Visual Studio 2022 or later (C++23 support required)
+- CMake 3.21 or later
+- Git (for submodule management)
 
-Standard CMake flow:
+**Linux**
+- GCC 13+ or Clang 16+ (C++23 support)
+- CMake 3.21+
+- OpenGL development libraries:
+  ```bash
+  sudo apt-get install mesa-common-dev libgl1-mesa-dev libxinerama-dev \
+                       libxcursor-dev libxi-dev libxrandr-dev
+  ```
+
+### Clone Repository
 
 ```bash
-git clone --recursive <repo-url>
-cd OpenGL_Samples
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --config Debug
+git clone --recursive https://github.com/yourusername/Flex.git
+cd Flex
 ```
 
-If you added the repo without submodules initially:
-
+**If you forgot `--recursive`:**
 ```bash
 git submodule update --init --recursive
 ```
 
-### Folder Structure (High Level)
+### Configure and Build
 
-* `src/Core/` Core application systems (Camera, Buffer management, Main entry point)
-* `src/Renderer/` Rendering systems (Bloom, Shaders, Textures, Framebuffers, Mesh handling)
-* `src/Scene/` Scene graph and model loading
-* `src/Math/` Mathematical utilities and helpers
-* `Flex/Resources/models/` Test glTF assets
-* `Flex/Resources/shaders/` GLSL shaders (PBR, bloom, post-effects, compute shaders)
-* `Flex/Resources/fonts/` TrueType font(s)
-* `Flex/Resources/hdr/` Environment maps
-* `Flex/Resources/screenshots/` Captured frames
-* `thirdparty/` External libs (glfw, glad, glm, stb, tinygltf, freetype, msdfgen, imgui docking)
+**Windows (Visual Studio):**
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Debug
+```
+
+**Windows (Ninja - faster builds):**
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+```
+
+**Linux:**
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j$(nproc)
+```
+
+### Run
+
+**Windows:**
+```powershell
+.\build\Flex\Debug\FlexEngine.exe
+```
+
+**Linux:**
+```bash
+./build/Flex/FlexEngine
+```
+
+### Build Configurations
+
+- **Debug**: Full debug symbols, assertions enabled, slower performance
+- **Release**: Optimizations enabled, no debug symbols, faster performance
+
+Switch configuration by changing `-DCMAKE_BUILD_TYPE=Release` or building with `--config Release`.
+
+## Project Structure
+
+```
+Flex/
+├── CMakeLists.txt              # Root build configuration
+├── readme.md                   # This file
+├── Documentation.md            # Detailed engine documentation
+├── Flex/                       # Main engine project
+│   ├── CMakeLists.txt
+│   ├── Source/
+│   │   ├── Core/              # App, Window, Camera, ImGuiContext
+│   │   ├── Renderer/          # Rendering systems (Shader, Mesh, Material, Bloom, SSAO, Shadows)
+│   │   ├── Scene/             # ECS, Components, Serialization
+│   │   ├── Physics/           # Jolt Physics integration
+│   │   └── Math/              # Math utilities and helpers
+│   └── Resources/
+│       ├── shaders/           # GLSL vertex/fragment/compute shaders
+│       ├── models/            # glTF test assets
+│       ├── textures/          # Test textures and PBR maps
+│       ├── hdr/               # HDR environment maps
+│       ├── fonts/             # TrueType fonts for text rendering
+│       └── screenshots/       # Captured frames
+├── Tests/                     # Unit tests (Google Test)
+│   ├── CMakeLists.txt
+│   └── Source/
+└── thirdparty/                # Third-party dependencies (as submodules)
+    ├── sdl3/                  # SDL3 windowing library
+    ├── glad/                  # OpenGL loader
+    ├── glm/                   # Math library
+    ├── imgui/                 # ImGui UI library
+    ├── imguizmo/              # Transform gizmos
+    ├── entt/                  # Entity-component-system
+    ├── tinygltf/              # glTF loader
+    ├── stb/                   # Image loading (stb_image)
+    ├── freetype/              # Font rasterization
+    ├── msdfgen/               # Multi-channel SDF generation
+    ├── msdfatlasgen/          # SDF atlas generation
+    ├── jolt/                  # Jolt Physics engine
+    ├── json/                  # nlohmann/json
+    └── googletest/            # Google Test framework
+```
 
 
-### Educational Goals
+## Learning Objectives
 
-This codebase is intended for:
+This engine is designed as an educational resource for:
 
-* Rapid prototyping of rendering ideas
-* Learning GPU pipeline stages hands‑on
-* Experimenting with post‑processing & camera effects
-* Practicing modern C++ + RAII + lightweight renderer abstraction
+* **Graphics Programming**: Understand modern OpenGL, PBR lighting, shadow mapping, post-processing
+* **Engine Architecture**: Learn subsystem design, scene graphs, ECS patterns, serialization
+* **Physics Integration**: Connect rigid body simulation to transform systems
+* **Tool Development**: Build editor UI with ImGui, implement gizmos and inspectors
+* **Asset Pipeline**: Load glTF models, manage textures, generate font atlases
+* **C++23 Practices**: Smart pointers, RAII, move semantics, template metaprogramming
 
-### Possible Next Experiments
+## Future Experiments
 
-* ~~HDR bloom (two‑pass separable blur)~~ ✅ **Implemented**
-* SSAO / GTAO
-* BRDF LUT pre-integration for specular IBL
-* GPU profiler zones & frame graphs
-* Batch renderer or bindless resource experimentation
-* Advanced compute shader effects
-* Temporal Anti-Aliasing (TAA)
-* Screen Space Reflections (SSR)
+**Completed ✅**
+- HDR Bloom with multi-level blur
+- Screen-Space Ambient Occlusion (SSAO)
+- Cascaded Shadow Maps
+- Jolt Physics Integration
+- Scene Serialization
 
-### License
+**Planned 🔧**
+- Temporal Anti-Aliasing (TAA)
+- Screen-Space Reflections (SSR)
+- BRDF LUT for specular IBL
+- GPU particle systems
+- Deferred rendering pipeline
+- Compute shader-based culling
+- Animation system (skeletal/morph targets)
+- Audio integration (OpenAL/FMOD)
 
-Educational use. Third‑party libraries retain their original licenses.
+## Contributing
+
+This is an educational project. Feel free to:
+- Fork and experiment with your own rendering techniques
+- Submit pull requests for bug fixes or new features
+- Open issues for questions or discussions
+- Use as a learning resource or starting point for your own engine
+
+## License
+
+This project is for educational purposes. Check individual third-party library licenses in their respective directories under `thirdparty/`.
+
+## Resources
+
+- **Documentation**: See `Documentation.md` for in-depth class and system descriptions
+- **LearnOpenGL**: https://learnopengl.com/ (excellent PBR and post-processing tutorials)
+- **Jolt Physics**: https://jrouwe.github.io/JoltPhysics/ (physics engine docs)
+- **glTF Spec**: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+- **EnTT**: https://github.com/skypjack/entt (ECS documentation)
 
 ---
 
-Feel free to tweak and extend—this is a sandbox. Contributions and forks for additional learning features are welcome.
+**Happy Learning! 🚀**

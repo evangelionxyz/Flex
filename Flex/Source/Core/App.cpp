@@ -188,6 +188,7 @@ namespace flex
             prevCount = currentCount;
             m_FrameData.fps = 1.0f / m_FrameData.deltaTime;
 
+            /*
             statusUpdateInterval -= m_FrameData.deltaTime;
             if (statusUpdateInterval <= 0.0)
             {
@@ -195,6 +196,7 @@ namespace flex
                 m_Window->SetWindowTitle(title);
                 statusUpdateInterval = 1.0;
             }
+            */
 
             if (m_ActiveScene)
             {
