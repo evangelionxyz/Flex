@@ -62,33 +62,33 @@ namespace flex
 
         void Render(uint32_t texture, uint32_t depthTex, const flex::Camera& camera, const flex::PostProcessing& postProcessing)
         {
-            shader.Use();
+			shader->Use();
             glBindTextureUnit(0, texture);
-            shader.SetUniform("u_ColorTexture", 0);
+            shader->SetUniform("u_ColorTexture", 0);
             glBindTextureUnit(1, depthTex);
-            shader.SetUniform("u_DepthTexture", 1);
+            shader->SetUniform("u_DepthTexture", 1);
 
-            shader.SetUniform("u_FocalLength", camera.lens.focalLength);
-            shader.SetUniform("u_FocalDistance", camera.lens.focalDistance);
-            shader.SetUniform("u_FStop", camera.lens.fStop);
-            shader.SetUniform("u_FocusRange", camera.lens.focusRange);
-            shader.SetUniform("u_BlurAmount", camera.lens.blurAmount);
-            shader.SetUniform("u_InverseProjection", inverseProjection);
-            shader.SetUniform("u_Exposure", camera.lens.exposure);
-            shader.SetUniform("u_Gamma", camera.lens.gamma);
-            shader.SetUniform("u_EnableDOF", camera.lens.enableDOF ? 1 : 0);
-            shader.SetUniform("u_EnableVignette", postProcessing.enableVignette ? 1 : 0);
-            shader.SetUniform("u_EnableChromAb", postProcessing.enableChromAb ? 1 : 0);
-            shader.SetUniform("u_EnableBloom", postProcessing.enableBloom ? 1 : 0);
-            shader.SetUniform("u_EnableSSAO", postProcessing.enableSSAO ? 1 : 0);
-            shader.SetUniform("u_AOIntensity", postProcessing.aoIntensity);
-            shader.SetUniform("u_DebugSSAO", postProcessing.debugSSAO ? 1 : 0);
-            shader.SetUniform("u_VignetteRadius", postProcessing.vignetteRadius);
-            shader.SetUniform("u_VignetteSoftness", postProcessing.vignetteSoftness);
-            shader.SetUniform("u_VignetteIntensity", postProcessing.vignetteIntensity);
-            shader.SetUniform("u_VignetteColor", postProcessing.vignetteColor);
-            shader.SetUniform("u_ChromaticAberrationAmount", postProcessing.chromAbAmount);
-            shader.SetUniform("u_ChromaticAberrationRadial", postProcessing.chromAbRadial);
+            shader->SetUniform("u_FocalLength", camera.lens.focalLength);
+            shader->SetUniform("u_FocalDistance", camera.lens.focalDistance);
+            shader->SetUniform("u_FStop", camera.lens.fStop);
+            shader->SetUniform("u_FocusRange", camera.lens.focusRange);
+            shader->SetUniform("u_BlurAmount", camera.lens.blurAmount);
+            shader->SetUniform("u_InverseProjection", inverseProjection);
+            shader->SetUniform("u_Exposure", camera.lens.exposure);
+            shader->SetUniform("u_Gamma", camera.lens.gamma);
+            shader->SetUniform("u_EnableDOF", camera.lens.enableDOF ? 1 : 0);
+            shader->SetUniform("u_EnableVignette", postProcessing.enableVignette ? 1 : 0);
+            shader->SetUniform("u_EnableChromAb", postProcessing.enableChromAb ? 1 : 0);
+            shader->SetUniform("u_EnableBloom", postProcessing.enableBloom ? 1 : 0);
+            shader->SetUniform("u_EnableSSAO", postProcessing.enableSSAO ? 1 : 0);
+            shader->SetUniform("u_AOIntensity", postProcessing.aoIntensity);
+            shader->SetUniform("u_DebugSSAO", postProcessing.debugSSAO ? 1 : 0);
+            shader->SetUniform("u_VignetteRadius", postProcessing.vignetteRadius);
+            shader->SetUniform("u_VignetteSoftness", postProcessing.vignetteSoftness);
+            shader->SetUniform("u_VignetteIntensity", postProcessing.vignetteIntensity);
+            shader->SetUniform("u_VignetteColor", postProcessing.vignetteColor);
+            shader->SetUniform("u_ChromaticAberrationAmount", postProcessing.chromAbAmount);
+            shader->SetUniform("u_ChromaticAberrationRadial", postProcessing.chromAbRadial);
 
             vertexArray->Bind();
 
@@ -121,19 +121,20 @@ namespace flex
             vertexArray->SetVertexBuffer(vertexBuffer);
             vertexArray->SetIndexBuffer(indexBuffer);
 
-            int error = glGetError();
-            assert(error == GL_NO_ERROR);
+            assert(glGetError() == GL_NO_ERROR);
 
-            shader.AddFromFile("Resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER);
-            shader.AddFromFile("Resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER);
-            shader.Compile();
+            shader = Renderer::CreateShaderFromFile(
+                {
+                    ShaderData{ "Resources/shaders/screen.vertex.glsl", GL_VERTEX_SHADER },
+                    ShaderData{ "Resources/shaders/screen.frag.glsl", GL_FRAGMENT_SHADER },
+				}, "ScreenShader");
         }
 
         std::shared_ptr<VertexArray> vertexArray;
         std::shared_ptr<VertexBuffer> vertexBuffer;
         std::shared_ptr<IndexBuffer> indexBuffer;
 
-        Shader shader;
+        Ref<Shader> shader;
         glm::mat4 inverseProjection = glm::mat4(1.0f);
     };
 

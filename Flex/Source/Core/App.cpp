@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Flex Engine | Evangelion Manuhutu
 
 #include "App.h"
-
 #include "Physics/JoltPhysics.h"
+#include "Scene/Components.h"
 
 namespace flex
 {
@@ -35,11 +35,19 @@ namespace flex
         Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
         TextRenderer::Init();
 
+        JoltPhysics::Init();
         m_Screen = CreateRef<Screen>();
 
         m_MainScene = CreateRef<Scene>();
-        m_MainScene->CreateEntity("Evangelion");
-        JoltPhysics::Init();
+        {
+            auto e = m_MainScene->CreateEntity("Entity");
+            auto &tr = m_MainScene->AddComponent<TransformComponent>(e);
+            auto &box = m_MainScene->AddComponent<BoxColliderComponent>(e);
+            //auto &mc = m_MainScene->AddComponent<MeshComponent>(e);
+            auto &rb = m_MainScene->AddComponent<RigidbodyComponent>(e);
+            rb.useGravity = true;
+            rb.allowSleeping = true;
+        }
     }
 
     App::~App()
@@ -58,21 +66,24 @@ namespace flex
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
-        Shader PBRShader;
-        PBRShader.AddFromFile("Resources/shaders/pbr.vertex.glsl", GL_VERTEX_SHADER);
-        PBRShader.AddFromFile("Resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER);
-        PBRShader.Compile();
+        Ref<Shader> PBRShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{"Resources/shaders/pbr.vert.glsl", GL_VERTEX_SHADER, 0 },
+                ShaderData{"Resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER, 0 },
+			}, "MaterialPBR");
 
         // Shadow depth shader (cascaded)
-        Shader shadowDepthShader;
-        shadowDepthShader.AddFromFile("Resources/shaders/shadow_depth.vert.glsl", GL_VERTEX_SHADER);
-        shadowDepthShader.AddFromFile("Resources/shaders/shadow_depth.frag.glsl", GL_FRAGMENT_SHADER);
-        shadowDepthShader.Compile();
+        Ref<Shader> shadowDepthShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{"Resources/shaders/shadow_depth.vert.glsl", GL_VERTEX_SHADER, 0 },
+                ShaderData{"Resources/shaders/shadow_depth.frag.glsl", GL_FRAGMENT_SHADER, 0 },
+            }, "ShadowDepth");
 
-        Shader skyboxShader;
-        skyboxShader.AddFromFile("Resources/shaders/skybox.vertex.glsl", GL_VERTEX_SHADER);
-        skyboxShader.AddFromFile("Resources/shaders/skybox.frag.glsl", GL_FRAGMENT_SHADER);
-        skyboxShader.Compile();
+        Ref<Shader> skyboxShader = Renderer::CreateShaderFromFile(
+			{
+				ShaderData{"Resources/shaders/skybox.vert.glsl", GL_VERTEX_SHADER, 0 },
+				ShaderData{"Resources/shaders/skybox.frag.glsl", GL_FRAGMENT_SHADER, 0 },
+			}, "SkyBox");
 
         TextureCreateInfo createInfo;
         createInfo.flip = false;
@@ -92,8 +103,8 @@ namespace flex
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
 
-        std::shared_ptr<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), UNIFORM_BINDING_LOC_CAMERA);
-        std::shared_ptr<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), UNIFORM_BINDING_LOC_SCENE);
+        Ref<UniformBuffer> cameraUbo = UniformBuffer::Create(sizeof(CameraBuffer), UNIFORM_BINDING_LOC_CAMERA);
+        Ref<UniformBuffer> sceneUbo = UniformBuffer::Create(sizeof(SceneData), UNIFORM_BINDING_LOC_SCENE);
 
         FramebufferCreateInfo sceneFBCreateInfo;
         sceneFBCreateInfo.width = m_Window->GetWidth();
@@ -196,8 +207,8 @@ namespace flex
             for (int ci = 0; ci < CascadedShadowMap::NumCascades; ++ci)
             {
                 m_CSM->BeginCascade(ci);
-                shadowDepthShader.Use();
-                shadowDepthShader.SetUniform("u_CascadeIndex", ci);
+                shadowDepthShader->Use();
+                shadowDepthShader->SetUniform("u_CascadeIndex", ci);
                 for (const auto& model : m_ModelData.models)
                 {
                     model->RenderDepth(shadowDepthShader);
@@ -213,11 +224,11 @@ namespace flex
 
             // Render models first
             glCullFace(GL_BACK);
-            PBRShader.Use();
+            PBRShader->Use();
             // Bind cascaded shadow map (binding = 6 in pbr.frag)
             m_CSM->BindTexture(6);
-            PBRShader.SetUniform("u_ShadowMap", 6);
-            PBRShader.SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
+            PBRShader->SetUniform("u_ShadowMap", 6);
+            PBRShader->SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
             for (const auto& model : m_ModelData.models)
             {
@@ -233,15 +244,15 @@ namespace flex
                 glDepthFunc(GL_LEQUAL);
 
                 glCullFace(GL_FRONT);
-                skyboxShader.Use();
+				skyboxShader->Use();
                 // Create skybox transformation (remove translation from view)
                 auto skyboxView = glm::mat4(glm::mat3(m_Camera.view));
                 auto skyboxMVP = m_Camera.projection * skyboxView;
-                skyboxShader.SetUniform("u_Transform", skyboxMVP);
+                skyboxShader->SetUniform("u_Transform", skyboxMVP);
                 m_EnvMap->Bind(0);
-                skyboxShader.SetUniform("u_EnvironmentMap", 0);
-                skyboxMesh->vertexArray->Bind();
-                Renderer::DrawIndexed(skyboxMesh->vertexArray);
+                skyboxShader->SetUniform("u_EnvironmentMap", 0);
+                skyboxMesh->mesh->vertexArray->Bind();
+                Renderer::DrawIndexed(skyboxMesh->mesh->vertexArray);
 
                 // Restore state
                 glCullFace(GL_BACK);
@@ -351,6 +362,8 @@ namespace flex
     {
         ImGui::Begin("Viewport");
         {
+            ImGui::Button("Play");
+
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
             m_Vp.viewport.width = viewportSize.x;
             m_Vp.viewport.height = viewportSize.y;
@@ -472,8 +485,8 @@ namespace flex
                 ImGui::SliderFloat("Vignette Intensity", &m_Camera.postProcessing.vignetteIntensity, 0.0f, 2.0f);
                 ImGui::ColorEdit3("Vignette Color", &m_Camera.postProcessing.vignetteColor.x);
 
-                ImGui::SeparatorText("Chromatic Aberation");
-                ImGui::Checkbox("Enable Chromatic Aberation", &m_Camera.postProcessing.enableChromAb);
+                ImGui::SeparatorText("Chromatic Aberration");
+                ImGui::Checkbox("Enable Chromatic Aberration", &m_Camera.postProcessing.enableChromAb);
                 ImGui::SliderFloat("Amount", &m_Camera.postProcessing.chromAbAmount, 0.0f, 0.03f, "%.4f");
                 ImGui::SliderFloat("Radial", &m_Camera.postProcessing.chromAbRadial, 0.1f, 3.0f);
 
@@ -556,7 +569,7 @@ namespace flex
                     for (const MeshNode& node : model->GetScene().nodes)
                     {
                         ImGui::PushID(node.name.c_str());
-                        for (const std::shared_ptr<Mesh>& mesh : node.meshes)
+                        for (const Ref<Mesh>& mesh : node.meshes)
                         {
                             if (ImGui::CollapsingHeader(node.name.c_str()))
                             {
@@ -591,7 +604,7 @@ namespace flex
                                 if (ImGui::ColorEdit3("Emissive", &factorVec.x)) mat->params.emissiveFactor = glm::vec4(factorVec, 1.0f);
                                 ImGui::SliderFloat("Metallic", &mat->params.metallicFactor, 0.0f, 1.0f);
                                 ImGui::SliderFloat("Roughness", &mat->params.roughnessFactor, 0.0f, 1.0f);
-                                ImGui::SliderFloat("Occlussion", &mat->params.occlusionStrength, 0.0f, 1.0f);
+                                ImGui::SliderFloat("Occlusion", &mat->params.occlusionStrength, 0.0f, 1.0f);
 
                                 static glm::vec2 imageSize = { 64.0f, 64.0f };
                                 UIDrawImage(mat->baseColorTexture, imageSize.x, imageSize.y, "BaseColor");
@@ -616,10 +629,60 @@ namespace flex
     {
         ImGui::Begin("Properties", nullptr);
 
+        static auto treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap | ImGuiTreeNodeFlags_Framed;
+
         if (m_SelectedEntity != entt::null)
         {
             TagComponent& tag = m_MainScene->GetComponent<TagComponent>(m_SelectedEntity);
             ImGui::Text("%s", tag.name.c_str());
+
+            if (m_MainScene->HasComponent<TransformComponent>(m_SelectedEntity))
+            {
+                auto& tr = m_MainScene->GetComponent<TransformComponent>(m_SelectedEntity);
+
+                if (ImGui::TreeNodeEx("Transform", treeNodeFlags))
+                {
+                    ImGui::DragFloat3("Position", &tr.position.x, 0.25);
+                    ImGui::DragFloat3("Rotation", &tr.rotation.x, 0.25);
+                    ImGui::DragFloat3("Scale", &tr.scale.x, 0.25);
+
+                    ImGui::TreePop();
+                }
+            }
+
+            if (m_MainScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
+            {
+				auto& rb = m_MainScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Rigidbody", treeNodeFlags))
+                {
+					ImGui::DragFloat("Mass", &rb.mass, 0.25f);
+					ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.1f);
+                    ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f);
+
+                    ImGui::Checkbox("Is Static", &rb.isStatic);
+                    ImGui::Checkbox("Use Gravity", &rb.useGravity);
+					ImGui::Checkbox("Allow Sleeping", &rb.allowSleeping);
+
+                    ImGui::TreePop();
+                }
+            }
+
+            if (m_MainScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
+            {
+                auto& box = m_MainScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Box Collider", treeNodeFlags))
+                {
+                    ImGui::DragFloat3("Size", &box.scale.x, 0.1f);
+                    ImGui::DragFloat3("Offset", &box.offset.x, 0.1f);
+
+                    ImGui::DragFloat("Density", &box.density, 0.1f);
+                    ImGui::DragFloat("Friction", &box.friction, 0.1f);
+                    ImGui::DragFloat("Static Friction", &box.staticFriction, 0.1f);
+                    ImGui::DragFloat("Restitution", &box.restitution, 0.1f);
+
+                    ImGui::TreePop();
+                }
+			}
         }
 
         ImGui::End();

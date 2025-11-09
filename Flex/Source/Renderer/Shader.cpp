@@ -29,33 +29,33 @@ namespace flex
     {
     }
 
-    Shader &Shader::AddFromFile(const std::string &filepath, GLenum type)
+    Shader &Shader::CreateFromFile(const std::vector<ShaderData> &shaders)
     {
-        ShaderData shaderData;
-        shaderData.type = type;
-        shaderData.filepath = filepath;
-        
-        if (CompileShader(&shaderData))
+        m_Shaders.clear();
+
+        m_Shaders = shaders;
+        for (auto &shaderData : m_Shaders)
         {
-            m_Shaders.push_back(std::move(shaderData));
-        }
-        else
-        {
-            assert(false);
-        }
+            if (!CompileShader(&shaderData))
+            {
+                assert(false);
+            }
+		}
 
         return *this;
     }
 
-    Shader &Shader::AddFromString(const std::string &source, GLenum type)
+    Shader &Shader::CreateFromSource(const std::vector<ShaderData>& shaders)
     {
-        ShaderData shaderData;
-        shaderData.type = type;
-        shaderData.filepath = ""; // No filepath for string shaders
-        
-        if (CompileShaderFromString(&shaderData, source))
+		m_Shaders.clear();
+        m_Shaders = shaders;
+
+        for (auto &shaderData : m_Shaders)
         {
-            m_Shaders.push_back(std::move(shaderData));
+            if (!CompileShaderFromString(&shaderData, shaderData.str))
+            {
+                assert(false);
+			}
         } 
 
         return *this;
@@ -65,7 +65,7 @@ namespace flex
     {
         GLuint program = glCreateProgram();
 
-        for (auto &[filepath, shader, type] : m_Shaders)
+        for (auto &[filepath, type, shader] : m_Shaders)
         {
             glAttachShader(program, shader);
         }
@@ -90,25 +90,26 @@ namespace flex
             std::exit(EXIT_FAILURE);
         }
 
-        for (auto &[filepath, shader, type] : m_Shaders)
+        for (auto &[filepath, type, shader] : m_Shaders)
         {
             glDeleteShader(shader);
         }
 
         m_Program = program;
 
+		assert(glGetError() == GL_NO_ERROR);
+
         return *this;
     }
 
     bool Shader::CompileShader(ShaderData *shaderData)
     {
-        if (const bool fileExists = std::filesystem::exists(shaderData->filepath); !fileExists)
+        if (const bool fileExists = std::filesystem::exists(shaderData->str); !fileExists)
         {
             assert(fileExists && "Shader file does not exists!");
         }
 
-
-        std::ifstream shaderFile(shaderData->filepath);
+        std::ifstream shaderFile(shaderData->str);
         std::stringstream stream;
         stream << shaderFile.rdbuf();
         std::string sourceStr = stream.str();
@@ -126,7 +127,7 @@ namespace flex
         // Failed to compile shader
         if (status == GL_FALSE)
         {
-            std::cerr << "Failed to compile " << GetShaderStageString(shaderData->type) << " \"" << shaderData->filepath <<"\"\n";
+            std::cerr << "Failed to compile " << GetShaderStageString(shaderData->type) << " \"" << shaderData->str <<"\"\n";
 
             // Get shader info log
             int logSize = 0;
@@ -142,7 +143,7 @@ namespace flex
 
         shaderData->shader = shader;
         
-        std::cout << "Shader " << GetShaderStageString(shaderData->type) << " Success to compile: \"" << shaderData->filepath << '\n';
+        std::cout << "Shader " << GetShaderStageString(shaderData->type) << " Success to compile: \"" << shaderData->str << '\n';
         return true;
     }
 
@@ -190,7 +191,7 @@ namespace flex
         {
             ShaderData shaderData;
             shaderData.type = type;
-            shaderData.filepath = filepath;
+            shaderData.str = filepath;
             
             if (!CompileShader(&shaderData))
             {

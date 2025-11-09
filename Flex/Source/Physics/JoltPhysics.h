@@ -5,7 +5,6 @@
 
 #include "Core/Types.h"
 #include "Scene/entt.h"
-#include "Scene/Components.h"
 
 #include <Jolt/Jolt.h>
 
@@ -31,6 +30,10 @@
 
 namespace flex
 {
+	struct RigidbodyComponent;
+	struct TransformComponent;
+	struct BoxColliderComponent;
+
 	static JPH::Vec3 GlmToJoltVec3(const glm::vec3& v)
 	{
 		return JPH::Vec3(v.x, v.y, v.z);
@@ -216,6 +219,8 @@ namespace flex
 		JoltPhysicsScene(Scene* scene);
 		~JoltPhysicsScene();
 
+		static Ref<JoltPhysicsScene> Create(Scene *scene);
+
 		void InstantiateEntity(entt::entity entity);
 		void DestroyEntity(entt::entity entity);
 
@@ -223,7 +228,7 @@ namespace flex
 		void SimulationStop();
 		void Simulate(float deltaTime);
 
-		JPH::BodyCreationSettings CreateBody(JPH::ShapeRefC shape, Rigidbody &rb, const glm::vec3 &position, const glm::quat &rotation);
+		JPH::BodyCreationSettings CreateBody(JPH::ShapeRefC shape, RigidbodyComponent &rb, const glm::vec3 &position, const glm::quat &rotation);
 
 		void CreateBoxCollider(entt::entity entity);
 		void CreateSphereCollider(entt::entity entity);

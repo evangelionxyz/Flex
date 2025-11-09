@@ -9,6 +9,7 @@
 
 #include <memory>
 
+#include "Core/Types.h"
 #include "RendererCommon.h"
 
 namespace flex

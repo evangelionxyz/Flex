@@ -1,6 +1,9 @@
 // Copyright (c) 2025 Flex Engine | Evangelion Manuhutu
 
 #include "SSAO.h"
+
+#include "Renderer.h"
+
 #include <glad/glad.h>
 #include <random>
 #include <glm/glm.hpp>
@@ -13,13 +16,17 @@ namespace flex
         m_Height = height;
         glGenVertexArrays(1, &m_Vao);
 
-        m_AOShader.AddFromFile("Resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_AOShader.AddFromFile("Resources/shaders/ssao.frag.glsl", GL_FRAGMENT_SHADER);
-        m_AOShader.Compile();
+        m_AOShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{ "Resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER },
+                ShaderData{ "Resources/shaders/ssao.frag.glsl", GL_FRAGMENT_SHADER },
+			}, "SSAO");
 
-        m_BlurShader.AddFromFile("Resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER);
-        m_BlurShader.AddFromFile("Resources/shaders/ssao_blur.frag.glsl", GL_FRAGMENT_SHADER);
-        m_BlurShader.Compile();
+        m_BlurShader = Renderer::CreateShaderFromFile(
+            {
+                ShaderData{ "Resources/shaders/ssao_fullscreen.vert.glsl", GL_VERTEX_SHADER },
+                ShaderData{ "Resources/shaders/ssao_blur.frag.glsl", GL_FRAGMENT_SHADER },
+            }, "SSAOBlur");
 
         BuildKernel();
         BuildNoise();
@@ -109,29 +116,29 @@ namespace flex
         glDisable(GL_CULL_FACE);
         glBindVertexArray(m_Vao);
         glClearColor(1,1,1,1); glClear(GL_COLOR_BUFFER_BIT);
-        m_AOShader.Use();
+        m_AOShader->Use();
         glBindTextureUnit(0, depthTex); // sampler2D u_Depth
         glBindTextureUnit(1, m_NoiseTex);
-        m_AOShader.SetUniform("u_Depth", 0);
-        m_AOShader.SetUniform("u_Noise", 1);
-        m_AOShader.SetUniform("u_Radius", radius);
-        m_AOShader.SetUniform("u_Bias", bias);
-        m_AOShader.SetUniform("u_Power", power);
+        m_AOShader->SetUniform("u_Depth", 0);
+        m_AOShader->SetUniform("u_Noise", 1);
+        m_AOShader->SetUniform("u_Radius", radius);
+        m_AOShader->SetUniform("u_Bias", bias);
+        m_AOShader->SetUniform("u_Power", power);
         glm::mat4 invProj = glm::inverse(proj);
-        m_AOShader.SetUniform("u_Projection", proj);
-        m_AOShader.SetUniform("u_ProjectionInv", invProj);
+        m_AOShader->SetUniform("u_Projection", proj);
+        m_AOShader->SetUniform("u_ProjectionInv", invProj);
         for (int i=0;i<32;++i)
         {
-            m_AOShader.SetUniform(("u_Samples["+std::to_string(i)+"]").c_str(), glm::vec3(m_Kernel[i]));
+            m_AOShader->SetUniform(("u_Samples["+std::to_string(i)+"]").c_str(), glm::vec3(m_Kernel[i]));
         }
         glDrawArrays(GL_TRIANGLES,0,3);
 
         // step 2 simple separable blur (horizontal+vertical in one pass for simplicity)
         m_BlurFB->Bind(vp);
         glClear(GL_COLOR_BUFFER_BIT);
-        m_BlurShader.Use();
+        m_BlurShader->Use();
         glBindTextureUnit(0, m_AOFB->GetColorAttachment(0));
-        m_BlurShader.SetUniform("u_Src",0);
+        m_BlurShader->SetUniform("u_Src",0);
         glBindVertexArray(m_Vao);
         glDrawArrays(GL_TRIANGLES,0,3);
     }

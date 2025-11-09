@@ -6,6 +6,7 @@
 #include "Texture.h"
 
 #include <glad/glad.h>
+#include <unordered_map>
 
 namespace flex
 {
@@ -15,6 +16,8 @@ namespace flex
         std::shared_ptr<Texture2D> blackTexture;
         std::shared_ptr<Texture2D> magentaTexture;
         std::shared_ptr<Texture2D> flatNormalTexture;
+
+        std::unordered_map<std::string, Ref<Shader>> shaderCache;
     };
 
     static RendererData *s_Data = nullptr;
@@ -111,4 +114,35 @@ namespace flex
         }
         return s_Data->flatNormalTexture;
     }
+
+	Ref<Shader> Renderer::CreateShaderFromFile(const std::vector<ShaderData>& shaders, const std::string& name)
+	{
+        // Get loaded shader
+        if (Ref<Shader> existingShader = GetShaderByName(name); existingShader)
+        {
+            return existingShader;
+		}
+
+        // Create new shader
+		Ref<Shader> shader = CreateRef<Shader>();
+		shader->CreateFromFile(shaders).Compile();
+		s_Data->shaderCache[name] = shader;
+        return shader;
+	}
+
+	void Renderer::RegisterShader(const Ref<Shader>& shader, const std::string& name)
+	{
+        if (shader && !s_Data->shaderCache.contains(name))
+        {
+            s_Data->shaderCache[name] = shader;
+        }
+	}
+
+	Ref<Shader> Renderer::GetShaderByName(const std::string& name)
+	{
+        if (s_Data->shaderCache.contains(name))
+			return s_Data->shaderCache[name];
+		return nullptr;
+	}
+
 }

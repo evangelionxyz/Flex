@@ -23,19 +23,19 @@ namespace flex
         ~Model();
         
         void Update(float deltaTime);
-        void Render(Shader &shader, const std::shared_ptr<Texture2D> &environmentTexture);
-        void RenderDepth(Shader &shader); // depth-only
+        void Render(Ref<Shader> &shader, const Ref<Texture2D> &environmentTexture);
+        void RenderDepth(Ref<Shader> &shader); // depth-only
 
         void SetTransform(const glm::mat4 &transform);
         const glm::mat4 &GetTransform() { return m_Transform; }
 
         MeshScene &GetScene() { return m_Scene; }
 
-        static std::shared_ptr<Model> Create(const std::string &filename);
+        static Ref<Model> Create(const std::string &filename);
 
     private:
         MeshScene m_Scene;
-        std::shared_ptr<UniformBuffer> m_MaterialUbo;
+        Ref<UniformBuffer> m_MaterialUbo;
         glm::mat4 m_Transform{};
     };
 }

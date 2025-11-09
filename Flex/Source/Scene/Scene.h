@@ -12,11 +12,20 @@
 
 namespace flex
 {
+    class JoltPhysicsScene;
+    class Texture2D;
+
     class Scene
     {
     public:
         Scene();
         ~Scene();
+
+        void Start();
+        void Stop();
+        void Update(float deltaTime);
+
+        void Render(const glm::mat4 &viewProjection, const Ref<Texture2D>& environmentTexture);
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
 
@@ -54,11 +63,23 @@ namespace flex
             return registry->all_of<T>(entity);
         }
 
+        bool IsValid(entt::entity entity) const
+        {
+            return registry->valid(entity);
+        }
+
         void DestroyEntity(const entt::entity entity);
-        entt::entity GetEntity(const UUID& uuid);
+        entt::entity GetEntityByUUID(const UUID& uuid);
 
         entt::registry* registry = nullptr;
         std::unordered_map<UUID, entt::entity> entities;
+
+        glm::vec3 sceneGravity = {0.0f, -9.8f, 0.0f};
+        Ref<JoltPhysicsScene> joltPhysicsScene;
+
+    private:
+
+        bool m_IsPlaying = false;
     };
 }
 

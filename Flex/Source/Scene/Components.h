@@ -5,7 +5,11 @@
 
 #include <string>
 #include <glm/glm.hpp>
+#include <set>
 
+#include "Scene.h"
+#include "Renderer/Mesh.h"
+#include "Core/Types.h"
 #include "Core/UUID.h"
 
 namespace JPH
@@ -15,10 +19,16 @@ namespace JPH
 
 namespace flex
 {
+    class Scene;
+
     struct TagComponent
     {
         std::string name;
+        Scene *scene;
+
         UUID uuid;
+        UUID parent = UUID(0);
+        std::set<UUID> children;
 
         TagComponent(const std::string& name, const UUID& uuid)
             : name(name), uuid(uuid)
@@ -26,9 +36,46 @@ namespace flex
         }
 
         TagComponent() = default;
+
+        void AddChild(const UUID& childID)
+        {
+            entt::entity e = scene->GetEntityByUUID(childID);
+            if (scene->IsValid(e))
+            {
+                auto& tag = scene->GetComponent<TagComponent>(e);
+                tag.parent = uuid;
+            }
+
+            children.insert(childID);
+        }
+
+        void RemoveChild(const UUID& childID)
+        {
+            auto it = std::find(children.begin(), children.end(), childID);
+            if (it != children.end())
+            {
+                entt::entity e = scene->GetEntityByUUID(childID);
+                if (scene->IsValid(e))
+                {
+                    auto& tag = scene->GetComponent<TagComponent>(e);
+                    tag.parent = UUID(0);
+                }
+
+                children.erase(it);
+            }
+        }
     };
 
-	struct Rigidbody
+    struct TransformComponent
+    {
+        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 rotation = { 0.0f, 0.0f, 0.0f }; // Euler angles in degrees
+        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+        
+        TransformComponent() = default;
+    };
+
+	struct RigidbodyComponent
 	{
         enum class EMotionQuality
         {
@@ -46,14 +93,14 @@ namespace flex
         bool allowSleeping = true;
         bool retainAcceleration = false;
         float gravityFactor = 1.0f;
-        glm::vec3 centerMass = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 centerOfMass = { 0.0f, 0.0f, 0.0f };
 
         JPH::Body* body = nullptr;
 
-        Rigidbody() = default;
+        RigidbodyComponent() = default;
 	};
 
-	struct PhysicsCollider
+	struct IPhysicsColliderComponent
 	{
 		float friction = 0.6f;
 		float staticFriction = 0.6f;
@@ -62,11 +109,21 @@ namespace flex
 		void* shape = nullptr;
 	};
 
-	struct BoxCollider : public PhysicsCollider
+	struct BoxColliderComponent : public IPhysicsColliderComponent
 	{
 		glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-		BoxCollider() = default;
+		glm::vec3 offset = { 0.0f, 0.0f, 0.0f };
+
+        BoxColliderComponent() = default;
 	};
+
+    struct MeshComponent
+    {
+        std::string meshPath;
+        Ref<MeshInstance> meshInstance;
+        
+        MeshComponent() = default;
+    };
 }
 
 #endif
