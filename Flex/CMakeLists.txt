@@ -19,7 +19,9 @@ target_include_directories(FlexEngine PRIVATE
     "${THIRDPARTY_DIR}/glm"
     "${THIRDPARTY_DIR}/jolt"
     "${THIRDPARTY_DIR}/json"
+    "${THIRDPARTY_DIR}/entt/single_include"
     "${THIRDPARTY_DIR}/tinygltf/include"
+
 )
 
 target_link_libraries(FlexEngine PRIVATE SDL3::SDL3 Jolt imgui MSDF_ATLAS_GEN MSDFGEN FREETYPE)
