@@ -171,6 +171,9 @@ namespace flex
         
         void Run();
     private:
+        void OnScenePlay();
+        void OnSceneStop();
+
         void OnImGuiRender();
         void UIViewport();
         void UISettings();
@@ -193,7 +196,9 @@ namespace flex
         Ref<Bloom> m_Bloom;
         Ref<SSAO> m_SSAO;
         Ref<Screen> m_Screen;
-        Ref<Scene> m_MainScene;
+
+        Ref<Scene> m_ActiveScene;
+        Ref<Scene> m_EditorScene;
 
         entt::entity m_SelectedEntity = { entt::null };
 

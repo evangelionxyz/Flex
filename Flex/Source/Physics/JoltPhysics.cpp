@@ -77,13 +77,13 @@ namespace flex
 	{
 		m_PhysicsSystem.Init(cNumBodies, cNumBodyMutexes, cMaxBodyPairs,
 			cMaxContactConstraints, s_JoltInstance->broadPhaseLayer,
-			s_JoltInstance->objectVsBroadPhaseLayerFilter, s_JoltInstance->objectLayerPairFilter);
+			s_JoltInstance->objectVsBroadPhaseLayerFilter,
+			s_JoltInstance->objectLayerPairFilter);
 
 		// m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
 		// m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
 		m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
 		m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
-		m_PhysicsSystem.SetGravity(GlmToJoltVec3(glm::vec3(0.0f, -9.8f, 0.0f)));
 		m_PhysicsSystem.OptimizeBroadPhase();
 
 		m_BodyInterface = &m_PhysicsSystem.GetBodyInterface();
@@ -100,6 +100,8 @@ namespace flex
 
     void JoltPhysicsScene::SimulationStart()
 	{
+		m_PhysicsSystem.SetGravity(GlmToJoltVec3(m_Scene->sceneGravity));
+
 		auto view = m_Scene->registry->view<TransformComponent, RigidbodyComponent>();
 		view.each([this](auto entity, auto &transform, auto &rb)
 		{

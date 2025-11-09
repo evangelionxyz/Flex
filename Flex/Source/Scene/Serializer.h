@@ -3,12 +3,14 @@
 #ifndef SERIALIZER_H
 #define SERIALIZER_H
 
+#include "json.hpp"
+
 namespace flex
 {
-	class Serializer
+	class SceneSerializer
 	{
 	public:
-
+		
 	};
 }
 

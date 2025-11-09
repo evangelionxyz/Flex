@@ -32,6 +32,8 @@ namespace flex
         void Render(const Ref<Shader>& shader, const Ref<Texture2D>& environmentTexture);
         void RenderDepth(const Ref<Shader>& shader);
 
+        bool IsPlaying() const { return m_IsPlaying; }
+
         std::vector<entt::entity> LoadModel(const std::string& filepath, const glm::mat4& rootTransform = glm::mat4(1.0f));
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
@@ -85,7 +87,6 @@ namespace flex
         Ref<JoltPhysicsScene> joltPhysicsScene;
 
     private:
-
         bool m_IsPlaying = false;
     };
 }

@@ -28,7 +28,6 @@ namespace flex
     void Scene::Start()
     {
 		m_IsPlaying = true;
-
 		joltPhysicsScene->SimulationStart();
     }
 
@@ -121,18 +120,25 @@ namespace flex
 		createdEntities.reserve(meshScene.flatMeshes.size());
 
 		if (meshScene.nodes.empty())
+		{
 			return createdEntities;
+		}
 
 		std::string fallbackName = std::filesystem::path(filepath).stem().string();
 		if (fallbackName.empty())
+		{
 			fallbackName = "Mesh";
+		}
+
 
 		std::unordered_map<std::string, std::size_t> nameUsage;
 
 		for (const MeshNode& node : meshScene.nodes)
 		{
 			if (node.meshInstances.empty())
+			{
 				continue;
+			}
 
 			std::size_t primitiveIndex = 0;
 			for (const Ref<MeshInstance>& meshInstance : node.meshInstances)

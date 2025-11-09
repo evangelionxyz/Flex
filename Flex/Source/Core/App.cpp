@@ -43,12 +43,12 @@ namespace flex
         JoltPhysics::Init();
         m_Screen = CreateRef<Screen>();
 
-        m_MainScene = CreateRef<Scene>();
+        m_ActiveScene = CreateRef<Scene>();
     }
 
     App::~App()
     {
-        m_MainScene.reset();
+        m_ActiveScene.reset();
 
         JoltPhysics::Shutdown();
         ImGuiContext::Shutdown();
@@ -93,8 +93,8 @@ namespace flex
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
 
         // Load default glTF assets into the scene graph
-        const auto helmetEntities = m_MainScene->LoadModel("Resources/models/damaged_helmet.gltf");
-        const auto sceneEntities = m_MainScene->LoadModel("Resources/models/scene.glb");
+        const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
+        const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
 
         if (m_SelectedEntity == entt::null)
         {
@@ -169,6 +169,11 @@ namespace flex
                 statusUpdateInterval = 1.0;
             }
 
+            if (m_ActiveScene)
+            {
+                m_ActiveScene->Update(m_FrameData.deltaTime);
+            }
+
             m_Camera.OnUpdate(m_FrameData.deltaTime);
             
             m_Screen->inverseProjection = glm::inverse(m_Camera.projection);
@@ -217,7 +222,7 @@ namespace flex
                 m_CSM->BeginCascade(ci);
                 shadowDepthShader->Use();
                 shadowDepthShader->SetUniform("u_CascadeIndex", ci);
-                m_MainScene->RenderDepth(shadowDepthShader);
+                m_ActiveScene->RenderDepth(shadowDepthShader);
             }
             m_CSM->EndCascade();
             glCullFace(GL_BACK);
@@ -235,7 +240,7 @@ namespace flex
             PBRShader->SetUniform("u_ShadowMap", 6);
             PBRShader->SetUniform("u_DebugShadows", m_Camera.controls.debugShadowMode);
 
-            m_MainScene->Render(PBRShader, m_EnvMap);
+            m_ActiveScene->Render(PBRShader, m_EnvMap);
 
             // Only render on perspective mode
             if (m_Camera.projectionType == ProjectionType::Perspective)
@@ -352,6 +357,16 @@ namespace flex
         }
     }
 
+    void App::OnScenePlay()
+    {
+        m_ActiveScene->Start();
+    }
+
+    void App::OnSceneStop()
+    {
+        m_ActiveScene->Stop();
+    }
+
     void App::OnImGuiRender()
     {
         UIViewport();
@@ -364,7 +379,19 @@ namespace flex
     {
         ImGui::Begin("Viewport");
         {
-            ImGui::Button("Play");
+            const char *playStopStr = m_ActiveScene->IsPlaying() ? "Stop" : "Play";
+            if (ImGui::Button(playStopStr))
+            {
+                if (m_ActiveScene->IsPlaying())
+                {
+                    OnSceneStop();
+                }
+                else
+                {
+                    OnScenePlay();
+                }
+            }
+
             ImGui::SameLine();
             ImGui::TextUnformatted("Operation");
             ImGui::SameLine();
@@ -403,9 +430,9 @@ namespace flex
                 ImGuizmo::BeginFrame();
                 ImGui::Image(colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
 
-                if (m_SelectedEntity != entt::null && m_MainScene->HasComponent<TransformComponent>(m_SelectedEntity))
+                if (m_SelectedEntity != entt::null && m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
                 {
-                    auto& transform = m_MainScene->GetComponent<TransformComponent>(m_SelectedEntity);
+                    auto& transform = m_ActiveScene->GetComponent<TransformComponent>(m_SelectedEntity);
                     glm::mat4 model = math::ComposeTransform(transform);
                     glm::mat4 view = m_Camera.view;
                     glm::mat4 projection = m_Camera.projection;
@@ -579,9 +606,9 @@ namespace flex
     {
         if (ImGui::Begin("Scene", nullptr))
         {
-            for (const auto& [uuid, entity] : m_MainScene->entities)
+            for (const auto& [uuid, entity] : m_ActiveScene->entities)
             {
-                TagComponent& tag = m_MainScene->GetComponent<TagComponent>(entity);
+                TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(entity);
                 if (ImGui::TreeNodeEx(tag.name.c_str()))
                 {
                     if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
@@ -604,12 +631,12 @@ namespace flex
 
         if (m_SelectedEntity != entt::null)
         {
-            TagComponent& tag = m_MainScene->GetComponent<TagComponent>(m_SelectedEntity);
+            TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(m_SelectedEntity);
             ImGui::Text("%s", tag.name.c_str());
 
-            if (m_MainScene->HasComponent<TransformComponent>(m_SelectedEntity))
+            if (m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
             {
-                auto& tr = m_MainScene->GetComponent<TransformComponent>(m_SelectedEntity);
+                auto& tr = m_ActiveScene->GetComponent<TransformComponent>(m_SelectedEntity);
 
                 if (ImGui::TreeNodeEx("Transform", treeNodeFlags))
                 {
@@ -621,9 +648,9 @@ namespace flex
                 }
             }
 
-            if (m_MainScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
+            if (m_ActiveScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
             {
-                auto& rb = m_MainScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
+                auto& rb = m_ActiveScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Rigidbody", treeNodeFlags))
                 {
                     ImGui::DragFloat("Mass", &rb.mass, 0.25f);
@@ -638,9 +665,9 @@ namespace flex
                 }
             }
 
-            if (m_MainScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
+            if (m_ActiveScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
             {
-                auto& box = m_MainScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
+                auto& box = m_ActiveScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Box Collider", treeNodeFlags))
                 {
                     ImGui::DragFloat3("Size", &box.scale.x, 0.1f);
@@ -655,9 +682,9 @@ namespace flex
                 }
             }
 
-            if (m_MainScene->HasComponent<MeshComponent>(m_SelectedEntity))
+            if (m_ActiveScene->HasComponent<MeshComponent>(m_SelectedEntity))
             {
-                auto& mc = m_MainScene->GetComponent<MeshComponent>(m_SelectedEntity);
+                auto& mc = m_ActiveScene->GetComponent<MeshComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Mesh", treeNodeFlags))
                 {
                     if (ImGui::Button("Load Mesh"))
@@ -739,7 +766,7 @@ namespace flex
 
         App* app = static_cast<App*>(userData);
         app->m_PendingMeshFilepath = std::string(filelist[0]);
-        const auto createdEntities = app->m_MainScene->LoadModel(app->m_PendingMeshFilepath);
+        const auto createdEntities = app->m_ActiveScene->LoadModel(app->m_PendingMeshFilepath);
         if (!createdEntities.empty())
         {
             app->m_SelectedEntity = createdEntities.front();
