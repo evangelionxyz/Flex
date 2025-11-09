@@ -119,6 +119,8 @@ namespace flex
         // Load full scene graph retaining hierarchy & transforms
         static MeshScene LoadSceneGraphFromGLTF(const std::string &filename);
 
+        static void ClearCache();
+
     private:
         static std::vector<Ref<Texture2D>> LoadTexturesFromGLTF(const tinygltf::Model& model);
         static const unsigned char* GetBufferData(const tinygltf::Model& model, const tinygltf::Accessor& accessor);

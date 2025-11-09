@@ -70,6 +70,8 @@ namespace flex
         m_ActiveScene.reset();
         m_EditorScene.reset();
 
+        MeshLoader::ClearCache();
+
         JoltPhysics::Shutdown();
         ImGuiContext::Shutdown();
         TextRenderer::Shutdown();

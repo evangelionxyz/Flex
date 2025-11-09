@@ -207,6 +207,11 @@ namespace flex
         return scene;
     }
 
+    void MeshLoader::ClearCache()
+    {
+        m_MeshCache.clear();
+    }
+
     Ref<MeshInstance> MeshLoader::CreateFallbackQuad()
     {
         std::cout << "Creating fallback quad mesh\n";
