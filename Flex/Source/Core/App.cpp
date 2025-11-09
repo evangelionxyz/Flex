@@ -366,30 +366,30 @@ namespace flex
         {
             ImGui::Button("Play");
             ImGui::SameLine();
-            if (ImGui::RadioButton("Translate", m_GizmoOperation == ImGuizmo::TRANSLATE))
+            ImGui::TextUnformatted("Operation");
+            ImGui::SameLine();
+            static const char* kGizmoOperationLabels[] = { "Translate", "Rotate", "Scale" };
+            int operationIndex = 0;
+            switch (m_GizmoOperation)
             {
-                m_GizmoOperation = ImGuizmo::TRANSLATE;
+            case ImGuizmo::ROTATE: operationIndex = 1; break;
+            case ImGuizmo::SCALE: operationIndex = 2; break;
+            default: operationIndex = 0; break;
+            }
+            ImGui::SetNextItemWidth(140.0f);
+            if (ImGui::Combo("##GizmoOperation", &operationIndex, kGizmoOperationLabels, IM_ARRAYSIZE(kGizmoOperationLabels)))
+            {
+                m_GizmoOperation = operationIndex == 0 ? ImGuizmo::TRANSLATE : operationIndex == 1 ? ImGuizmo::ROTATE : ImGuizmo::SCALE;
             }
             ImGui::SameLine();
-            if (ImGui::RadioButton("Rotate", m_GizmoOperation == ImGuizmo::ROTATE))
-            {
-                m_GizmoOperation = ImGuizmo::ROTATE;
-            }
+            ImGui::TextUnformatted("Mode");
             ImGui::SameLine();
-            if (ImGui::RadioButton("Scale", m_GizmoOperation == ImGuizmo::SCALE))
+            static const char* kGizmoModeLabels[] = { "Local", "World" };
+            int modeIndex = m_GizmoMode == ImGuizmo::LOCAL ? 0 : 1;
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::Combo("##GizmoMode", &modeIndex, kGizmoModeLabels, IM_ARRAYSIZE(kGizmoModeLabels)))
             {
-                m_GizmoOperation = ImGuizmo::SCALE;
-            }
-            ImGui::SameLine();
-            const bool isLocalMode = m_GizmoMode == ImGuizmo::LOCAL;
-            if (ImGui::RadioButton("Local", isLocalMode))
-            {
-                m_GizmoMode = ImGuizmo::LOCAL;
-            }
-            ImGui::SameLine();
-            if (ImGui::RadioButton("World", !isLocalMode))
-            {
-                m_GizmoMode = ImGuizmo::WORLD;
+                m_GizmoMode = modeIndex == 0 ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
             }
 
             ImVec2 viewportSize = ImGui::GetContentRegionAvail();
