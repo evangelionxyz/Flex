@@ -4,6 +4,8 @@ project(Flex LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 
+enable_testing()
+
 set(RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Flex/Resources")
 set(THIRDPARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty")
 
