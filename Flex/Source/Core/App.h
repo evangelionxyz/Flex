@@ -147,7 +147,7 @@ namespace flex
         glm::vec4 lightColor = glm::vec4(1.0f);
         glm::vec2 lightAngle = glm::vec2(0.0f, 0.3f); // azimuth, elevation
         float renderMode = RENDER_MODE_COLOR;
-        float fogDensity = 0.01f;
+        float fogDensity = 0.0001f;
         glm::vec4 fogColor = glm::vec4(0.7f, 0.8f, 0.9f, 1.0f); // light blue fog
         float fogStart = 10.0f;
         float fogEnd = 50.0f;
@@ -164,7 +164,6 @@ namespace flex
     {
         float fps = 0.0f;
         float deltaTime = 0.0f;
-
     };
 
     class App
@@ -207,6 +206,7 @@ namespace flex
         Ref<Framebuffer> m_SceneFB;
         Ref<Framebuffer> m_ViewportFB;
         Ref<Texture2D> m_EnvMap;
+        Ref<Texture2D> m_FallbackTexture;
 
         Ref<CascadedShadowMap> m_CSM;
         Ref<Bloom> m_Bloom;
@@ -231,6 +231,8 @@ namespace flex
 
         ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
         ImGuizmo::MODE m_GizmoMode = ImGuizmo::LOCAL;
+
+        bool m_SaveRuntime = false;
     };
 }
 

@@ -3,6 +3,7 @@
 #include "Serializer.h"
 #include "Components.h"
 #include "Renderer/Mesh.h"
+#include "Renderer/Material.h"
 #include "Math/Math.hpp"
 
 #include <fstream>
@@ -29,6 +30,43 @@ namespace flex
 				result.z = arr[2].get<float>();
 			}
 			return result;
+		}
+
+		nlohmann::json SerializeVec4(const glm::vec4& v)
+		{
+			return nlohmann::json::array({ v.x, v.y, v.z, v.w });
+		}
+
+		glm::vec4 DeserializeVec4(const nlohmann::json& arr)
+		{
+			glm::vec4 result{ 0.0f };
+			if (arr.is_array() && arr.size() == 4)
+			{
+				result.x = arr[0].get<float>();
+				result.y = arr[1].get<float>();
+				result.z = arr[2].get<float>();
+				result.w = arr[3].get<float>();
+			}
+			return result;
+		}
+
+		std::string ToMaterialTypeString(MaterialType type)
+		{
+			switch (type)
+			{
+			case MaterialType::Transparent: return "Transparent";
+			case MaterialType::Opaque:
+			default: return "Opaque";
+			}
+		}
+
+		MaterialType MaterialTypeFromString(const std::string& typeStr)
+		{
+			if (typeStr == "Transparent")
+			{
+				return MaterialType::Transparent;
+			}
+			return MaterialType::Opaque;
 		}
 
 	}
@@ -134,6 +172,19 @@ namespace flex
 			json meshJson;
 			meshJson["MeshPath"] = mesh.meshPath;
 			meshJson["MeshIndex"] = mesh.meshIndex;
+			if (mesh.meshInstance && mesh.meshInstance->material)
+			{
+				const Ref<Material>& material = mesh.meshInstance->material;
+				json materialJson;
+				materialJson["Name"] = material->name;
+				materialJson["Type"] = ToMaterialTypeString(material->type);
+				materialJson["BaseColorFactor"] = SerializeVec4(material->params.baseColorFactor);
+				materialJson["EmissiveFactor"] = SerializeVec4(material->params.emissiveFactor);
+				materialJson["MetallicFactor"] = material->params.metallicFactor;
+				materialJson["RoughnessFactor"] = material->params.roughnessFactor;
+				materialJson["OcclusionStrength"] = material->params.occlusionStrength;
+				meshJson["Material"] = materialJson;
+			}
 			entityJson["Mesh"] = meshJson;
 		}
 
@@ -230,6 +281,19 @@ namespace flex
 					const auto& transform = m_Scene->GetComponent<TransformComponent>(entity);
 					mesh.meshInstance->worldTransform = math::ComposeTransform(transform);
 				}
+
+				if (mesh.meshInstance && mesh.meshInstance->material && meshJson.contains("Material"))
+				{
+					const json& materialJson = meshJson["Material"];
+					Ref<Material> material = mesh.meshInstance->material;
+					material->name = materialJson.value("Name", material->name);
+					material->type = MaterialTypeFromString(materialJson.value("Type", ToMaterialTypeString(material->type)));
+					material->params.baseColorFactor = DeserializeVec4(materialJson.value("BaseColorFactor", nlohmann::json::array()));
+					material->params.emissiveFactor = DeserializeVec4(materialJson.value("EmissiveFactor", nlohmann::json::array()));
+					material->params.metallicFactor = materialJson.value("MetallicFactor", material->params.metallicFactor);
+					material->params.roughnessFactor = materialJson.value("RoughnessFactor", material->params.roughnessFactor);
+					material->params.occlusionStrength = materialJson.value("OcclusionStrength", material->params.occlusionStrength);
+				}
 			}
 		}
 
@@ -251,7 +315,7 @@ namespace flex
 			rb.moveX = rbJson.value("MoveX", true);
 			rb.moveY = rbJson.value("MoveY", true);
 			rb.moveZ = rbJson.value("MoveZ", true);
-			rb.body = nullptr;
+			rb.bodyID = JPH::BodyID();
 		}
 
 		if (entityData.contains("BoxCollider"))

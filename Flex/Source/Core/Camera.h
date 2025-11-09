@@ -19,7 +19,7 @@ namespace flex
         // Toggles
         bool enableVignette = true;
         bool enableChromAb = false;
-        bool enableBloom = false;
+        bool enableBloom = true;
         bool enableSSAO = false; // Screen space ambient occlusion
         bool debugSSAO = false; // Visualize raw AO buffer
         
@@ -55,7 +55,7 @@ namespace flex
         float blurAmount = 1.0f;
         float exposure = 1.1f;
         float gamma = 1.1f;
-        bool enableDOF = false;
+        bool enableDOF = true;
     };
 
     struct Camera

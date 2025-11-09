@@ -256,7 +256,6 @@ namespace flex
         SDL_PropertiesID prop = SDL_GetWindowProperties(m_Handle);
 		return (void*)SDL_GetPropertyType(prop, SDL_PROP_WINDOW_X11_DISPLAY_POINTER);
 #endif
-        return nullptr;
 	}
 
 	Window* Window::Get()

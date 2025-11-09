@@ -31,6 +31,7 @@ namespace flex
 
         void Render(const Ref<Shader>& shader, const Ref<Texture2D>& environmentTexture);
         void RenderDepth(const Ref<Shader>& shader);
+        void DebugDrawColliders() const;
 
         bool IsPlaying() const { return m_IsPlaying; }
 
@@ -38,6 +39,8 @@ namespace flex
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
         entt::entity DuplicateEntity(entt::entity entity);
+        void DestroyEntity(const entt::entity entity);
+
         Ref<Scene> Clone() const;
 
         template<typename T, typename... Args>
@@ -79,7 +82,6 @@ namespace flex
             return registry->valid(entity);
         }
 
-        void DestroyEntity(const entt::entity entity);
         entt::entity GetEntityByUUID(const UUID& uuid);
 
         entt::registry* registry = nullptr;

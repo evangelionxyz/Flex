@@ -10,6 +10,13 @@
 #include "Scene/Scene.h"
 #include "Scene/Components.h"
 
+#include <Jolt/Physics/Body/BodyLock.h>
+#include <Jolt/Physics/Body/BodyLockInterface.h>
+#include <Jolt/Physics/Body/MotionProperties.h>
+
+#include <algorithm>
+#include <iostream>
+
 namespace flex
 {
 	static void TraceImpl(const char* inFMT, ...)
@@ -47,10 +54,11 @@ namespace flex
 		
 		JPH::RegisterTypes();
 		
-		// Initialize temp allocator and job system
-		s_JoltInstance->tempAllocator = CreateScope<JPH::TempAllocatorImpl>(10 * 1024 * 1024);
-		s_JoltInstance->jobSystem = CreateScope<JPH::JobSystemThreadPool>(cMaxPhysicsJobs, cMaxPhysicsJobs,
-			std::thread::hardware_concurrency() - 1);
+		// Initialize temp allocator and job system (fallback ensures large scenes don't exhaust temporary memory)
+		s_JoltInstance->tempAllocator = CreateScope<JPH::TempAllocatorImplWithMallocFallback>(10 * 1024 * 1024);
+		const unsigned int hardwareThreads = std::max(1u, std::thread::hardware_concurrency());
+		const unsigned int workerThreads = hardwareThreads > 1 ? hardwareThreads - 1 : 1;
+		s_JoltInstance->jobSystem = CreateScope<JPH::JobSystemThreadPool>(cMaxPhysicsJobs, cMaxPhysicsJobs, static_cast<int>(workerThreads));
 
 		s_JoltInstance->contactListener = CreateScope<JoltContactListener>();
 		s_JoltInstance->bodyActivationListener = CreateScope<JoltBodyActivationListener>();
@@ -72,21 +80,13 @@ namespace flex
 		return s_JoltInstance;
 	}
 
+	// =================================================
+	// ============== Physics Scene Class ==============
+	// =================================================
+
 	JoltPhysicsScene::JoltPhysicsScene(Scene* scene)
 		: m_Scene(scene)
 	{
-		m_PhysicsSystem.Init(cNumBodies, cNumBodyMutexes, cMaxBodyPairs,
-			cMaxContactConstraints, s_JoltInstance->broadPhaseLayer,
-			s_JoltInstance->objectVsBroadPhaseLayerFilter,
-			s_JoltInstance->objectLayerPairFilter);
-
-		// m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
-		// m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
-		m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
-		m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
-		m_PhysicsSystem.OptimizeBroadPhase();
-
-		m_BodyInterface = &m_PhysicsSystem.GetBodyInterface();
 	}
 
 	JoltPhysicsScene::~JoltPhysicsScene()
@@ -98,13 +98,34 @@ namespace flex
         return CreateRef<JoltPhysicsScene>(scene);
     }
 
-    void JoltPhysicsScene::SimulationStart()
+	void JoltPhysicsScene::SimulationStart()
 	{
+		if (!s_JoltInstance)
+		{
+			return;
+		}
+
+		m_PhysicsSystem.Init(cNumBodies, cNumBodyMutexes, cMaxBodyPairs,
+			cMaxContactConstraints, s_JoltInstance->broadPhaseLayer,
+			s_JoltInstance->objectVsBroadPhaseLayerFilter,
+			s_JoltInstance->objectLayerPairFilter);
+
+		m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
+		m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
+		m_PhysicsSystem.SetBodyActivationListener(s_JoltInstance->bodyActivationListener.get());
+		m_PhysicsSystem.SetContactListener(s_JoltInstance->contactListener.get());
+		m_PhysicsSystem.OptimizeBroadPhase();
 		m_PhysicsSystem.SetGravity(GlmToJoltVec3(m_Scene->sceneGravity));
 
+		m_BodyInterface = &m_PhysicsSystem.GetBodyInterface();
+
 		auto view = m_Scene->registry->view<TransformComponent, RigidbodyComponent>();
-		view.each([this](auto entity, auto &transform, auto &rb)
+		view.each([this](entt::entity entity, TransformComponent&, RigidbodyComponent& rb)
 		{
+			if (!rb.bodyID.IsInvalid())
+			{
+				DestroyEntity(entity);
+			}
 			InstantiateEntity(entity);
 		});
 	}
@@ -112,7 +133,7 @@ namespace flex
 	void JoltPhysicsScene::SimulationStop()
 	{
 		auto view = m_Scene->registry->view<TransformComponent, RigidbodyComponent>();
-		view.each([this](auto entity, auto &transform, auto &rb)
+		view.each([this](entt::entity entity, TransformComponent&, RigidbodyComponent&)
 		{
 			DestroyEntity(entity);
 		});
@@ -120,28 +141,39 @@ namespace flex
 
 	void JoltPhysicsScene::Simulate(float deltaTime)
 	{
-		// Step the physics simulation
-		const int collisionSteps = 1;
-		m_PhysicsSystem.Update(deltaTime, collisionSteps, s_JoltInstance->tempAllocator.get(), s_JoltInstance->jobSystem.get());
-
-		// Sync physics transforms back to components
-		auto view = m_Scene->registry->view<TransformComponent, RigidbodyComponent>();
-		view.each([this](auto entity, auto& transform, auto& rb) {
-		if (rb.body && !rb.isStatic)
+		if (!s_JoltInstance || deltaTime <= 0.0f)
 		{
-			transform.position = GetPosition(*rb.body);
-			transform.rotation = GetEulerAngles(*rb.body);
+			return;
 		}
+
+		JPH::TempAllocator* tempAllocator = s_JoltInstance->tempAllocator.get();
+		JPH::JobSystem* jobSystem = s_JoltInstance->jobSystem.get();
+		if (!tempAllocator || !jobSystem)
+		{
+			return;
+		}
+
+		const int collisionSteps = 1;
+		m_PhysicsSystem.Update(deltaTime, collisionSteps, tempAllocator, jobSystem);
+
+		auto view = m_Scene->registry->view<TransformComponent, RigidbodyComponent>();
+		view.each([this](TransformComponent& transform, RigidbodyComponent& rb)
+		{
+			if (rb.isStatic || rb.bodyID.IsInvalid())
+			{
+				return;
+			}
+
+			transform.position = GetPosition(rb.bodyID);
+			transform.rotation = GetEulerAngles(rb.bodyID);
 		});
 	}
 
-	JPH::BodyCreationSettings JoltPhysicsScene::CreateBody(JPH::ShapeRefC shape, RigidbodyComponent &rb, const glm::vec3 &position, const glm::quat &rotation)
+	JPH::BodyCreationSettings JoltPhysicsScene::CreateBody(JPH::ShapeRefC shape, RigidbodyComponent& rb, const glm::vec3& position, const glm::quat& rotation)
 	{
-		// Determine motion type based on rigidbody settings
 		JPH::EMotionType motionType = rb.isStatic ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic;
 		JPH::ObjectLayer objectLayer = rb.isStatic ? PhysicsLayers::NON_MOVING : PhysicsLayers::MOVING;
 
-		// Create body settings
 		JPH::BodyCreationSettings settings(
 			shape,
 			GlmToJoltVec3(position),
@@ -150,21 +182,30 @@ namespace flex
 			objectLayer
 		);
 
-		// Configure rigidbody properties
+		settings.mAllowSleeping = rb.allowSleeping;
+		settings.mGravityFactor = rb.useGravity ? rb.gravityFactor : 0.0f;
+
+		JPH::EAllowedDOFs allowed = JPH::EAllowedDOFs::None;
+		if (rb.moveX) allowed |= JPH::EAllowedDOFs::TranslationX;
+		if (rb.moveY) allowed |= JPH::EAllowedDOFs::TranslationY;
+		if (rb.moveZ) allowed |= JPH::EAllowedDOFs::TranslationZ;
+		if (rb.rotateX) allowed |= JPH::EAllowedDOFs::RotationX;
+		if (rb.rotateY) allowed |= JPH::EAllowedDOFs::RotationY;
+		if (rb.rotateZ) allowed |= JPH::EAllowedDOFs::RotationZ;
+		settings.mAllowedDOFs = allowed == JPH::EAllowedDOFs::None ? JPH::EAllowedDOFs::All : allowed;
+
 		if (!rb.isStatic)
 		{
-			settings.mAllowSleeping = rb.allowSleeping;
-			settings.mGravityFactor = rb.gravityFactor;
-
-			// Set motion quality
-			if (rb.MotionQuality == RigidbodyComponent::EMotionQuality::LinearCast)
-				settings.mMotionQuality = JPH::EMotionQuality::LinearCast;
-			else
-				settings.mMotionQuality = JPH::EMotionQuality::Discrete;
-
-			// Configure mass properties
+			settings.mMotionQuality = rb.MotionQuality == RigidbodyComponent::EMotionQuality::LinearCast
+				? JPH::EMotionQuality::LinearCast
+				: JPH::EMotionQuality::Discrete;
 			settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-			settings.mMassPropertiesOverride.mMass = rb.mass;
+			settings.mMassPropertiesOverride.mMass = std::max(rb.mass, 0.0001f);
+			//settings.mMassPropertiesOverride.mCenterOfMass = GlmToJoltVec3(rb.centerOfMass);
+		}
+		else
+		{
+			settings.mMotionQuality = JPH::EMotionQuality::Discrete;
 		}
 
 		return settings;
@@ -172,252 +213,410 @@ namespace flex
 
 	void JoltPhysicsScene::InstantiateEntity(entt::entity entity)
 	{
-		if (!m_Scene->HasComponent<TransformComponent>(entity))
+		if (!m_Scene->HasComponent<TransformComponent>(entity) ||
+			!m_Scene->HasComponent<RigidbodyComponent>(entity) ||
+			!m_Scene->HasComponent<BoxColliderComponent>(entity))
+		{
 			return;
+		}
 
 		auto& transform = m_Scene->GetComponent<TransformComponent>(entity);
+		auto& rb = m_Scene->GetComponent<RigidbodyComponent>(entity);
+		auto& boxCollider = m_Scene->GetComponent<BoxColliderComponent>(entity);
 
-		// Check if entity has rigidbody and box collider
-		if (m_Scene->HasComponent<RigidbodyComponent>(entity) && m_Scene->HasComponent<BoxColliderComponent>(entity))
+		if (!rb.bodyID.IsInvalid())
 		{
-			auto& rb = m_Scene->GetComponent<RigidbodyComponent>(entity);
-			auto& boxCollider = m_Scene->GetComponent<BoxColliderComponent>(entity);
-
-			// Create box shape
-			glm::vec3 halfExtents = boxCollider.scale * 0.5f;
-			JPH::BoxShapeSettings shapeSettings(GlmToJoltVec3(halfExtents));
-			shapeSettings.mDensity = boxCollider.density;
-			JPH::ShapeSettings::ShapeResult shapeResult = shapeSettings.Create();
-			JPH::ShapeRefC shape = shapeResult.Get();
-
-			if (!shape)
-			{
-				std::cerr << "Failed to create box shape for entity\n";
-				return;
-			}
-
-			// Store shape pointer
-			boxCollider.shape = (void*)shape.GetPtr();
-
-			// Convert euler angles to quaternion
-			glm::quat rotation = glm::quat(glm::radians(transform.rotation));
-
-			// Create body settings
-			JPH::BodyCreationSettings bodySettings = CreateBody(shape, rb, transform.position, rotation);
-
-			// Apply friction and restitution from collider
-			bodySettings.mFriction = boxCollider.friction;
-			bodySettings.mRestitution = boxCollider.restitution;
-
-			// Create and add body to physics system
-			JPH::Body* body = m_BodyInterface->CreateBody(bodySettings);
-			if (body)
-			{
-				rb.body = body;
-				m_BodyInterface->AddBody(body->GetID(), JPH::EActivation::Activate);
-
-				// Apply axis locks if needed
-				if (!rb.isStatic)
-				{
-					// Lock translation axes
-					if (!rb.moveX || !rb.moveY || !rb.moveZ)
-					{
-						JPH::Vec3 allowedDOFs(
-							rb.moveX ? 1.0f : 0.0f,
-							rb.moveY ? 1.0f : 0.0f,
-							rb.moveZ ? 1.0f : 0.0f
-						);
-					}
-
-					if (!rb.rotateX || !rb.rotateY || !rb.rotateZ)
-					{
-					}
-				}
-			}
+			DestroyEntity(entity);
 		}
+
+		const glm::vec3 scaledSize = glm::abs(transform.scale) * boxCollider.scale;
+		const glm::vec3 halfExtents = scaledSize;
+		if (halfExtents.x <= 0.0f || halfExtents.y <= 0.0f || halfExtents.z <= 0.0f)
+		{
+			std::cerr << "Box collider has non-positive extents, skipping body creation\n";
+			return;
+		}
+
+		JPH::BoxShapeSettings shapeSettings(GlmToJoltVec3(halfExtents));
+		shapeSettings.mDensity = std::max(boxCollider.density, 0.0001f);
+		JPH::ShapeSettings::ShapeResult shapeResult = shapeSettings.Create();
+		if (shapeResult.HasError())
+		{
+			std::cerr << "Failed to create box shape: " << shapeResult.GetError().c_str() << "\n";
+			return;
+		}
+
+		JPH::ShapeRefC shape = shapeResult.Get();
+		if (!shape)
+		{
+			std::cerr << "Failed to create box shape instance\n";
+			return;
+		}
+
+		boxCollider.shape = (void*)shape.GetPtr();
+
+		const glm::quat rotation = glm::quat(glm::radians(transform.rotation));
+		const glm::vec3 offset = rotation * (boxCollider.offset * transform.scale);
+		const glm::vec3 bodyPosition = transform.position + offset;
+
+		JPH::BodyCreationSettings bodySettings = CreateBody(shape, rb, bodyPosition, rotation);
+		bodySettings.mFriction = boxCollider.friction;
+		bodySettings.mRestitution = boxCollider.restitution;
+
+		JPH::BodyID bodyID = m_BodyInterface->CreateAndAddBody(bodySettings, rb.isStatic ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
+		if (bodyID.IsInvalid())
+		{
+			std::cerr << "Failed to create physics body for entity\n";
+			return;
+		}
+
+		rb.bodyID = bodyID;
 	}
 
 	void JoltPhysicsScene::DestroyEntity(entt::entity entity)
 	{
 		if (!m_Scene->HasComponent<RigidbodyComponent>(entity))
+		{
 			return;
+		}
 
 		auto& rb = m_Scene->GetComponent<RigidbodyComponent>(entity);
-		if (rb.body)
+		if (rb.bodyID.IsInvalid())
 		{
-			m_BodyInterface->RemoveBody(rb.body->GetID());
-			m_BodyInterface->DestroyBody(rb.body->GetID());
-			rb.body = nullptr;
+			return;
+		}
+
+		m_BodyInterface->RemoveBody(rb.bodyID);
+		m_BodyInterface->DestroyBody(rb.bodyID);
+		rb.bodyID = JPH::BodyID();
+
+		if (m_Scene->HasComponent<BoxColliderComponent>(entity))
+		{
+			m_Scene->GetComponent<BoxColliderComponent>(entity).shape = nullptr;
 		}
 	}
 
 	void JoltPhysicsScene::CreateBoxCollider(entt::entity entity)
 	{
-		// This is typically called when a box collider component is added
-		// If the entity already has a body, we need to recreate it with the new shape
-		if (m_Scene->HasComponent<RigidbodyComponent>(entity))
+		if (!m_Scene->HasComponent<RigidbodyComponent>(entity) || !m_Scene->HasComponent<BoxColliderComponent>(entity))
 		{
-			auto& rb = m_Scene->GetComponent<RigidbodyComponent>(entity);
-			if (rb.body)
-			{
-				// Destroy existing body and recreate with box collider
-				DestroyEntity(entity);
-			}
-			InstantiateEntity(entity);
+			return;
 		}
+
+		DestroyEntity(entity);
+		InstantiateEntity(entity);
 	}
 
 	void JoltPhysicsScene::CreateSphereCollider(entt::entity entity)
 	{
 		// TODO: Implement sphere collider support
-		// Similar to CreateBoxCollider but using SphereShape
 	}
 
-	void JoltPhysicsScene::AddForce(const JPH::Body& body, const glm::vec3& force)
+	void JoltPhysicsScene::AddForce(JPH::BodyID bodyID, const glm::vec3& force)
 	{
-		m_BodyInterface->AddForce(body.GetID(), GlmToJoltVec3(force));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->AddForce(bodyID, GlmToJoltVec3(force));
 	}
 
-	void JoltPhysicsScene::AddTorque(const JPH::Body& body, const glm::vec3& torque)
+	void JoltPhysicsScene::AddTorque(JPH::BodyID bodyID, const glm::vec3& torque)
 	{
-		m_BodyInterface->AddTorque(body.GetID(), GlmToJoltVec3(torque));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->AddTorque(bodyID, GlmToJoltVec3(torque));
 	}
 
-	void JoltPhysicsScene::AddForceAndTorque(const JPH::Body& body, const glm::vec3& force, const glm::vec3& torque)
+	void JoltPhysicsScene::AddForceAndTorque(JPH::BodyID bodyID, const glm::vec3& force, const glm::vec3& torque)
 	{
-		m_BodyInterface->AddForce(body.GetID(), GlmToJoltVec3(force));
-		m_BodyInterface->AddTorque(body.GetID(), GlmToJoltVec3(torque));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->AddForce(bodyID, GlmToJoltVec3(force));
+		m_BodyInterface->AddTorque(bodyID, GlmToJoltVec3(torque));
 	}
 
-	void JoltPhysicsScene::AddAngularImpulse(const JPH::Body& body, const glm::vec3& impulse)
+	void JoltPhysicsScene::AddAngularImpulse(JPH::BodyID bodyID, const glm::vec3& impulse)
 	{
-		m_BodyInterface->AddAngularImpulse(body.GetID(), GlmToJoltVec3(impulse));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->AddAngularImpulse(bodyID, GlmToJoltVec3(impulse));
 	}
 
-	void JoltPhysicsScene::ActivateBody(const JPH::Body& body)
+	void JoltPhysicsScene::ActivateBody(JPH::BodyID bodyID)
 	{
-		m_BodyInterface->ActivateBody(body.GetID());
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->ActivateBody(bodyID);
 	}
 
-	void JoltPhysicsScene::DeactivateBody(const JPH::Body& body)
+	void JoltPhysicsScene::DeactivateBody(JPH::BodyID bodyID)
 	{
-		m_BodyInterface->DeactivateBody(body.GetID());
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->DeactivateBody(bodyID);
 	}
 
-	void JoltPhysicsScene::DestroyBody(const JPH::Body& body)
+	void JoltPhysicsScene::DestroyBody(JPH::BodyID bodyID)
 	{
-		m_BodyInterface->RemoveBody(body.GetID());
-		m_BodyInterface->DestroyBody(body.GetID());
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->RemoveBody(bodyID);
+		m_BodyInterface->DestroyBody(bodyID);
 	}
 
-	bool JoltPhysicsScene::IsActive(const JPH::Body& body)
+	bool JoltPhysicsScene::IsActive(JPH::BodyID bodyID)
 	{
-		return m_BodyInterface->IsActive(body.GetID());
+		return !bodyID.IsInvalid() && m_BodyInterface->IsActive(bodyID);
 	}
 
-	void JoltPhysicsScene::MoveKinematic(const JPH::Body& body, const glm::vec3& targetPosition, const glm::vec3& targetRotation, float deltaTime)
+	void JoltPhysicsScene::MoveKinematic(JPH::BodyID bodyID, const glm::vec3& targetPosition, const glm::vec3& targetRotation, float deltaTime)
 	{
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
 		glm::quat rotation = glm::quat(glm::radians(targetRotation));
-		m_BodyInterface->MoveKinematic(body.GetID(), GlmToJoltVec3(targetPosition), GlmToJoltQuat(rotation), deltaTime);
+		m_BodyInterface->MoveKinematic(bodyID, GlmToJoltVec3(targetPosition), GlmToJoltQuat(rotation), deltaTime);
 	}
 
-	void JoltPhysicsScene::AddImpulse(const JPH::Body& body, const glm::vec3& impulse)
+	void JoltPhysicsScene::AddImpulse(JPH::BodyID bodyID, const glm::vec3& impulse)
 	{
-		m_BodyInterface->AddImpulse(body.GetID(), GlmToJoltVec3(impulse));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->AddImpulse(bodyID, GlmToJoltVec3(impulse));
 	}
 
-	void JoltPhysicsScene::AddLinearVelocity(const JPH::Body& body, const glm::vec3& velocity)
+	void JoltPhysicsScene::AddLinearVelocity(JPH::BodyID bodyID, const glm::vec3& velocity)
 	{
-		m_BodyInterface->AddLinearVelocity(body.GetID(), GlmToJoltVec3(velocity));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->AddLinearVelocity(bodyID, GlmToJoltVec3(velocity));
 	}
 
-	void JoltPhysicsScene::SetPosition(const JPH::Body& body, const glm::vec3& position, bool activate)
+	void JoltPhysicsScene::SetPosition(JPH::BodyID bodyID, const glm::vec3& position, bool activate)
 	{
-		m_BodyInterface->SetPosition(body.GetID(), GlmToJoltVec3(position), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->SetPosition(bodyID, GlmToJoltVec3(position), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
 	}
 
-	void JoltPhysicsScene::SetEulerAngleRotation(const JPH::Body& body, const glm::vec3& rotation, bool activate)
+	void JoltPhysicsScene::SetEulerAngleRotation(JPH::BodyID bodyID, const glm::vec3& rotation, bool activate)
 	{
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
 		glm::quat quat = glm::quat(glm::radians(rotation));
-		m_BodyInterface->SetRotation(body.GetID(), GlmToJoltQuat(quat), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+		m_BodyInterface->SetRotation(bodyID, GlmToJoltQuat(quat), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
 	}
 
-	void JoltPhysicsScene::SetRotation(const JPH::Body& body, const glm::quat& rotation, bool activate)
+	void JoltPhysicsScene::SetRotation(JPH::BodyID bodyID, const glm::quat& rotation, bool activate)
 	{
-		m_BodyInterface->SetRotation(body.GetID(), GlmToJoltQuat(rotation), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->SetRotation(bodyID, GlmToJoltQuat(rotation), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
 	}
 
-	void JoltPhysicsScene::SetLinearVelocity(const JPH::Body& body, const glm::vec3& vel)
+	void JoltPhysicsScene::SetLinearVelocity(JPH::BodyID bodyID, const glm::vec3& vel)
 	{
-		m_BodyInterface->SetLinearVelocity(body.GetID(), GlmToJoltVec3(vel));
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->SetLinearVelocity(bodyID, GlmToJoltVec3(vel));
 	}
 
-	void JoltPhysicsScene::SetFriction(const JPH::Body& body, float value)
+	void JoltPhysicsScene::SetFriction(JPH::BodyID bodyID, float value)
 	{
-		m_BodyInterface->SetFriction(body.GetID(), value);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->SetFriction(bodyID, value);
 	}
 
-	void JoltPhysicsScene::SetRestitution(const JPH::Body& body, float value)
+	void JoltPhysicsScene::SetRestitution(JPH::BodyID bodyID, float value)
 	{
-		m_BodyInterface->SetRestitution(body.GetID(), value);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->SetRestitution(bodyID, value);
 	}
 
-	void JoltPhysicsScene::SetGravityFactor(const JPH::Body& body, float value)
+	void JoltPhysicsScene::SetGravityFactor(JPH::BodyID bodyID, float value)
 	{
-		m_BodyInterface->SetGravityFactor(body.GetID(), value);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		m_BodyInterface->SetGravityFactor(bodyID, value);
 	}
 
-	float JoltPhysicsScene::GetRestitution(const JPH::Body& body)
+	float JoltPhysicsScene::GetRestitution(JPH::BodyID bodyID)
 	{
-		return m_BodyInterface->GetRestitution(body.GetID());
+		if (bodyID.IsInvalid())
+		{
+			return 0.0f;
+		}
+
+		return m_BodyInterface->GetRestitution(bodyID);
 	}
 
-	float JoltPhysicsScene::GetFriction(const JPH::Body& body)
+	float JoltPhysicsScene::GetFriction(JPH::BodyID bodyID)
 	{
-		return m_BodyInterface->GetFriction(body.GetID());
+		if (bodyID.IsInvalid())
+		{
+			return 0.0f;
+		}
+
+		return m_BodyInterface->GetFriction(bodyID);
 	}
 
-	float JoltPhysicsScene::GetGravityFactor(const JPH::Body& body)
+	float JoltPhysicsScene::GetGravityFactor(JPH::BodyID bodyID)
 	{
-		if (body.GetMotionProperties() != nullptr)
-			return body.GetMotionProperties()->GetGravityFactor();
-		return 1.0f;
+		if (bodyID.IsInvalid())
+		{
+			return 1.0f;
+		}
+
+		JPH::BodyLockRead lock(m_PhysicsSystem.GetBodyLockInterface(), bodyID);
+		if (!lock.Succeeded())
+		{
+			return 1.0f;
+		}
+
+		const JPH::Body& body = lock.GetBody();
+		const JPH::MotionProperties* motion = body.GetMotionProperties();
+		return motion ? motion->GetGravityFactor() : 1.0f;
 	}
 
-	glm::vec3 JoltPhysicsScene::GetPosition(const JPH::Body& body)
+	glm::vec3 JoltPhysicsScene::GetPosition(JPH::BodyID bodyID)
 	{
-		return JoltToGlmVec3(m_BodyInterface->GetPosition(body.GetID()));
+		if (bodyID.IsInvalid())
+		{
+			return glm::vec3(0.0f);
+		}
+
+		return JoltToGlmVec3(m_BodyInterface->GetPosition(bodyID));
 	}
 
-	glm::vec3 JoltPhysicsScene::GetEulerAngles(const JPH::Body& body)
+	glm::vec3 JoltPhysicsScene::GetEulerAngles(JPH::BodyID bodyID)
 	{
-		JPH::Quat joltQuat = m_BodyInterface->GetRotation(body.GetID());
-		glm::quat quat = JoltToGlmQuat(joltQuat);
-		return glm::degrees(glm::eulerAngles(quat));
+		if (bodyID.IsInvalid())
+		{
+			return glm::vec3(0.0f);
+		}
+
+		glm::quat rotation = GetRotation(bodyID);
+		return glm::degrees(glm::eulerAngles(rotation));
 	}
 
-	glm::quat JoltPhysicsScene::GetRotation(const JPH::Body& body)
+	glm::quat JoltPhysicsScene::GetRotation(JPH::BodyID bodyID)
 	{
-		return JoltToGlmQuat(m_BodyInterface->GetRotation(body.GetID()));
+		if (bodyID.IsInvalid())
+		{
+			return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+		}
+
+		return JoltToGlmQuat(m_BodyInterface->GetRotation(bodyID));
 	}
 
-	glm::vec3 JoltPhysicsScene::GetCenterOfMassPosition(const JPH::Body& body)
+	glm::vec3 JoltPhysicsScene::GetCenterOfMassPosition(JPH::BodyID bodyID)
 	{
-		return JoltToGlmVec3(m_BodyInterface->GetCenterOfMassPosition(body.GetID()));
+		if (bodyID.IsInvalid())
+		{
+			return glm::vec3(0.0f);
+		}
+
+		return JoltToGlmVec3(m_BodyInterface->GetCenterOfMassPosition(bodyID));
 	}
 
-	glm::vec3 JoltPhysicsScene::GetLinearVelocity(const JPH::Body& body)
+	glm::vec3 JoltPhysicsScene::GetLinearVelocity(JPH::BodyID bodyID)
 	{
-		return JoltToGlmVec3(m_BodyInterface->GetLinearVelocity(body.GetID()));
+		if (bodyID.IsInvalid())
+		{
+			return glm::vec3(0.0f);
+		}
+
+		return JoltToGlmVec3(m_BodyInterface->GetLinearVelocity(bodyID));
 	}
 
-	void JoltPhysicsScene::SetMaxLinearVelocity(JPH::Body& body, float max)
+	void JoltPhysicsScene::SetMaxLinearVelocity(JPH::BodyID bodyID, float max)
 	{
-		body.GetMotionProperties()->SetMaxLinearVelocity(max);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		JPH::BodyLockWrite lock(m_PhysicsSystem.GetBodyLockInterface(), bodyID);
+		if (!lock.Succeeded())
+		{
+			return;
+		}
+
+		JPH::MotionProperties* motion = lock.GetBody().GetMotionProperties();
+		if (motion)
+		{
+			motion->SetMaxLinearVelocity(max);
+		}
 	}
 
-	void JoltPhysicsScene::SetMaxAngularVelocity(JPH::Body& body, float max)
+	void JoltPhysicsScene::SetMaxAngularVelocity(JPH::BodyID bodyID, float max)
 	{
-		body.GetMotionProperties()->SetMaxAngularVelocity(max);
+		if (bodyID.IsInvalid())
+		{
+			return;
+		}
+
+		JPH::BodyLockWrite lock(m_PhysicsSystem.GetBodyLockInterface(), bodyID);
+		if (!lock.Succeeded())
+		{
+			return;
+		}
+
+		JPH::MotionProperties* motion = lock.GetBody().GetMotionProperties();
+		if (motion)
+		{
+			motion->SetMaxAngularVelocity(max);
+		}
 	}
 }
