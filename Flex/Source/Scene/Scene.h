@@ -37,6 +37,7 @@ namespace flex
         std::vector<entt::entity> LoadModel(const std::string& filepath, const glm::mat4& rootTransform = glm::mat4(1.0f));
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
+        entt::entity DuplicateEntity(entt::entity entity);
         Ref<Scene> Clone() const;
 
         template<typename T, typename... Args>

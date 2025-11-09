@@ -9,6 +9,7 @@
 
 #include <ImGuizmo.h>
 #include <glm/gtx/euler_angles.hpp>
+#include <cstring>
 
 namespace flex
 {
@@ -22,6 +23,7 @@ namespace flex
         m_Window = CreateRef<Window>(windowCI);
 
         // Initialize Window Callbacks
+        m_Window->SetKeyboardCallback([this](SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod) { App::OnKeyPressed(key, scancode, type, mod); });
         m_Window->SetMouseMotionCallback([this](const glm::vec2 &position, const glm::vec2 &delta) { App::OnMouseMotion(position, delta); });
         m_Window->SetScrollCallback([this](float x, float y) { App::OnMouseScroll(x, y); });
 
@@ -659,7 +661,7 @@ namespace flex
 
     void App::UISceneHierarchy()
     {
-        if (ImGui::Begin("Scene", nullptr))
+        if (ImGui::Begin("Hierarchy", nullptr))
         {
             for (const auto& [uuid, entity] : m_ActiveScene->entities)
             {
@@ -674,6 +676,39 @@ namespace flex
                     ImGui::TreePop();
                 }
             }
+
+            if (ImGui::BeginPopupContextWindow("HierarchyContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+            {
+                if (ImGui::MenuItem("Create Empty Entity"))
+                {
+                    std::string baseName = "Entity";
+                    std::string candidate = baseName;
+                    int suffix = 1;
+
+                    auto nameExists = [&](const std::string& name)
+                    {
+                        for (const auto& [existingUUID, existingEntity] : m_ActiveScene->entities)
+                        {
+                            if (m_ActiveScene->GetComponent<TagComponent>(existingEntity).name == name)
+                            {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+
+                    while (nameExists(candidate))
+                    {
+                        candidate = std::format("{} ({})", baseName, suffix);
+                        ++suffix;
+                    }
+
+                    entt::entity newEntity = m_ActiveScene->CreateEntity(candidate);
+                    m_ActiveScene->AddComponent<TransformComponent>(newEntity);
+                    m_SelectedEntity = newEntity;
+                }
+                ImGui::EndPopup();
+            }
         }
         ImGui::End();
     }
@@ -687,7 +722,19 @@ namespace flex
         if (m_SelectedEntity != entt::null)
         {
             TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(m_SelectedEntity);
-            ImGui::Text("%s", tag.name.c_str());
+            static char nameBuffer[256] = { 0 };
+            static entt::entity bufferedEntity = entt::null;
+            if (bufferedEntity != m_SelectedEntity)
+            {
+                std::strncpy(nameBuffer, tag.name.c_str(), sizeof(nameBuffer) - 1);
+                nameBuffer[sizeof(nameBuffer) - 1] = '\0';
+                bufferedEntity = m_SelectedEntity;
+            }
+
+            if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer)))
+            {
+                tag.name = nameBuffer[0] ? nameBuffer : "Entity";
+            }
 
             if (m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
             {
@@ -814,6 +861,48 @@ namespace flex
                     ImGui::TreePop();
                 }
             }
+
+            if (ImGui::Button("Add Component"))
+            {
+                ImGui::OpenPopup("AddComponentPopup");
+            }
+
+            if (ImGui::BeginPopup("AddComponentPopup"))
+            {
+                if (!m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Transform"))
+                    {
+                        m_ActiveScene->AddComponent<TransformComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<MeshComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Mesh"))
+                    {
+                        m_ActiveScene->AddComponent<MeshComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Rigidbody"))
+                    {
+                        m_ActiveScene->AddComponent<RigidbodyComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Box Collider"))
+                    {
+                        m_ActiveScene->AddComponent<BoxColliderComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                ImGui::EndPopup();
+            }
         }
 
         ImGui::End();
@@ -842,7 +931,58 @@ namespace flex
         }
     }
 
-	void App::OnMeshFileSelected(void* userData, const char* const* filelist, int filter)
+    void App::OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod)
+    {
+        if (mod == SDL_KMOD_LCTRL)
+        {
+            switch (key)
+            {
+                // Duplicate Selected Entity
+                case SDLK_D:
+                {
+                    if (m_SelectedEntity != entt::null)
+                    {
+                        m_ActiveScene->DuplicateEntity(m_SelectedEntity);
+                    }
+                    break;
+                }
+            }
+        }
+        else if (mod == SDL_KMOD_LSHIFT)
+        {
+            switch (key)
+            {
+                case SDLK_W:
+                {
+                    m_GizmoMode = m_GizmoMode == ImGuizmo::MODE::WORLD ? ImGuizmo::MODE::LOCAL : ImGuizmo::MODE::WORLD;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            switch (key)
+            {
+                case SDLK_T:
+                {
+                    m_GizmoOperation = ImGuizmo::OPERATION::TRANSLATE;
+                    break;
+                }
+                case SDLK_S:
+                {
+                    m_GizmoOperation = ImGuizmo::OPERATION::SCALE;
+                    break;
+                }
+                case SDLK_R:
+                {
+                    m_GizmoOperation = ImGuizmo::OPERATION::ROTATE;
+                    break;
+                }
+            }
+        }
+    }
+
+    void App::OnMeshFileSelected(void* userData, const char* const* filelist, int filter)
 	{
         if (filelist[0] == nullptr)
         {

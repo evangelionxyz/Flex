@@ -101,7 +101,7 @@ namespace flex
 
             m_KeyCodeStates[event->key.key] = true;
 
-            if (m_Data.keyCb)
+            if (m_Data.keyCb && !event->key.repeat)
             {
                 m_Data.keyCb(event->key.key, event->key.scancode, event->key.type, event->key.mod);
             }
@@ -119,10 +119,10 @@ namespace flex
 
             m_KeyCodeStates[event->key.key] = false;
 
-            if (m_Data.keyCb)
-            {
-                m_Data.keyCb(event->key.key, event->key.scancode, event->key.type, event->key.mod);
-            }
+            // if (m_Data.keyCb)
+            // {
+            //     m_Data.keyCb(event->key.key, event->key.scancode, event->key.type, event->key.mod);
+            // }
         }
         else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
         {
@@ -264,7 +264,7 @@ namespace flex
         return s_Window;
     }
 
-    void Window::SetKeyboardCallback(const std::function<void(int, int, int, int)> &keyCallback)
+    void Window::SetKeyboardCallback(const std::function<void(SDL_Keycode, SDL_Scancode, SDL_EventType, SDL_Keymod)> &keyCallback)
     {
         m_Data.keyCb = keyCallback;
     }

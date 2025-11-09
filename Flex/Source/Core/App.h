@@ -183,6 +183,7 @@ namespace flex
 
         void OnMouseScroll(float xoffset, float yoffset);
         void OnMouseMotion(const glm::vec2 &position, const glm::vec2 &delta);
+        void OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod);
 
         static void OnMeshFileSelected(void* userData, const char* const* filelist, int filter);
 

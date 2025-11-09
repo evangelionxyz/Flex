@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <unordered_map>
 #include <type_traits>
+#include <format>
 
 namespace flex
 {
@@ -38,6 +39,39 @@ namespace flex
 			}
 		}
 
+		template<typename... Component>
+		struct ComponentGroup
+		{
+		};
+
+		template<typename Component>
+		bool CopyComponentToEntity(const Scene& source, entt::entity sourceEntity, Scene& destination, entt::entity destinationEntity)
+		{
+			if (!source.registry->all_of<Component>(sourceEntity))
+			{
+				return false;
+			}
+			const Component& srcComponent = source.registry->get<Component>(sourceEntity);
+			Component componentCopy = PrepareComponentCopy(srcComponent);
+			if (destination.HasComponent<Component>(destinationEntity))
+			{
+				destination.GetComponent<Component>(destinationEntity) = componentCopy;
+			}
+			else
+			{
+				destination.AddComponent<Component>(destinationEntity, componentCopy);
+			}
+			return true;
+		}
+
+		template<typename... Component>
+		bool CopyComponentToEntityGroup(const Scene& source, entt::entity sourceEntity, Scene& destination, entt::entity destinationEntity, ComponentGroup<Component...>)
+		{
+			bool copiedAny = false;
+			((copiedAny = CopyComponentToEntity<Component>(source, sourceEntity, destination, destinationEntity) || copiedAny), ...);
+			return copiedAny;
+		}
+
 		template<typename Component>
 		void CopyComponent(const Scene& source, const Ref<Scene>& destination)
 		{
@@ -62,11 +96,6 @@ namespace flex
 				}
 			});
 		}
-
-		template<typename... Component>
-		struct ComponentGroup
-		{
-		};
 
 		template<typename... Component>
 		void CopyComponentGroup(const Scene& source, const Ref<Scene>& destination, ComponentGroup<Component...>)
@@ -259,7 +288,55 @@ namespace flex
 		return newEntity;
 	}
 
-	Ref<Scene> Scene::Clone() const
+    entt::entity Scene::DuplicateEntity(entt::entity entity)
+    {
+		if (!IsValid(entity))
+		{
+			return entt::null;
+		}
+
+		const TagComponent& sourceTag = GetComponent<TagComponent>(entity);
+
+		std::string baseName = sourceTag.name;
+		if (baseName.empty())
+		{
+			baseName = "Entity";
+		}
+
+		std::string duplicateName = baseName;
+		int suffix = 1;
+		while (true)
+		{
+			bool exists = false;
+			for (const auto& [uuid, existingEntity] : entities)
+			{
+				if (GetComponent<TagComponent>(existingEntity).name == duplicateName)
+				{
+					exists = true;
+					break;
+				}
+			}
+
+			if (!exists)
+			{
+				break;
+			}
+
+			duplicateName = std::format("{} ({})", baseName, suffix);
+			++suffix;
+		}
+
+		entt::entity duplicateEntity = CreateEntity(duplicateName);
+		TagComponent& duplicateTag = GetComponent<TagComponent>(duplicateEntity);
+		duplicateTag.parent = UUID(0);
+		duplicateTag.children.clear();
+
+		detail::CopyComponentToEntityGroup(*this, entity, *this, duplicateEntity, detail::AllComponents{});
+
+		return duplicateEntity;
+    }
+
+    Ref<Scene> Scene::Clone() const
 	{
 		Ref<Scene> clonedScene = CreateRef<Scene>();
 		clonedScene->sceneGravity = sceneGravity;
