@@ -15,6 +15,7 @@ namespace flex
 		explicit UUID(uint64_t uuid);
 		UUID(const UUID& uuid) = default;
 
+		static uint64_t GenerateUUID();
 		operator uint64_t() const { return m_UUID; }
 	private:
 		uint64_t m_UUID;

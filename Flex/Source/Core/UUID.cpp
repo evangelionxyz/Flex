@@ -4,19 +4,21 @@
 
 #include <random>
 
-static std::random_device s_RandomDevice;
-static std::mt19937_64 s_Engine(s_RandomDevice());
-static std::uniform_int_distribution<uint64_t> s_UniformDist;
-
 namespace flex
 {
 	UUID::UUID()
-		: m_UUID(s_UniformDist(s_Engine))
+		: m_UUID(GenerateUUID())
 	{
 	}
 
 	UUID::UUID(const uint64_t uuid)
 		: m_UUID(uuid)
 	{
+	}
+
+	uint64_t UUID::GenerateUUID()
+	{
+		static std::random_device rd;
+		return (static_cast<uint64_t>(rd()) << 32) | rd();
 	}
 }
