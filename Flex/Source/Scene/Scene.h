@@ -7,6 +7,7 @@
 #include "Core/UUID.h"
 
 #include "Physics/JoltPhysics.h"
+#include "Physics/JoltPhysicsScene.h"
 
 #include <glm/glm.hpp>
 #include <string>
@@ -15,7 +16,6 @@
 
 namespace flex
 {
-    class JoltPhysicsScene;
     class Texture2D;
     class Shader;
 
@@ -83,6 +83,9 @@ namespace flex
         }
 
         entt::entity GetEntityByUUID(const UUID& uuid);
+        entt::entity GetEntityByName(const std::string &name);
+        const std::string &GetEntityName(entt::entity entity);
+        const UUID GetEntityUUID(entt::entity entity);
 
         entt::registry* registry = nullptr;
         std::unordered_map<UUID, entt::entity> entities;

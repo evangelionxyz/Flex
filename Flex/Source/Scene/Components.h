@@ -4,6 +4,7 @@
 #define COMPONENTS_H
 
 #include <algorithm>
+#include <functional>
 #include <set>
 #include <string>
 #include <glm/glm.hpp>
@@ -19,6 +20,8 @@
 namespace flex
 {
     class Scene;
+    struct PhysicsContactData;
+    struct PhysicsActivationData;
 
     struct TagComponent
     {
@@ -74,6 +77,10 @@ namespace flex
         TransformComponent() = default;
     };
 
+    using ContactValidationCallback = std::function<JPH::ValidateResult(const PhysicsContactData&)>;
+    using ContactCallback = std::function<void(const PhysicsContactData&)>;
+    using ActivationCallback = std::function<void(const PhysicsActivationData&)>;
+
 	struct RigidbodyComponent
 	{
         enum class EMotionQuality
@@ -95,6 +102,14 @@ namespace flex
         glm::vec3 centerOfMass = { 0.0f, 0.0f, 0.0f };
 
         JPH::BodyID bodyID = JPH::BodyID();
+
+        ContactValidationCallback onContactValidate;
+        ContactCallback onContactEnter;
+        ContactCallback onContactPersist;
+        ContactCallback onContactExit;
+
+        ActivationCallback onBodyActivated;
+        ActivationCallback onBodyDeactivated;
 
         RigidbodyComponent() = default;
 	};

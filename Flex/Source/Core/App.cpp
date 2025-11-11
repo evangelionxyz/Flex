@@ -418,7 +418,19 @@ namespace flex
         Ref<Scene> runtimeScene = m_EditorScene->Clone();
         m_ActiveScene = runtimeScene;
         m_ActiveScene->Start();
-
+        
+#if 0
+        entt::entity player = m_ActiveScene->GetEntityByName("player");
+        if (player != entt::null)
+        {
+            auto &rb = m_ActiveScene->GetComponent<RigidbodyComponent>(player);
+            rb.onContactEnter = [&](const PhysicsContactData& data) -> void
+            {
+                const std::string &name = m_ActiveScene->GetEntityName(data.otherEntity);
+                SDL_Log("%s\n", name.c_str());
+            };
+        }
+#endif
         if (hasSelection)
         {
             m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));

@@ -3,6 +3,8 @@
 #include "Scene.h"
 #include "Components.h"
 
+#include "Physics/JoltPhysicsScene.h"
+
 #include "Renderer/Texture.h"
 #include "Renderer/Material.h"
 #include "Renderer/Mesh.h"
@@ -419,6 +421,7 @@ namespace flex
 			entities.erase(tag.uuid);
 		}
 	}
+
 	entt::entity Scene::GetEntityByUUID(const UUID& uuid)
 	{
 		if (entities.contains(uuid))
@@ -426,5 +429,35 @@ namespace flex
 			return entities[uuid];
 		}
 		return entt::null;
+	}
+
+    entt::entity Scene::GetEntityByName(const std::string &name)
+    {
+		auto it = std::find_if(entities.begin(), entities.end(), [&](std::pair<UUID, entt::entity> pair)
+		{
+			if (this->HasComponent<TagComponent>(pair.second))
+			{
+				const auto &tag = this->GetComponent<TagComponent>(pair.second);
+				return tag.name == name;
+			}
+			return false;
+		});
+
+		if (it != entities.end())
+		{
+			return it->second;
+		}
+
+        return entt::null;
+    }
+
+	const std::string &Scene::GetEntityName(entt::entity entity)
+	{
+		return GetComponent<TagComponent>(entity).name;
+	}
+
+	const UUID Scene::GetEntityUUID(entt::entity entity)
+	{
+		return GetComponent<TagComponent>(entity).uuid;
 	}
 }
