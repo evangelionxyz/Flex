@@ -1,4 +1,8 @@
-add_subdirectory("${THIRDPARTY_DIR}/googletest" "${CMAKE_CURRENT_BINARY_DIR}/googletest" EXCLUDE_FROM_ALL)
+add_subdirectory(
+    "${THIRDPARTY_DIR}/googletest"
+    "${CMAKE_CURRENT_BINARY_DIR}/googletest"
+    EXCLUDE_FROM_ALL
+)
 
 file(GLOB_RECURSE FLEX_TEST_SOURCES
     "Source/**.c"
@@ -8,7 +12,7 @@ file(GLOB_RECURSE FLEX_TEST_SOURCES
 )
 
 add_executable(FlexTest ${FLEX_TEST_SOURCES})
-target_link_libraries(FlexTest PRIVATE FlexEngineLib GTest::gtest_main)
+target_link_libraries(FlexTest PRIVATE FlexEngine GTest::gtest_main)
 
 add_custom_command(TARGET FlexTest POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

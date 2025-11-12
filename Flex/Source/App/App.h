@@ -3,7 +3,7 @@
 #ifndef APP_H
 #define APP_H
 
-#include "Types.h"
+#include "Core/Types.h"
 
 #include <iostream>
 #include <fstream>
@@ -19,15 +19,15 @@
 #include <optional>
 #include <mutex>
 
-#include "UIHelper.h"
+#include "Core/UIHelper.h"
 
 #include <glad/glad.h>
 #include <stb_image_write.h>
 
-#include "ImGuiContext.h"
+#include "Core/ImGuiContext.h"
 #include "Scene/Scene.h"
 #include "Renderer/CascadedShadowMap.h"
-#include "Camera.h"
+#include "Core/Camera.h"
 #include "Renderer/Material.h"
 #include "Renderer/Shader.h"
 #include "Renderer/UniformBuffer.h"

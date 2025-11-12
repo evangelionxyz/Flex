@@ -117,22 +117,7 @@ namespace flex
 
         // Create skybox mesh
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
-
-        // Load default glTF assets into the scene graph
-        // const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
-        // const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
-        // if (m_SelectedEntity == entt::null)
-        // {
-        //     if (!helmetEntities.empty())
-        //     {
-        //         m_SelectedEntity = helmetEntities.front();
-        //     }
-        //     else if (!sceneEntities.empty())
-        //     {
-        //         m_SelectedEntity = sceneEntities.front();
-        //     }
-        // }
-
+        
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
 
@@ -187,16 +172,6 @@ namespace flex
             m_FrameData.deltaTime = static_cast<float>(currentCount - prevCount) / freq;
             prevCount = currentCount;
             m_FrameData.fps = 1.0f / m_FrameData.deltaTime;
-
-            /*
-            statusUpdateInterval -= m_FrameData.deltaTime;
-            if (statusUpdateInterval <= 0.0)
-            {
-                auto title = std::format("Flex Engine - OpenGL 4.6 Renderer FPS {:.3f} | {:.3f}", m_FrameData.fps, m_FrameData.deltaTime * 1000.0f);
-                m_Window->SetWindowTitle(title);
-                statusUpdateInterval = 1.0;
-            }
-            */
 
             if (m_ActiveScene)
             {

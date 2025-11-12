@@ -78,6 +78,7 @@ namespace flex
 
         switch (createInfo.format)
         {
+            case Format::RGB8:
             case Format::RGBA8:
             {
                 uint8_t *data = stbi_load(filename.c_str(), &width, &height, &loadedChannels, 4);
@@ -130,6 +131,13 @@ namespace flex
                 {
                     stbi_image_free(data);
                 }
+                break;
+            }
+            case Format::R8:
+            case Format::DEPTH24STENCIL8:
+            default:
+            {
+                assert(false);
                 break;
             }
         }    
