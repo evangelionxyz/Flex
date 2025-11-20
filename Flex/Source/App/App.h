@@ -160,6 +160,12 @@ namespace flex
         bool isHovered = false;
     };
 
+    struct ViewportOptions
+    {
+        bool fixedAspect = false;
+        float aspectRatio = 16.0f / 9.0f;
+    };
+
     struct FrameData
     {
         float fps = 0.0f;
@@ -200,6 +206,8 @@ namespace flex
         void SaveSceneToPath(const std::filesystem::path &filepath);
         void OpenSceneFromPath(const std::filesystem::path &filepath);
         void ProcessPendingSceneActions();
+        glm::vec2 GetSceneViewportSize() const;
+        bool ApplyRuntimeCamera();
 
     private:
         Ref<Window> m_Window;
@@ -219,7 +227,10 @@ namespace flex
         entt::entity m_SelectedEntity = { entt::null };
 
         ViewportData m_Vp;
+        ViewportOptions m_ViewportOptions;
         Camera m_Camera;
+        Camera m_EditorCameraBackup;
+        bool m_HasCameraBackup = false;
         SceneData m_SceneData;
         FrameData m_FrameData;
 

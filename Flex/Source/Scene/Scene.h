@@ -19,6 +19,8 @@ namespace flex
     class Texture2D;
     class Shader;
 
+    struct CameraComponent;
+
     class Scene
     {
     public:
@@ -28,6 +30,9 @@ namespace flex
         void Start();
         void Stop();
         void Update(float deltaTime);
+
+        void ResizeViewport(const glm::vec2 &size);
+        glm::vec2 GetViewportSize() const;
 
         void Render(const Ref<Shader>& shader, const Ref<Texture2D>& environmentTexture);
         void RenderDepth(const Ref<Shader>& shader);
@@ -82,10 +87,13 @@ namespace flex
             return registry->valid(entity);
         }
 
+        entt::entity GetPrimaryCamera();
+
         entt::entity GetEntityByUUID(const UUID& uuid);
         entt::entity GetEntityByName(const std::string &name);
         const std::string &GetEntityName(entt::entity entity);
         const UUID GetEntityUUID(entt::entity entity);
+        void SetPrimaryCamera(entt::entity entity);
 
         entt::registry* registry = nullptr;
         std::unordered_map<UUID, entt::entity> entities;
@@ -94,6 +102,7 @@ namespace flex
         Ref<JoltPhysicsScene> joltPhysicsScene;
 
     private:
+        glm::vec2 m_Viewport = { 1.0f, 1.0f };
         bool m_IsPlaying = false;
     };
 }

@@ -18,6 +18,7 @@
 #include <format>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/quaternion.hpp>
 
 namespace flex
@@ -83,24 +84,24 @@ namespace flex
 		{
 			auto view = source.registry->view<Component>();
 			view.each([&](entt::entity entity, const Component& component)
-			{
-				const UUID uuid = source.registry->get<TagComponent>(entity).uuid;
-				entt::entity clonedEntity = destination->GetEntityByUUID(uuid);
-				if (clonedEntity == entt::null)
 				{
-					return;
-				}
+					const UUID uuid = source.registry->get<TagComponent>(entity).uuid;
+					entt::entity clonedEntity = destination->GetEntityByUUID(uuid);
+					if (clonedEntity == entt::null)
+					{
+						return;
+					}
 
-				Component componentCopy = PrepareComponentCopy(component);
-				if (destination->HasComponent<Component>(clonedEntity))
-				{
-					destination->GetComponent<Component>(clonedEntity) = componentCopy;
-				}
-				else
-				{
-					destination->AddComponent<Component>(clonedEntity, componentCopy);
-				}
-			});
+					Component componentCopy = PrepareComponentCopy(component);
+					if (destination->HasComponent<Component>(clonedEntity))
+					{
+						destination->GetComponent<Component>(clonedEntity) = componentCopy;
+					}
+					else
+					{
+						destination->AddComponent<Component>(clonedEntity, componentCopy);
+					}
+				});
 		}
 
 		template<typename... Component>
@@ -109,7 +110,7 @@ namespace flex
 			(CopyComponent<Component>(source, destination), ...);
 		}
 
-		using AllComponents = ComponentGroup<TransformComponent, MeshComponent, RigidbodyComponent, BoxColliderComponent>;
+		using AllComponents = ComponentGroup<TransformComponent, MeshComponent, RigidbodyComponent, BoxColliderComponent, CameraComponent>;
 	}
 
 	Scene::Scene()
@@ -124,20 +125,20 @@ namespace flex
 		registry = nullptr;
 	}
 
-    void Scene::Start()
-    {
+	void Scene::Start()
+	{
 		m_IsPlaying = true;
 		joltPhysicsScene->SimulationStart();
-    }
+	}
 
-    void Scene::Stop()
-    {
+	void Scene::Stop()
+	{
 		m_IsPlaying = false;
 		joltPhysicsScene->SimulationStop();
-    }
+	}
 
-    void Scene::Update(float deltaTime)
-    {
+	void Scene::Update(float deltaTime)
+	{
 		if (m_IsPlaying)
 		{
 			joltPhysicsScene->Simulate(deltaTime);
@@ -145,7 +146,40 @@ namespace flex
 		else // Editor Update
 		{
 		}
-    }
+
+		if (!registry)
+		{
+			return;
+		}
+
+		auto cameraView = registry->view<TransformComponent, CameraComponent>();
+		cameraView.each([](const TransformComponent& transform, CameraComponent& camera)
+			{
+				const glm::mat4 worldTransform = math::ComposeTransform(transform);
+				camera.view = glm::inverse(worldTransform);
+			});
+	}
+
+	void Scene::ResizeViewport(const glm::vec2& size)
+	{
+		m_Viewport = size;
+
+		if (!registry || size.x <= 0.0f || size.y <= 0.0f)
+		{
+			return;
+		}
+
+		auto cameraView = registry->view<CameraComponent>();
+		cameraView.each([&](CameraComponent& camera)
+			{
+				camera.RecalculateProjection(size);
+			});
+	}
+
+	glm::vec2 Scene::GetViewportSize() const
+	{
+		return m_Viewport;
+	}
 
 	void Scene::Render(const Ref<Shader>& shader, const Ref<Texture2D>& environmentTexture)
 	{
@@ -450,6 +484,34 @@ namespace flex
 
         return entt::null;
     }
+
+	entt::entity Scene::GetPrimaryCamera()
+	{
+		auto camView = registry->view<CameraComponent>();
+		for (entt::entity e : camView)
+		{
+			CameraComponent &cam = registry->get<CameraComponent>(e);
+			if (cam.primary)
+			{
+				return e;
+			}
+		}
+		return entt::null;
+	}
+
+	void Scene::SetPrimaryCamera(entt::entity entity)
+	{
+		if (!registry)
+		{
+			return;
+		}
+
+		auto cameraView = registry->view<CameraComponent>();
+		cameraView.each([&](entt::entity e, CameraComponent& camera)
+			{
+				camera.primary = (e == entity);
+			});
+	}
 
 	const std::string &Scene::GetEntityName(entt::entity entity)
 	{

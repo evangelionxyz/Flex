@@ -3,6 +3,90 @@
         {
             "BoxCollider": {
                 "Density": 1.0,
+                "Friction": 0.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Restitution": 0.0,
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "StaticFriction": 0.30000001192092896
+            },
+            "Entity": 13557318151892569728,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.0,
+                        1.0,
+                        0.23529410362243652,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.20588243007659912,
+                        1.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Green (9)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -2.706179141998291,
+                    4.535349369049072,
+                    1.8324203491210938
+                ],
+                "Rotation": [
+                    -61.46731185913086,
+                    -0.0035653586965054274,
+                    -90.00183868408203
+                ],
+                "Scale": [
+                    0.40999847650527954,
+                    0.40999752283096313,
+                    0.4099995195865631
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
                 "Friction": 1.0,
                 "Offset": [
                     0.0,
@@ -155,90 +239,6 @@
                     -1.7741060256958008,
                     3.5958497524261475,
                     2.339433193206787
-                ],
-                "Rotation": [
-                    -61.46731185913086,
-                    -0.0035653586965054274,
-                    -90.00183868408203
-                ],
-                "Scale": [
-                    0.40999847650527954,
-                    0.40999752283096313,
-                    0.4099995195865631
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Friction": 0.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Restitution": 0.0,
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ],
-                "StaticFriction": 0.30000001192092896
-            },
-            "Entity": 13557318151892569728,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.0,
-                        1.0,
-                        0.23529410362243652,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.20588243007659912,
-                        1.0,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Green (9)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -2.706179141998291,
-                    4.535349369049072,
-                    1.8324203491210938
                 ],
                 "Rotation": [
                     -61.46731185913086,
@@ -505,6 +505,54 @@
             }
         },
         {
+            "Entity": 332544971248342330,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material_MR",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 1.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/damaged_helmet.gltf"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "node_damagedHelmet_-6514",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -1.0263570547103882,
+                    2.491590976715088,
+                    5.54610013961792
+                ],
+                "Rotation": [
+                    90.00000762939453,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    0.999986469745636,
+                    0.999986469745636
+                ]
+            }
+        },
+        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Friction": 0.0,
@@ -589,54 +637,6 @@
             }
         },
         {
-            "Entity": 332544971248342330,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        1.0,
-                        1.0,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        1.0,
-                        1.0,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 1.0,
-                    "Name": "Material_MR",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 1.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/damaged_helmet.gltf"
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "node_damagedHelmet_-6514",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -1.0263570547103882,
-                    2.491590976715088,
-                    5.54610013961792
-                ],
-                "Rotation": [
-                    90.00000762939453,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    0.999986469745636,
-                    0.999986469745636
-                ]
-            }
-        },
-        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Friction": 0.6000000238418579,
@@ -699,98 +699,14 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "player",
+                "Name": "purple",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    -1.8577489852905273,
-                    3.959482192993164,
-                    -1.0643558502197266
-                ],
-                "Rotation": [
-                    -61.46731185913086,
-                    -0.0035671305377036333,
-                    -90.00183868408203
-                ],
-                "Scale": [
-                    0.40999847650527954,
-                    0.40999752283096313,
-                    0.4099995195865631
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Friction": 0.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Restitution": 0.0,
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ],
-                "StaticFriction": 0.30000001192092896
-            },
-            "Entity": 7791977441367251695,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.0,
-                        1.0,
-                        0.23529410362243652,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.20588243007659912,
-                        1.0,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Green (7)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -0.8348464369773865,
-                    4.130678653717041,
-                    2.8500125408172607
+                    1.0820293426513672,
+                    3.959486722946167,
+                    0.5339857339859009
                 ],
                 "Rotation": [
                     -61.46731185913086,
@@ -884,6 +800,90 @@
                 "Scale": [
                     0.4099999666213989,
                     0.4099988341331482,
+                    0.4099995195865631
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Friction": 0.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Restitution": 0.0,
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "StaticFriction": 0.30000001192092896
+            },
+            "Entity": 7791977441367251695,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.0,
+                        1.0,
+                        0.23529410362243652,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.20588243007659912,
+                        1.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Green (7)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -0.8348464369773865,
+                    4.130678653717041,
+                    2.8500125408172607
+                ],
+                "Rotation": [
+                    -61.46731185913086,
+                    -0.0035653586965054274,
+                    -90.00183868408203
+                ],
+                "Scale": [
+                    0.40999847650527954,
+                    0.40999752283096313,
                     0.4099995195865631
                 ]
             }
@@ -1069,54 +1069,6 @@
             }
         },
         {
-            "Entity": 9123413879861689928,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.0,
-                        0.23529434204101563,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.0,
-                        0.23529434204101563,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.0,
-                    "Name": "Blue",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.5,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 2,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Torus.002",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -4.760217666625977,
-                    1.9430499076843262,
-                    5.304093360900879
-                ],
-                "Rotation": [
-                    -33.74117660522461,
-                    8.67348861694336,
-                    -20.805376052856445
-                ],
-                "Scale": [
-                    0.9999995827674866,
-                    0.9999996423721313,
-                    0.9999995231628418
-                ]
-            }
-        },
-        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Friction": 1.0,
@@ -1197,6 +1149,54 @@
                     0.40999990701675415,
                     0.40999892354011536,
                     0.4099995195865631
+                ]
+            }
+        },
+        {
+            "Entity": 9123413879861689928,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.0,
+                        0.23529434204101563,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.23529434204101563,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.0,
+                    "Name": "Blue",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.5,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 2,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Torus.002",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -4.760217666625977,
+                    1.9430499076843262,
+                    5.304093360900879
+                ],
+                "Rotation": [
+                    -33.74117660522461,
+                    8.67348861694336,
+                    -20.805376052856445
+                ],
+                "Scale": [
+                    0.9999995827674866,
+                    0.9999996423721313,
+                    0.9999995231628418
                 ]
             }
         },
@@ -1497,6 +1497,45 @@
                     0.4099999666213989,
                     0.40999892354011536,
                     0.4099995493888855
+                ]
+            }
+        },
+        {
+            "Camera": {
+                "AspectMode": 0,
+                "FarPlane": 550.0,
+                "FixedAspectRatio": 1.7777777910232544,
+                "Fov": 45.0,
+                "NearPlane": 0.10000000149011612,
+                "OrthoSize": 10.0,
+                "Primary": true,
+                "ProjectionType": 0,
+                "ViewportSize": [
+                    1419.0,
+                    798.0
+                ]
+            },
+            "Entity": 4946296410789338325,
+            "Tag": {
+                "Children": [],
+                "Name": "Camera",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -3.5946061611175537,
+                    2.8684682846069336,
+                    18.876419067382813
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
                 ]
             }
         }
