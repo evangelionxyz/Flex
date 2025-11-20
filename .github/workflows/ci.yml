@@ -1,4 +1,4 @@
-name: Linux Build C/C++
+name: Flex Build
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
+  Linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -40,3 +40,31 @@ jobs:
 
       - name: Run Unit Tests
         run: ctest --test-dir build --output-on-failure
+
+  Windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository (with submodules)
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -S . `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build Flex Engine
+      run: cmake --build build --config Release --parallel
+
+    - name: Run Unit Tests
+      run: ctest --test-dir build --output-on-failure -C Release
