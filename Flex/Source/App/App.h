@@ -3,7 +3,7 @@
 #ifndef APP_H
 #define APP_H
 
-#include "Types.h"
+#include "Core/Types.h"
 
 #include <iostream>
 #include <fstream>
@@ -19,15 +19,15 @@
 #include <optional>
 #include <mutex>
 
-#include "UIHelper.h"
+#include "Core/UIHelper.h"
 
 #include <glad/glad.h>
 #include <stb_image_write.h>
 
-#include "ImGuiContext.h"
+#include "Core/ImGuiContext.h"
 #include "Scene/Scene.h"
 #include "Renderer/CascadedShadowMap.h"
-#include "Camera.h"
+#include "Core/Camera.h"
 #include "Renderer/Material.h"
 #include "Renderer/Shader.h"
 #include "Renderer/UniformBuffer.h"
@@ -160,6 +160,12 @@ namespace flex
         bool isHovered = false;
     };
 
+    struct ViewportOptions
+    {
+        bool fixedAspect = false;
+        float aspectRatio = 16.0f / 9.0f;
+    };
+
     struct FrameData
     {
         float fps = 0.0f;
@@ -200,6 +206,8 @@ namespace flex
         void SaveSceneToPath(const std::filesystem::path &filepath);
         void OpenSceneFromPath(const std::filesystem::path &filepath);
         void ProcessPendingSceneActions();
+        glm::vec2 GetSceneViewportSize() const;
+        bool ApplyRuntimeCamera();
 
     private:
         Ref<Window> m_Window;
@@ -219,7 +227,10 @@ namespace flex
         entt::entity m_SelectedEntity = { entt::null };
 
         ViewportData m_Vp;
+        ViewportOptions m_ViewportOptions;
         Camera m_Camera;
+        Camera m_EditorCameraBackup;
+        bool m_HasCameraBackup = false;
         SceneData m_SceneData;
         FrameData m_FrameData;
 

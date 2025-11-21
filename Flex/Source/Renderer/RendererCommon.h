@@ -13,7 +13,6 @@
 
 namespace flex
 {
-
     enum class RasterizeFillMode
     {
         SOLID,

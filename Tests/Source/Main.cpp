@@ -1,10 +1,9 @@
 #include <gtest/gtest.h>
 
+#include "Math/Math.hpp"
 #include "Scene/Scene.h"
 #include "Core/Types.h"
 #include "Scene/Components.h"
-#include "Physics/JoltPhysics.h"
-#include "Math/Math.hpp"
 
 namespace
 {

@@ -11,10 +11,12 @@
 
 #include <ImGuizmo.h>
 #include <glm/gtx/euler_angles.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <algorithm>
 #include <iterator>
 #include <cstring>
 #include <cstdint>
+#include <cfloat>
 
 namespace flex
 {
@@ -117,22 +119,7 @@ namespace flex
 
         // Create skybox mesh
         auto skyboxMesh = MeshLoader::CreateSkyboxCube();
-
-        // Load default glTF assets into the scene graph
-        // const auto helmetEntities = m_ActiveScene->LoadModel("Resources/models/damaged_helmet.gltf");
-        // const auto sceneEntities = m_ActiveScene->LoadModel("Resources/models/scene.glb");
-        // if (m_SelectedEntity == entt::null)
-        // {
-        //     if (!helmetEntities.empty())
-        //     {
-        //         m_SelectedEntity = helmetEntities.front();
-        //     }
-        //     else if (!sceneEntities.empty())
-        //     {
-        //         m_SelectedEntity = sceneEntities.front();
-        //     }
-        // }
-
+        
         CameraBuffer cameraData{};
         m_CSM = CreateRef<CascadedShadowMap>(CascadedQuality::Medium); // uses binding = 3 for UBO
 
@@ -165,6 +152,10 @@ namespace flex
         // Render Here (main scene)
         m_Vp.viewport = { 0, 0, static_cast<uint32_t>(viewportFBCreateInfo.width), static_cast<uint32_t>(viewportFBCreateInfo.height) };
         m_Vp.isHovered = false;
+        if (m_ActiveScene)
+        {
+            m_ActiveScene->ResizeViewport(GetSceneViewportSize());
+        }
 
         ImGuiContext imguiContext(m_Window.get());
 
@@ -188,27 +179,21 @@ namespace flex
             prevCount = currentCount;
             m_FrameData.fps = 1.0f / m_FrameData.deltaTime;
 
-            statusUpdateInterval -= m_FrameData.deltaTime;
-            if (statusUpdateInterval <= 0.0)
-            {
-                auto title = std::format("Flex Engine - OpenGL 4.6 Renderer FPS {:.3f} | {:.3f}", m_FrameData.fps, m_FrameData.deltaTime * 1000.0f);
-                m_Window->SetWindowTitle(title);
-                statusUpdateInterval = 1.0;
-            }
-
             if (m_ActiveScene)
             {
                 m_ActiveScene->Update(m_FrameData.deltaTime);
             }
 
-            m_Camera.OnUpdate(m_FrameData.deltaTime);
-            
-            m_Screen->inverseProjection = glm::inverse(m_Camera.projection);
-            m_Camera.lens.focalDistance = m_Camera.distance;
-
-            // Update camera matrices with the current aspect ratio
             const float aspect = static_cast<float>(m_Vp.viewport.width) / static_cast<float>(m_Vp.viewport.height);
-            m_Camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0f / 9.0f);
+            const bool usingRuntimeCamera = ApplyRuntimeCamera();
+            if (!usingRuntimeCamera)
+            {
+                m_Camera.OnUpdate(m_FrameData.deltaTime);
+                m_Camera.UpdateMatrices(aspect > 0.0f ? aspect : 16.0f / 9.0f);
+                m_Camera.lens.focalDistance = m_Camera.distance;
+            }
+
+            m_Screen->inverseProjection = glm::inverse(m_Camera.projection);
             cameraData.viewProjection = m_Camera.projection * m_Camera.view;
             cameraData.position = glm::vec4(m_Camera.position, 1.0f);
             cameraData.view = m_Camera.view; // new field used by shadows (also u_View uniform separately)
@@ -405,6 +390,12 @@ namespace flex
             m_EditorScene = m_ActiveScene ? m_ActiveScene : CreateRef<Scene>();
         }
 
+        if (!m_HasCameraBackup)
+        {
+            m_EditorCameraBackup = m_Camera;
+            m_HasCameraBackup = true;
+        }
+
         uint64_t selectedUUIDValue = 0;
         bool hasSelection = false;
         if (m_SelectedEntity != entt::null && m_EditorScene->IsValid(m_SelectedEntity) && m_EditorScene->HasComponent<TagComponent>(m_SelectedEntity))
@@ -416,7 +407,20 @@ namespace flex
         Ref<Scene> runtimeScene = m_EditorScene->Clone();
         m_ActiveScene = runtimeScene;
         m_ActiveScene->Start();
-
+        m_ActiveScene->ResizeViewport(GetSceneViewportSize());
+        
+#if 0
+        entt::entity player = m_ActiveScene->GetEntityByName("player");
+        if (player != entt::null)
+        {
+            auto &rb = m_ActiveScene->GetComponent<RigidbodyComponent>(player);
+            rb.onContactEnter = [&](const PhysicsContactData& data) -> void
+            {
+                const std::string &name = m_ActiveScene->GetEntityName(data.otherEntity);
+                SDL_Log("%s\n", name.c_str());
+            };
+        }
+#endif
         if (hasSelection)
         {
             m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));
@@ -444,6 +448,16 @@ namespace flex
 
         m_ActiveScene->Stop();
         m_ActiveScene = m_EditorScene;
+        if (m_ActiveScene)
+        {
+            m_ActiveScene->ResizeViewport(GetSceneViewportSize());
+        }
+
+        if (m_HasCameraBackup)
+        {
+            m_Camera = m_EditorCameraBackup;
+            m_HasCameraBackup = false;
+        }
 
         if (hasSelection && m_ActiveScene)
         {
@@ -507,16 +521,85 @@ namespace flex
                 m_GizmoMode = modeIndex == 0 ? ImGuizmo::LOCAL : ImGuizmo::WORLD;
             }
 
-            ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-            m_Vp.viewport.width = viewportSize.x;
-            m_Vp.viewport.height = viewportSize.y;
+            ImGui::SameLine();
+            ImGui::TextUnformatted("Aspect");
+            ImGui::SameLine();
+            static const char* kAspectModeLabels[] = { "Free", "Fixed" };
+            int aspectModeIndex = m_ViewportOptions.fixedAspect ? 1 : 0;
+            ImGui::SetNextItemWidth(100.0f);
+            if (ImGui::Combo("##AspectMode", &aspectModeIndex, kAspectModeLabels, IM_ARRAYSIZE(kAspectModeLabels)))
+            {
+                m_ViewportOptions.fixedAspect = aspectModeIndex == 1;
+            }
+            if (m_ViewportOptions.fixedAspect)
+            {
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(80.0f);
+                if (ImGui::InputFloat("##AspectValue", &m_ViewportOptions.aspectRatio, 0.0f, 0.0f, "%.2f"))
+                {
+                    m_ViewportOptions.aspectRatio = std::max(m_ViewportOptions.aspectRatio, 0.1f);
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("16:9"))
+                {
+                    m_ViewportOptions.aspectRatio = 16.0f / 9.0f;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("4:3"))
+                {
+                    m_ViewportOptions.aspectRatio = 4.0f / 3.0f;
+                }
+            }
+
+            const ImVec2 cursorStart = ImGui::GetCursorPos();
+            ImVec2 viewportAvail = ImGui::GetContentRegionAvail();
+            ImVec2 renderSize = viewportAvail;
+            ImVec2 renderPos = cursorStart;
+
+            if (m_ViewportOptions.fixedAspect && viewportAvail.x > 0.0f && viewportAvail.y > 0.0f)
+            {
+                const float targetAspect = std::max(m_ViewportOptions.aspectRatio, 0.01f);
+                const float availAspect = viewportAvail.x / viewportAvail.y;
+
+                if (availAspect > targetAspect)
+                {
+                    renderSize.x = viewportAvail.y * targetAspect;
+                    renderSize.y = viewportAvail.y;
+                }
+                else
+                {
+                    renderSize.x = viewportAvail.x;
+                    renderSize.y = viewportAvail.x / targetAspect;
+                }
+
+                renderPos.x += (viewportAvail.x - renderSize.x) * 0.5f;
+                renderPos.y += (viewportAvail.y - renderSize.y) * 0.5f;
+            }
+
+            ImVec2 cursorAfterImage(cursorStart.x, cursorStart.y + viewportAvail.y);
+
+            const float clampedWidth = std::max(renderSize.x, 1.0f);
+            const float clampedHeight = std::max(renderSize.y, 1.0f);
+            const uint32_t newViewportWidth = static_cast<uint32_t>(clampedWidth);
+            const uint32_t newViewportHeight = static_cast<uint32_t>(clampedHeight);
+
+            if (newViewportWidth != m_Vp.viewport.width || newViewportHeight != m_Vp.viewport.height)
+            {
+                m_Vp.viewport.width = newViewportWidth;
+                m_Vp.viewport.height = newViewportHeight;
+                if (m_ActiveScene)
+                {
+                    m_ActiveScene->ResizeViewport(glm::vec2(clampedWidth, clampedHeight));
+                }
+            }
 
             // Display framebuffer color attachment as image
             const uint32_t colorTex = m_ViewportFB->GetColorAttachment(0);
-            if (colorTex != 0)
+            if (colorTex != 0 && renderSize.x > 0.0f && renderSize.y > 0.0f)
             {
                 ImGuizmo::BeginFrame();
-                ImGui::Image(colorTex, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+                ImGui::SetCursorPos(renderPos);
+                ImGui::Image(colorTex, renderSize, ImVec2(0, 1), ImVec2(1, 0));
 
                 if (m_SelectedEntity != entt::null && m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
                 {
@@ -537,6 +620,8 @@ namespace flex
                     }
                 }
             }
+
+            // ImGui::SetCursorPos(cursorAfterImage);
         }
         m_Vp.isHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
         ImGui::End();
@@ -717,16 +802,16 @@ namespace flex
                     int suffix = 1;
 
                     auto nameExists = [&](const std::string& name)
-                    {
-                        for (const auto& [existingUUID, existingEntity] : m_ActiveScene->entities)
                         {
-                            if (m_ActiveScene->GetComponent<TagComponent>(existingEntity).name == name)
+                            for (const auto& [existingUUID, existingEntity] : m_ActiveScene->entities)
                             {
-                                return true;
+                                if (m_ActiveScene->GetComponent<TagComponent>(existingEntity).name == name)
+                                {
+                                    return true;
+                                }
                             }
-                        }
-                        return false;
-                    };
+                            return false;
+                        };
 
                     while (nameExists(candidate))
                     {
@@ -782,6 +867,68 @@ namespace flex
                     ImGui::DragFloat3("Position", &tr.position.x, 0.025);
                     ImGui::DragFloat3("Rotation", &tr.rotation.x, 0.025);
                     ImGui::DragFloat3("Scale", &tr.scale.x, 0.025);
+
+                    ImGui::TreePop();
+                }
+            }
+
+            if (m_ActiveScene->HasComponent<CameraComponent>(m_SelectedEntity))
+            {
+                auto& cc = m_ActiveScene->GetComponent<CameraComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Camera", treeNodeFlags))
+                {
+                    bool projectionDirty = false;
+                    static const std::array<const char*, 2> projLabels = { "Perspective", "Orthographic" };
+                    int projIndex = cc.projectionType == ProjectionType::Perspective ? 0 : 1;
+                    if (ImGui::Combo("Projection", &projIndex, projLabels.data(), projLabels.size()))
+                    {
+                        cc.projectionType = projIndex == 0 ? ProjectionType::Perspective : ProjectionType::Orthographic;
+                        projectionDirty = true;
+                    }
+
+                    projectionDirty |= ImGui::DragFloat("Near Plane", &cc.nearPlane, 0.025f, 0.0001f, FLT_MAX, "%.3f");
+                    projectionDirty |= ImGui::DragFloat("Far Plane", &cc.farPlane, 0.025f, cc.nearPlane + 0.001f, FLT_MAX, "%.3f");
+
+                    if (cc.projectionType == ProjectionType::Perspective)
+                    {
+                        projectionDirty |= ImGui::SliderFloat("Fov", &cc.fov, 20.0f, 180.0f);
+                    }
+                    else
+                    {
+                        projectionDirty |= ImGui::SliderFloat("Ortho Size", &cc.orthoSize, 0.1f, 100.0f);
+                    }
+
+                    bool isPrimary = cc.primary;
+                    if (ImGui::Checkbox("Primary", &isPrimary))
+                    {
+                        cc.primary = isPrimary;
+                        if (cc.primary)
+                        {
+                            m_ActiveScene->SetPrimaryCamera(m_SelectedEntity);
+                        }
+                    }
+
+                    static const char* kCameraAspectModes[] = { "Free", "Fixed" };
+                    int cameraAspectIndex = static_cast<int>(cc.aspectMode);
+                    if (ImGui::Combo("Aspect Mode", &cameraAspectIndex, kCameraAspectModes, IM_ARRAYSIZE(kCameraAspectModes)))
+                    {
+                        cc.aspectMode = static_cast<CameraAspectMode>(cameraAspectIndex);
+                        projectionDirty = true;
+                    }
+                    if (cc.aspectMode == CameraAspectMode::Fixed)
+                    {
+                        if (ImGui::InputFloat("Fixed Aspect", &cc.fixedAspectRatio, 0.0f, 0.0f, "%.2f"))
+                        {
+                            cc.fixedAspectRatio = std::max(cc.fixedAspectRatio, 0.1f);
+                            projectionDirty = true;
+                        }
+                    }
+                    ImGui::Text("Current Aspect: %.2f", cc.aspectRatio);
+
+                    if (projectionDirty)
+                    {
+                        cc.RecalculateProjection(m_ActiveScene->GetViewportSize());
+                    }
 
                     ImGui::TreePop();
                 }
@@ -928,6 +1075,15 @@ namespace flex
 
             if (ImGui::BeginPopup("AddComponentPopup"))
             {
+                if (!m_ActiveScene->HasComponent<CameraComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Camera"))
+                    {
+                        auto& camera = m_ActiveScene->AddComponent<CameraComponent>(m_SelectedEntity);
+                        camera.RecalculateProjection(m_ActiveScene->GetViewportSize());
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
                 if (!m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
                 {
                     if (ImGui::MenuItem("Transform"))
@@ -960,6 +1116,15 @@ namespace flex
                         ImGui::CloseCurrentPopup();
                     }
                 }
+                if (!m_ActiveScene->HasComponent<CapsuleColliderComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Capsule Collider"))
+                    {
+                        m_ActiveScene->AddComponent<CapsuleColliderComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+
                 ImGui::EndPopup();
             }
         }
@@ -1145,8 +1310,14 @@ namespace flex
 
         m_ActiveScene = CreateRef<Scene>();
         m_EditorScene = m_ActiveScene->Clone();
-    }
 
+        const glm::vec2 viewport = GetSceneViewportSize();
+        if (m_ActiveScene)
+        {
+            m_ActiveScene->ResizeViewport(viewport);
+        }
+    }
+    
     void App::SaveSceneToPath(const std::filesystem::path& filepath)
     {
         if (filepath.empty())
@@ -1154,10 +1325,8 @@ namespace flex
             SDL_Log("SaveSceneToPath: filepath is empty");
             return;
         }
-
-        Ref<Scene> sceneToSave = m_EditorScene ? m_EditorScene : m_ActiveScene;
         
-        // Force save runtime
+        Ref<Scene> sceneToSave = m_EditorScene ? m_EditorScene : m_ActiveScene;
         if (m_SaveRuntime)
             sceneToSave = m_ActiveScene;
 
@@ -1219,6 +1388,15 @@ namespace flex
 
         m_EditorScene = loadedScene;
         m_ActiveScene = m_EditorScene;
+        const glm::vec2 viewport = GetSceneViewportSize();
+        if (m_EditorScene)
+        {
+            m_EditorScene->ResizeViewport(viewport);
+        }
+        if (m_ActiveScene && m_ActiveScene != m_EditorScene)
+        {
+            m_ActiveScene->ResizeViewport(viewport);
+        }
         m_SelectedEntity = entt::null;
         m_CurrentScenePath = scenePath;
         m_SaveDialogDefaultLocation = scenePath.string();
@@ -1242,6 +1420,65 @@ namespace flex
         {
             OpenSceneFromPath(*sceneToOpen);
         }
+    }
+
+    glm::vec2 App::GetSceneViewportSize() const
+    {
+        if (m_Vp.viewport.width > 0 && m_Vp.viewport.height > 0)
+        {
+            return { static_cast<float>(m_Vp.viewport.width), static_cast<float>(m_Vp.viewport.height) };
+        }
+
+        if (m_Window)
+        {
+            return { static_cast<float>(m_Window->GetWidth()), static_cast<float>(m_Window->GetHeight()) };
+        }
+
+        return { 1.0f, 1.0f };
+    }
+
+    bool App::ApplyRuntimeCamera()
+    {
+        if (!m_ActiveScene || !m_ActiveScene->IsPlaying())
+        {
+            return false;
+        }
+
+        entt::entity primaryCamera = m_ActiveScene->GetPrimaryCamera();
+        if (primaryCamera == entt::null)
+        {
+            return false;
+        }
+
+        if (!m_ActiveScene->HasComponent<CameraComponent>(primaryCamera) || !m_ActiveScene->HasComponent<TransformComponent>(primaryCamera))
+        {
+            return false;
+        }
+
+        auto& cameraComponent = m_ActiveScene->GetComponent<CameraComponent>(primaryCamera);
+        auto& transform = m_ActiveScene->GetComponent<TransformComponent>(primaryCamera);
+
+        cameraComponent.RecalculateProjection(m_ActiveScene->GetViewportSize());
+
+        m_Camera.projectionType = cameraComponent.projectionType;
+        m_Camera.fov = cameraComponent.fov;
+        m_Camera.nearPlane = cameraComponent.nearPlane;
+        m_Camera.farPlane = cameraComponent.farPlane;
+        m_Camera.orthoSize = cameraComponent.orthoSize;
+        m_Camera.view = cameraComponent.view;
+        m_Camera.projection = cameraComponent.projection;
+        m_Camera.lens = cameraComponent.lens;
+        m_Camera.postProcessing = cameraComponent.postProcessing;
+
+        const glm::quat rotation = glm::quat(glm::radians(transform.rotation));
+        const glm::vec3 forward = glm::normalize(rotation * glm::vec3(0.0f, 0.0f, -1.0f));
+        const glm::vec3 up = glm::normalize(rotation * glm::vec3(0.0f, 1.0f, 0.0f));
+        m_Camera.position = transform.position;
+        m_Camera.target = transform.position + forward;
+        m_Camera.up = up;
+        m_Camera.distance = 1.0f;
+
+        return true;
     }
 
     void App::OnSceneSaveFileSelected(void* userData, const char* const* filelist, int filter)

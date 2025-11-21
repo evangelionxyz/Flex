@@ -30,4 +30,6 @@ set(PROFILER_IN_DEBUG_AND_RELEASE ON CACHE BOOL "Enable profiler" FORCE)
 add_subdirectory("${THIRDPARTY_DIR}/jolt/Build")
 
 add_subdirectory(Flex)
+add_subdirectory(Scripting)
+add_subdirectory(Runtime)
 add_subdirectory(Tests)

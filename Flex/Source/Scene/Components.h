@@ -4,9 +4,11 @@
 #define COMPONENTS_H
 
 #include <algorithm>
+#include <functional>
 #include <set>
 #include <string>
-#include <glm/glm.hpp>
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyID.h>
@@ -15,10 +17,13 @@
 #include "Renderer/Mesh.h"
 #include "Core/Types.h"
 #include "Core/UUID.h"
+#include "Core/Camera.h"
 
 namespace flex
 {
     class Scene;
+    struct PhysicsContactData;
+    struct PhysicsActivationData;
 
     struct TagComponent
     {
@@ -74,6 +79,16 @@ namespace flex
         TransformComponent() = default;
     };
 
+    using ContactValidationCallback = std::function<JPH::ValidateResult(const PhysicsContactData&)>;
+    using ContactCallback = std::function<void(const PhysicsContactData&)>;
+    using ActivationCallback = std::function<void(const PhysicsActivationData&)>;
+
+    enum class CameraAspectMode
+    {
+        Free = 0,
+        Fixed = 1
+    };
+
 	struct RigidbodyComponent
 	{
         enum class EMotionQuality
@@ -96,6 +111,14 @@ namespace flex
 
         JPH::BodyID bodyID = JPH::BodyID();
 
+        ContactValidationCallback onContactValidate;
+        ContactCallback onContactEnter;
+        ContactCallback onContactPersist;
+        ContactCallback onContactExit;
+
+        ActivationCallback onBodyActivated;
+        ActivationCallback onBodyDeactivated;
+
         RigidbodyComponent() = default;
 	};
 
@@ -116,6 +139,16 @@ namespace flex
         BoxColliderComponent() = default;
 	};
 
+    struct CapsuleColliderComponent : public IPhysicsColliderComponent
+    {
+        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+        glm::vec3 offset = { 0.0f, 0.0f, 0.0f };
+
+        float height = 1.0f;
+
+        CapsuleColliderComponent() = default;
+    };
+
     struct MeshComponent
     {
         std::string meshPath;
@@ -123,6 +156,58 @@ namespace flex
         int meshIndex = -1;
         
         MeshComponent() = default;
+    };
+
+    struct CameraComponent
+    {
+        float fov = 45.0f;
+        float nearPlane = 0.1f;
+        float farPlane = 550.0f;
+        float orthoSize = 10.0f;
+
+        bool primary = false;
+
+        glm::mat4 projection = glm::mat4(1.0f);
+        glm::mat4 view = glm::mat4(1.0f);
+
+        ProjectionType projectionType = ProjectionType::Perspective;
+        CameraAspectMode aspectMode = CameraAspectMode::Free;
+        float fixedAspectRatio = 16.0f / 9.0f;
+        float aspectRatio = 16.0f / 9.0f;
+        glm::vec2 viewportSize = { 1280.0f, 720.0f };
+        CameraLens lens;
+        PostProcessing postProcessing;
+
+        CameraComponent() = default;
+
+        void RecalculateProjection(const glm::vec2& viewport)
+        {
+            viewportSize = viewport;
+
+            const float safeWidth = viewportSize.x <= 0.0f ? 1.0f : viewportSize.x;
+            const float safeHeight = viewportSize.y <= 0.0f ? 1.0f : viewportSize.y;
+            const float freeAspect = safeWidth / safeHeight;
+
+            if (aspectMode == CameraAspectMode::Fixed)
+            {
+                aspectRatio = fixedAspectRatio > 0.0f ? fixedAspectRatio : freeAspect;
+            }
+            else
+            {
+                aspectRatio = freeAspect;
+            }
+
+            if (projectionType == ProjectionType::Perspective)
+            {
+                projection = glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+            }
+            else
+            {
+                const float halfHeight = orthoSize * 0.5f;
+                const float halfWidth = halfHeight * aspectRatio;
+                projection = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, nearPlane, farPlane);
+            }
+        }
     };
 }
 

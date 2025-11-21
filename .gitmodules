@@ -26,3 +26,6 @@
 [submodule "thirdparty/googletest"]
 	path = thirdparty/googletest
 	url = https://github.com/google/googletest.git
+[submodule "thirdparty/igniteserver"]
+	path = thirdparty/igniteserver
+	url = https://github.com/evangelionxyz/Ignite-Server.git
