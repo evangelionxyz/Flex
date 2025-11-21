@@ -250,6 +250,15 @@ namespace flex
     {
         Ref<FmodSound> sound;
 
+        std::string name;
+        std::string filepath;
+        float volume = 1.0f;
+        float panning = 0.0f;
+
+        bool loop = false;
+        bool playOnStart = false;
+        bool streaming = false;
+
         AudioComponent() = default;
     };
 }

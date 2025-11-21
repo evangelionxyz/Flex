@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#include "Audio/AudioEngine.h"
+#include "Audio/Sound.h"
+
 #include "Math/Math.hpp"
 #include "Scene/Scene.h"
 #include "Core/Types.h"

@@ -121,6 +121,7 @@ namespace flex
             SphereColliderComponent,
             PlaneColliderComponent,
             NativeScriptComponent,
+            AudioComponent,
             CameraComponent>;
     }
 
@@ -139,7 +140,19 @@ namespace flex
     void Scene::Start()
     {
         m_IsPlaying = true;
-        // TODO: Start Native Script
+
+        registry->view<AudioComponent>().each([](entt::entity entity, AudioComponent &audio)
+        {
+            if (audio.sound && audio.playOnStart)
+            {
+                audio.sound->Stop();
+                audio.sound->Play();
+
+                audio.sound->SetVolume(audio.volume);
+                audio.sound->SetPan(audio.panning);
+            }
+        });
+
         auto nscView = registry->view<NativeScriptComponent>();
         nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
         {
@@ -157,7 +170,14 @@ namespace flex
     {
         m_IsPlaying = false;
 
-        // TODO: Stop Native Script
+        registry->view<AudioComponent>().each([](entt::entity entity, AudioComponent &audio)
+        {
+            if (audio.sound)
+            {
+                audio.sound->Stop();
+            }
+        });
+
         auto nscView = registry->view<NativeScriptComponent>();
         nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
         {

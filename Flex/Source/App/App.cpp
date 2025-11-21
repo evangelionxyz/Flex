@@ -64,14 +64,12 @@ namespace flex
         m_Camera.UpdateMatrices(initialAspect);
 
         // Initialize font and text renderer
-        Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
         TextRenderer::Init();
+        Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
+        
         FmodAudio::Init();
-
-        Ref<FmodSound> sound = FmodSound::Create("pistor-shot", "Resources/audio/pistol-shot.mp3");
-        sound->Play();
-
         JoltPhysics::Init();
+
         m_Screen = CreateRef<Screen>();
 
         m_EditorScene = CreateRef<Scene>();
@@ -429,18 +427,6 @@ namespace flex
         m_ActiveScene->Start();
         m_ActiveScene->ResizeViewport(GetSceneViewportSize());
         
-#if 0
-        entt::entity player = m_ActiveScene->GetEntityByName("player");
-        if (player != entt::null)
-        {
-            auto &rb = m_ActiveScene->GetComponent<RigidbodyComponent>(player);
-            rb.onContactEnter = [&](const PhysicsContactData& data) -> void
-            {
-                const std::string &name = m_ActiveScene->GetEntityName(data.otherEntity);
-                SDL_Log("%s\n", name.c_str());
-            };
-        }
-#endif
         if (hasSelection)
         {
             m_SelectedEntity = m_ActiveScene->GetEntityByUUID(UUID(selectedUUIDValue));
@@ -1133,6 +1119,10 @@ namespace flex
                 {
                     m_CopiedNativeScript = m_ActiveScene->GetComponent<T>(entity);
                 }
+                else if constexpr (std::is_same_v<T, AudioComponent>(entity))
+                {
+                    m_CopiedAudio = m_ActiveScene->GetComponent<AudioComponent>(entity);
+                }
             }
             
             bool canPaste = false;
@@ -1154,6 +1144,8 @@ namespace flex
                 canPaste = m_CopiedPlaneCollider.has_value();
             else if constexpr (std::is_same_v<T, NativeScriptComponent>)
                 canPaste = m_CopiedNativeScript.has_value();
+            else if constexpr (std::is_same_v<T, AudioComponent>)
+                canPaste = m_CopiedAudio.has_value();
             
             if (!canPaste)
                 ImGui::BeginDisabled();
@@ -1204,6 +1196,11 @@ namespace flex
                 {
                     if (m_CopiedNativeScript.has_value())
                         m_ActiveScene->GetComponent<T>(entity) = m_CopiedNativeScript.value();
+                }
+                else if constexpr (std::is_same_v<T, AudioComponent>)
+                {
+                    if (m_CopiedAudio.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedAudio.value();
                 }
             }
             
@@ -1332,6 +1329,67 @@ namespace flex
                     }
 
                     ImGui::TreePop();
+                }
+            }
+
+            if (m_ActiveScene->HasComponent<AudioComponent>(m_SelectedEntity))
+            {
+                auto &audio = m_ActiveScene->GetComponent<AudioComponent>(m_SelectedEntity);
+
+                if (ImGui::Button("Load Sound"))
+                {
+                    SDL_Log("Opening file dialog...");
+
+                    SDL_DialogFileFilter filters[] =
+                    {
+                        { "Audio Files", "mp3;wav" }
+                    };
+
+                    SDL_ShowOpenFileDialog(
+                        OnAudioFileSelected,
+                        this,
+                        m_Window->GetHandle(),
+                        filters,
+                        std::size(filters),
+                        nullptr,
+                        false
+                    );
+
+                    SDL_Log("SDL_ShowOpenFileDialog called");
+                }
+                
+                const float width = ImGui::GetContentRegionAvail().x;
+                if (audio.sound)
+                {
+                    if (ImGui::Button("Play", {width, 24.0f}))
+                    {
+                        audio.sound->Play();
+
+                        audio.sound->SetVolume(audio.volume);
+                        audio.sound->SetPan(audio.panning);
+                    }
+
+                    if (ImGui::Button("Pause", {width, 24.0f})) audio.sound->Pause();
+                    if (ImGui::Button("Stop", {width, 24.0f})) audio.sound->Stop();
+
+                    if (ImGui::SliderFloat("Volume", &audio.volume, 0.0f, 1.0f))
+                    {
+                        audio.sound->SetVolume(audio.volume);
+                    }
+                    if (ImGui::SliderFloat("Panning", &audio.panning, -1.0f, 1.0f))
+                    {
+                        audio.sound->SetPan(audio.panning);
+                    }
+
+                    // Recreate the audio
+                    if (ImGui::Checkbox("Loop", &audio.loop))
+                    {
+                        audio.sound->Stop();
+                        audio.sound = FmodSound::Create(audio.name, audio.filepath, audio.loop ? FMOD_LOOP_NORMAL : FMOD_INIT_NORMAL);
+                    }
+                    
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Play On Start", &audio.playOnStart);
                 }
             }
 
@@ -1590,6 +1648,14 @@ namespace flex
                     if (ImGui::MenuItem("Transform"))
                     {
                         m_ActiveScene->AddComponent<TransformComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<AudioComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Audio"))
+                    {
+                        m_ActiveScene->AddComponent<AudioComponent>(m_SelectedEntity);
                         ImGui::CloseCurrentPopup();
                     }
                 }
@@ -2124,6 +2190,27 @@ namespace flex
             std::lock_guard<std::mutex> lock(app->m_SceneDialogMutex);
             app->m_PendingSceneOpenPath = std::filesystem::path(filelist[0]);
         }
+    }
+
+    void App::OnAudioFileSelected(void *userData, const char *const *filelist, int filter)
+    {
+        if (filelist[0] == nullptr)
+        {
+            SDL_Log("File dialog cancelled (no file selected)");
+            return;
+        }
+
+        App* app = static_cast<App*>(userData);
+        if (!app)
+        {
+            return;
+        }
+
+        AudioComponent &audio = app->m_ActiveScene->GetComponent<AudioComponent>(app->m_SelectedEntity);
+        audio.filepath = std::string(filelist[0]);
+        audio.sound = FmodSound::Create("Untitled", filelist[0]);
+
+        SDL_Log("Load import sound: %s", filelist[0]);
     }
 
     void App::OnMeshFileSelected(void* userData, const char* const* filelist, int filter)

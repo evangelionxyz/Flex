@@ -283,6 +283,19 @@ namespace flex
             entityJson["Camera"] = camJson;
         }
 
+        if (m_Scene->HasComponent<AudioComponent>(entity))
+        {
+            const AudioComponent &audio = m_Scene->GetComponent<AudioComponent>(entity);
+            json audioJson;
+            audioJson["Name"] = audio.name;
+            audioJson["SoundPath"] = audio.filepath;
+            audioJson["Volume"] = audio.volume;
+            audioJson["Panning"] = audio.panning;
+            entityJson["Loop"] = audio.loop;
+            entityJson["PlayOnStart"] = audio.playOnStart;
+            entityJson["Audio"] = audioJson;
+        }
+
         if (m_Scene->HasComponent<NativeScriptComponent>(entity))
         {
             json nscJson;
@@ -448,6 +461,23 @@ namespace flex
             }
 
             cam.RecalculateProjection(m_Scene->GetViewportSize());
+        }
+
+        if (entityData.contains("Audio"))
+        {
+            const json &audioJson = entityData["Audio"];
+            AudioComponent &audio = m_Scene->AddComponent<AudioComponent>(entity);
+            audio.name = audioJson.value("Name", "<EMPTY>");
+            audio.filepath = audioJson.value("SoundPath", "<EMPTY>");
+            audio.volume = audioJson.value("Volume", 1.0f);
+            audio.panning = audioJson.value("Panning", 0.0f);
+            audio.loop = audioJson.value("Loop", false);
+            audio.playOnStart = audioJson.value("PlayOnStart", false);
+
+            if (!audio.filepath.empty())
+            {
+                audio.sound = FmodSound::Create(audio.name, audio.filepath, audio.loop ? FMOD_LOOP_NORMAL : FMOD_INIT_NORMAL);
+            }
         }
 
         if (entityData.contains("NativeScript"))

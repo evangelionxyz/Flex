@@ -203,9 +203,10 @@ namespace flex
         void OnMouseMotion(const glm::vec2 &position, const glm::vec2 &delta);
         void OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod);
 
-        static void OnMeshFileSelected(void* userData, const char* const* filelist, int filter);
-        static void OnSceneSaveFileSelected(void* userData, const char* const* filelist, int filter);
-        static void OnSceneOpenFileSelected(void* userData, const char* const* filelist, int filter);
+        static void OnMeshFileSelected(void* userData, const char *const *filelist, int filter);
+        static void OnSceneSaveFileSelected(void* userData, const char *const *filelist, int filter);
+        static void OnSceneOpenFileSelected(void* userData, const char *const *filelist, int filter);
+        static void OnAudioFileSelected(void *userData, const char *const *filelist, int filter);
 
         void SaveScene();
         void SaveSceneAs();
@@ -268,6 +269,7 @@ namespace flex
         std::optional<SphereColliderComponent> m_CopiedSphereCollider;
         std::optional<PlaneColliderComponent> m_CopiedPlaneCollider;
         std::optional<NativeScriptComponent> m_CopiedNativeScript;
+        std::optional<AudioComponent> m_CopiedAudio;
     };
 }
 

@@ -38,6 +38,7 @@ namespace flex
             m_FirePointL = m_Scene->GetEntityByName("FirePoint L");
             m_FirePointR = m_Scene->GetEntityByName("FirePoint R");
             m_BulletTemplate = m_Scene->GetEntityByName("bullet");
+            m_FireSound = m_Scene->GetEntityByName("bulletSound");
             
             if (m_FirePointL == entt::null)
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: FirePoint L not found!");
@@ -45,6 +46,8 @@ namespace flex
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: FirePoint R not found!");
             if (m_BulletTemplate == entt::null)
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: bullet template not found!");
+            if (m_FireSound == entt::null)
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: Firesound!");
         }
 
         void OnStop() override
@@ -237,6 +240,19 @@ namespace flex
                         spawnPosition.x, spawnPosition.y, spawnPosition.z,
                         bulletVelocity.x, bulletVelocity.y, bulletVelocity.z);
                 }
+
+                // Play Fire Sound
+                if (m_FireSound != entt::null && m_Scene->HasComponent<AudioComponent>(m_FireSound))
+                {
+                    auto &audio = m_Scene->GetComponent<AudioComponent>(m_FireSound);
+                    if (audio.sound)
+                    {
+                        audio.sound->Play();
+                        
+                        audio.sound->SetVolume(audio.volume);
+                        audio.sound->SetPan(audio.panning);
+                    }
+                }
             }
         }
 
@@ -254,6 +270,7 @@ namespace flex
         entt::entity m_FirePointL = entt::null;
         entt::entity m_FirePointR = entt::null;
         entt::entity m_BulletTemplate = entt::null;
+        entt::entity m_FireSound = entt::null;
     };
 }
 

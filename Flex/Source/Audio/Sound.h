@@ -38,6 +38,7 @@ namespace flex
 
         float GetPitch() const;
         float GetVolume() const;
+        float GetPan() const;
 
         void Update(float delta_time) const;
         void AddDsp(FMOD::DSP* dsp);

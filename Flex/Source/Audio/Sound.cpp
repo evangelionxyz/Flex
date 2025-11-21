@@ -78,7 +78,7 @@ namespace flex
 
     void FmodSound::SetMode(const FMOD_MODE mode) const
     {
-        m_Channel->setMode(mode);    
+        m_Channel->setMode(mode);
     }
 
     void FmodSound::SetFadeIn(const uint32_t fade_in_start_ms, const uint32_t fade_in_end_ms)
