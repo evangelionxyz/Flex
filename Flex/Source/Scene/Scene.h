@@ -30,6 +30,7 @@ namespace flex
         void Start();
         void Stop();
         void Update(float deltaTime);
+        void OnMouseMotion(const glm::vec2& delta);
 
         void ResizeViewport(const glm::vec2 &size);
         glm::vec2 GetViewportSize() const;

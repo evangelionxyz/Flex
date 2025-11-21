@@ -29,7 +29,6 @@ namespace flex
         virtual void OnStop() {};
         virtual void OnUpdate(float deltaTime) {};
 
-    private:
         Scene *m_Scene = nullptr;
         entt::entity m_Entity;
 

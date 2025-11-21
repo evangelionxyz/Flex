@@ -1,0 +1,260 @@
+// Copyright (c) 2025 Evangelion Manuhutu
+
+#ifndef PLAYER_CONTROLLER_H
+#define PLAYER_CONTROLLER_H
+
+#include "Scene/ScriptableEntity.h"
+#include "Scene/Components.h"
+#include "SDL3/SDL_keyboard.h"
+#include "SDL3/SDL_mouse.h"
+#include "SDL3/SDL_log.h"
+#include "Renderer/Window.h"
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+
+namespace flex
+{
+    class PlayerController : public ScriptableEntity
+    {
+    public:
+        PlayerController(Scene* scene, entt::entity entity)
+            : ScriptableEntity(scene, entity)
+        {
+        }
+
+        ~PlayerController() override = default;
+
+        void OnMouseMotion(const glm::vec2& delta)
+        {
+            m_MouseDelta = delta;
+        }
+
+    protected:
+        void OnStart() override
+        {
+            SDL_Log("PlayerController: Started");
+            
+            // Find fire points and bullet template
+            m_FirePointL = m_Scene->GetEntityByName("FirePoint L");
+            m_FirePointR = m_Scene->GetEntityByName("FirePoint R");
+            m_BulletTemplate = m_Scene->GetEntityByName("bullet");
+            
+            if (m_FirePointL == entt::null)
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: FirePoint L not found!");
+            if (m_FirePointR == entt::null)
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: FirePoint R not found!");
+            if (m_BulletTemplate == entt::null)
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: bullet template not found!");
+        }
+
+        void OnStop() override
+        {
+            SDL_Log("PlayerController: Stopped");
+        }
+
+        void OnUpdate(float deltaTime) override
+        {
+            if (!m_Scene || !m_Scene->IsValid(m_Entity))
+                return;
+
+            // Only process input if we have a rigidbody (physics-based movement)
+            if (!m_Scene->HasComponent<RigidbodyComponent>(m_Entity))
+                return;
+
+            auto& rb = m_Scene->GetComponent<RigidbodyComponent>(m_Entity);
+            
+            // Skip if body is static
+            if (rb.isStatic)
+                return;
+
+            if (rb.bodyID.IsInvalid())
+            {
+                SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, 
+                    "PlayerController: Rigidbody has invalid BodyID. Physics not initialized?");
+                return;
+            }
+
+            auto& physicsScene = m_Scene->joltPhysicsScene;
+            if (!physicsScene)
+                return;
+
+            if (!m_Scene->HasComponent<TransformComponent>(m_Entity))
+                return;
+
+            auto& transform = m_Scene->GetComponent<TransformComponent>(m_Entity);
+
+            // Handle mouse rotation
+            if (glm::length(m_MouseDelta) > 0.0f)
+            {
+                m_Yaw += m_MouseDelta.x * m_MouseSensitivity;
+                
+                // Apply rotation using physics
+                glm::quat rotation = glm::quat(glm::vec3(0.0f, glm::radians(-m_Yaw), 0.0f));
+                physicsScene->SetRotation(rb.bodyID, rotation, true);
+                
+                m_MouseDelta = glm::vec2(0.0f);
+            }
+
+            // Get current rotation from physics body to calculate correct forward/right vectors
+            glm::quat currentRotation = physicsScene->GetRotation(rb.bodyID);
+            glm::vec3 forward = currentRotation * glm::vec3(0.0f, 0.0f, -1.0f);
+            glm::vec3 right = currentRotation * glm::vec3(1.0f, 0.0f, 0.0f);
+            
+            // Flatten to horizontal plane
+            forward.y = 0.0f;
+            right.y = 0.0f;
+            if (glm::length(forward) > 0.0f)
+                forward = glm::normalize(forward);
+            if (glm::length(right) > 0.0f)
+                right = glm::normalize(right);
+
+            // Get input
+            const bool* keyState = SDL_GetKeyboardState(nullptr);
+            glm::vec3 moveDirection(0.0f);
+
+            if (keyState[SDL_SCANCODE_W])
+                moveDirection += forward;
+            if (keyState[SDL_SCANCODE_S])
+                moveDirection -= forward;
+            if (keyState[SDL_SCANCODE_A])
+                moveDirection -= right;
+            if (keyState[SDL_SCANCODE_D])
+                moveDirection += right;
+
+            // Normalize movement direction
+            if (glm::length(moveDirection) > 0.0f)
+            {
+                moveDirection = glm::normalize(moveDirection);
+            }
+
+            // Get current velocity and apply movement
+            glm::vec3 currentVelocity = physicsScene->GetLinearVelocity(rb.bodyID);
+            
+            // Apply horizontal movement while preserving vertical velocity (gravity)
+            glm::vec3 targetVelocity = moveDirection * m_MoveSpeed;
+            targetVelocity.y = currentVelocity.y; // Keep vertical velocity for gravity/jumping
+            
+            // Set the new velocity
+            physicsScene->SetLinearVelocity(rb.bodyID, targetVelocity);
+
+            // Lock angular velocity to prevent rotation from collisions (only allow Y-axis rotation)
+            glm::vec3 angularVel = physicsScene->GetAngularVelocity(rb.bodyID);
+            angularVel.x = 0.0f; // Lock X-axis rotation (pitch)
+            angularVel.z = 0.0f; // Lock Z-axis rotation (roll)
+            physicsScene->SetAngularVelocity(rb.bodyID, angularVel);
+
+            // Ground detection - check if vertical velocity is near zero and position is low
+            m_IsGrounded = std::abs(currentVelocity.y) < 0.1f && transform.position.y <= 1.0f;
+
+            // Jump
+            if (keyState[SDL_SCANCODE_SPACE] && !m_WasSpacePressed && m_IsGrounded)
+            {
+                // Apply upward impulse for jumping
+                glm::vec3 jumpImpulse(0.0f, m_JumpForce * rb.mass, 0.0f);
+                physicsScene->AddImpulse(rb.bodyID, jumpImpulse);
+                
+                SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: Jump!");
+            }
+            m_WasSpacePressed = keyState[SDL_SCANCODE_SPACE];
+
+            // Shooting
+            HandleShooting(forward);
+        }
+
+    private:
+        void HandleShooting(const glm::vec3& forward)
+        {
+            // Check mouse buttons
+            auto* window = Window::Get();
+            if (!window)
+                return;
+
+            bool leftMousePressed = window->IsMouseButtonPressed(SDL_BUTTON_LEFT);
+            bool rightMousePressed = window->IsMouseButtonPressed(SDL_BUTTON_RIGHT);
+
+            // Fire from left weapon
+            if (leftMousePressed && !m_LeftMouseWasPressed)
+            {
+                FireBullet(m_FirePointL, forward);
+            }
+            m_LeftMouseWasPressed = leftMousePressed;
+
+            // Fire from right weapon
+            if (rightMousePressed && !m_RightMouseWasPressed)
+            {
+                FireBullet(m_FirePointR, forward);
+            }
+            m_RightMouseWasPressed = rightMousePressed;
+        }
+
+        void FireBullet(entt::entity firePoint, const glm::vec3& forward)
+        {
+            if (firePoint == entt::null || m_BulletTemplate == entt::null)
+                return;
+
+            if (!m_Scene->IsValid(firePoint) || !m_Scene->IsValid(m_BulletTemplate))
+                return;
+
+            // Duplicate the bullet template
+            entt::entity bullet = m_Scene->DuplicateEntity(m_BulletTemplate);
+            if (bullet == entt::null)
+            {
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: Failed to duplicate bullet!");
+                return;
+            }
+
+            // Get fire point world position
+            glm::mat4 firePointWorld = m_Scene->GetWorldTransform(firePoint);
+            glm::vec3 spawnPosition;
+            glm::quat spawnRotation;
+            glm::vec3 scale;
+            glm::vec3 skew;
+            glm::vec4 perspective;
+            glm::decompose(firePointWorld, scale, spawnRotation, spawnPosition, skew, perspective);
+
+            // Set bullet position to fire point position
+            if (m_Scene->HasComponent<TransformComponent>(bullet))
+            {
+                auto& bulletTransform = m_Scene->GetComponent<TransformComponent>(bullet);
+                bulletTransform.position = spawnPosition;
+            }
+
+            // Apply velocity to bullet
+            if (m_Scene->HasComponent<RigidbodyComponent>(bullet))
+            {
+                auto& bulletRb = m_Scene->GetComponent<RigidbodyComponent>(bullet);
+
+                m_Scene->joltPhysicsScene->InstantiateEntity(bullet);
+                
+                // Wait for physics to initialize the body
+                if (!bulletRb.bodyID.IsInvalid() && m_Scene->joltPhysicsScene)
+                {
+                    glm::vec3 bulletVelocity = forward * m_BulletSpeed;
+                    m_Scene->joltPhysicsScene->SetLinearVelocity(bulletRb.bodyID, bulletVelocity);
+                    
+                    SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, 
+                        "PlayerController: Fired bullet at (%.2f, %.2f, %.2f) with velocity (%.2f, %.2f, %.2f)",
+                        spawnPosition.x, spawnPosition.y, spawnPosition.z,
+                        bulletVelocity.x, bulletVelocity.y, bulletVelocity.z);
+                }
+            }
+        }
+
+        float m_MoveSpeed = 12.0f;
+        float m_JumpForce = 8.0f;
+        float m_MouseSensitivity = 0.1f;
+        float m_BulletSpeed = 50.0f;
+        float m_Yaw = 0.0f;
+        glm::vec2 m_MouseDelta = glm::vec2(0.0f);
+        bool m_IsGrounded = false;
+        bool m_WasSpacePressed = false;
+        bool m_LeftMouseWasPressed = false;
+        bool m_RightMouseWasPressed = false;
+        
+        entt::entity m_FirePointL = entt::null;
+        entt::entity m_FirePointR = entt::null;
+        entt::entity m_BulletTemplate = entt::null;
+    };
+}
+
+#endif

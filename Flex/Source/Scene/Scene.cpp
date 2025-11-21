@@ -13,6 +13,7 @@
 #include "Math/Math.hpp"
 
 #include "ScriptableEntity.h"
+#include "GameTest/PlayerController.h"
 
 #include <filesystem>
 #include <unordered_map>
@@ -145,6 +146,7 @@ namespace flex
             if (!nsc.instance && nsc.InstantiateScript)
             {
                 nsc.instance = nsc.InstantiateScript(this, entity);
+                nsc.instance->OnStart();
             }
         });
 
@@ -160,7 +162,10 @@ namespace flex
         nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
         {
             if (nsc.DestroyScript)
+            {
+                nsc.instance->OnStop();
                 nsc.DestroyScript(&nsc);
+            }
         });
 
         joltPhysicsScene->SimulationStop();
@@ -195,6 +200,26 @@ namespace flex
         {
             const glm::mat4 worldTransform = GetWorldTransform(entity);
             camera.view = glm::inverse(worldTransform);
+        });
+    }
+
+    void Scene::OnMouseMotion(const glm::vec2& delta)
+    {
+        if (!m_IsPlaying || !registry)
+            return;
+
+        auto nscView = registry->view<NativeScriptComponent>();
+        nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+        {
+            if (nsc.instance)
+            {
+                // Check if the script has OnMouseMotion method
+                auto* playerController = dynamic_cast<PlayerController*>(nsc.instance);
+                if (playerController)
+                {
+                    playerController->OnMouseMotion(delta);
+                }
+            }
         });
     }
 

@@ -579,6 +579,16 @@ namespace flex
         return JoltToGlmVec3(m_BodyInterface->GetLinearVelocity(bodyID));
     }
 
+    glm::vec3 JoltPhysicsScene::GetAngularVelocity(JPH::BodyID bodyID)
+    {
+        return JoltToGlmVec3(m_BodyInterface->GetAngularVelocity(bodyID));
+    }
+
+    void JoltPhysicsScene::SetAngularVelocity(JPH::BodyID bodyID, const glm::vec3& vel)
+    {
+        m_BodyInterface->SetAngularVelocity(bodyID, GlmToJoltVec3(vel));
+    }
+
     void JoltPhysicsScene::SetMaxLinearVelocity(JPH::BodyID bodyID, float max)
     {
         JPH::BodyLockWrite lock(m_PhysicsSystem.GetBodyLockInterface(), bodyID);

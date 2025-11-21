@@ -135,7 +135,18 @@ namespace flex
         else if (event->type == SDL_EVENT_MOUSE_MOTION)
         {
             m_MousePosition = { event->motion.x, event->motion.y };
-            m_DeltaMousePosition = m_MousePosition - m_LastMousePosition;
+            
+            // Use relative motion values when in relative mouse mode for infinite rotation
+            glm::vec2 delta;
+            if (SDL_GetWindowRelativeMouseMode(m_Handle))
+            {
+                delta = { event->motion.xrel, event->motion.yrel };
+            }
+            else
+            {
+                delta = m_MousePosition - m_LastMousePosition;
+            }
+            m_DeltaMousePosition = delta;
 
             if (m_Data.mouseMotionCb)
             {

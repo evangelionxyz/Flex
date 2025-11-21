@@ -3,6 +3,7 @@
 #include "App.h"
 #include "Physics/JoltPhysics.h"
 #include "Scene/Components.h"
+#include "GameTest/PlayerController.h"
 #include "Renderer/Material.h"
 #include "Renderer/Renderer2D.h"
 #include "Math/Math.hpp"
@@ -400,6 +401,9 @@ namespace flex
             m_HasCameraBackup = true;
         }
 
+        // Capture mouse during play mode
+        SDL_SetWindowRelativeMouseMode(m_Window->GetHandle(), true);
+
         uint64_t selectedUUIDValue = 0;
         bool hasSelection = false;
         if (m_SelectedEntity != entt::null && m_EditorScene->IsValid(m_SelectedEntity) && m_EditorScene->HasComponent<TagComponent>(m_SelectedEntity))
@@ -441,6 +445,9 @@ namespace flex
         {
             return;
         }
+
+        // Release mouse capture when exiting play mode
+        SDL_SetWindowRelativeMouseMode(m_Window->GetHandle(), false);
 
         uint64_t selectedUUIDValue = 0;
         bool hasSelection = false;
@@ -1323,16 +1330,41 @@ namespace flex
                 DrawComponentHeader<RigidbodyComponent>("Rigidbody", m_SelectedEntity, treeNodeFlags, opened);
                 if (opened)
                 {
-                    ImGui::DragFloat("Mass", &rb.mass, 0.025f);
-                    ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.01f);
-                    ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f, 0.0f, 100.0f);
-                    ImGui::DragFloat("Friction", &rb.friction, 0.1f, 0.0f, 100.0f);
-                    ImGui::DragFloat("Static Friction", &rb.staticFriction, 100.0f);
-                    ImGui::DragFloat("Restitution", &rb.restitution, 0.1f, 0.0f, 100.0f);
-
+                    ImGui::DragFloat("Mass", &rb.mass, 0.025f, 0.0f, 1000.0f);
+                    ImGui::DragFloat3("Center of Mass", &rb.centerOfMass.x, 0.01f);
+                    ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.01f, 0.0f, 10.0f);
+                    
+                    ImGui::Separator();
+                    ImGui::Text("Physical Material");
+                    ImGui::DragFloat("Friction", &rb.friction, 0.01f, 0.0f, 1.0f);
+                    ImGui::DragFloat("Static Friction", &rb.staticFriction, 0.01f, 0.0f, 1.0f);
+                    ImGui::DragFloat("Restitution", &rb.restitution, 0.01f, 0.0f, 1.0f);
+                    
+                    ImGui::Separator();
+                    ImGui::Text("Motion Quality");
+                    static const char* motionQualityLabels[] = { "Discrete", "Linear Cast" };
+                    int qualityIndex = static_cast<int>(rb.MotionQuality);
+                    if (ImGui::Combo("Quality", &qualityIndex, motionQualityLabels, IM_ARRAYSIZE(motionQualityLabels)))
+                    {
+                        rb.MotionQuality = static_cast<RigidbodyComponent::EMotionQuality>(qualityIndex);
+                    }
+                    
+                    ImGui::Separator();
+                    ImGui::Text("Constraints");
+                    ImGui::Checkbox("Move X", &rb.moveX); ImGui::SameLine();
+                    ImGui::Checkbox("Move Y", &rb.moveY); ImGui::SameLine();
+                    ImGui::Checkbox("Move Z", &rb.moveZ);
+                    
+                    ImGui::Checkbox("Rotate X", &rb.rotateX); ImGui::SameLine();
+                    ImGui::Checkbox("Rotate Y", &rb.rotateY); ImGui::SameLine();
+                    ImGui::Checkbox("Rotate Z", &rb.rotateZ);
+                    
+                    ImGui::Separator();
+                    ImGui::Text("Flags");
                     ImGui::Checkbox("Is Static", &rb.isStatic);
                     ImGui::Checkbox("Use Gravity", &rb.useGravity);
                     ImGui::Checkbox("Allow Sleeping", &rb.allowSleeping);
+                    ImGui::Checkbox("Retain Acceleration", &rb.retainAcceleration);
 
                     ImGui::TreePop();
                 }
@@ -1629,6 +1661,13 @@ namespace flex
         if (ImGuizmo::IsUsing())
             return;
 
+        // Forward mouse motion to scripts during play mode
+        if (m_ActiveScene && m_ActiveScene->IsPlaying())
+        {
+            m_ActiveScene->OnMouseMotion(delta);
+            return;
+        }
+
         if (m_Vp.isHovered)
         {
             m_Camera.HandleOrbit(delta);
@@ -1646,6 +1685,14 @@ namespace flex
         const bool ctrl = (mod & (SDL_KMOD_LCTRL | SDL_KMOD_RCTRL)) != 0;
         const bool shift = (mod & (SDL_KMOD_LSHIFT | SDL_KMOD_RSHIFT)) != 0;
         const bool alt = (mod & (SDL_KMOD_LALT | SDL_KMOD_RALT)) != 0;
+
+        // Shift+F1 to release mouse during play mode
+        if (shift && key == SDLK_F1 && m_ActiveScene && m_ActiveScene->IsPlaying())
+        {
+            bool isRelativeMode = SDL_GetWindowRelativeMouseMode(m_Window->GetHandle());
+            SDL_SetWindowRelativeMouseMode(m_Window->GetHandle(), !isRelativeMode);
+            return;
+        }
 
         if (ctrl)
         {
@@ -1873,6 +1920,16 @@ namespace flex
         if (m_EditorScene)
         {
             m_EditorScene->ResizeViewport(viewport);
+            
+            // Bind native scripts to entities with NativeScriptComponent
+            // Example: Bind PlayerController to the "Player" entity
+            entt::entity playerEntity = m_EditorScene->GetEntityByName("Player");
+            if (playerEntity != entt::null && m_EditorScene->HasComponent<NativeScriptComponent>(playerEntity))
+            {
+                auto& nsc = m_EditorScene->GetComponent<NativeScriptComponent>(playerEntity);
+                nsc.Bind<PlayerController>();
+                SDL_Log("Bound PlayerController script to Player entity");
+            }
         }
         if (m_ActiveScene && m_ActiveScene != m_EditorScene)
         {

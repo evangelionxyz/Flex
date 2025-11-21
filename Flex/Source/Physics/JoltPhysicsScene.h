@@ -62,6 +62,8 @@ namespace flex
         glm::quat GetRotation(JPH::BodyID bodyID);
         glm::vec3 GetCenterOfMassPosition(JPH::BodyID bodyID);
         glm::vec3 GetLinearVelocity(JPH::BodyID bodyID);
+        glm::vec3 GetAngularVelocity(JPH::BodyID bodyID);
+        void SetAngularVelocity(JPH::BodyID bodyID, const glm::vec3& vel);
         void SetMaxLinearVelocity(JPH::BodyID bodyID, float max);
         void SetMaxAngularVelocity(JPH::BodyID bodyID, float max);
 

@@ -283,6 +283,15 @@ namespace flex
             entityJson["Camera"] = camJson;
         }
 
+        if (m_Scene->HasComponent<NativeScriptComponent>(entity))
+        {
+            json nscJson;
+            nscJson["Enabled"] = true;
+            // Note: We only serialize that the component exists.
+            // The actual script binding must be done in code.
+            entityJson["NativeScript"] = nscJson;
+        }
+
         entities.push_back(entityJson);
     }
 
@@ -439,6 +448,13 @@ namespace flex
             }
 
             cam.RecalculateProjection(m_Scene->GetViewportSize());
+        }
+
+        if (entityData.contains("NativeScript"))
+        {
+            NativeScriptComponent& nsc = m_Scene->AddComponent<NativeScriptComponent>(entity);
+            // Note: The script binding must be done in code after deserialization.
+            // This just creates the component placeholder.
         }
     }
 
