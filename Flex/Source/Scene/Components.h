@@ -104,6 +104,9 @@ namespace flex
         bool moveX = true, moveY = true, moveZ = true;
         bool isStatic = false;
         float mass = 1.0f;
+        float friction = 0.6f;
+		float staticFriction = 0.6f;
+		float restitution = 0.6f;
         bool allowSleeping = true;
         bool retainAcceleration = false;
         float gravityFactor = 1.0f;
@@ -124,29 +127,33 @@ namespace flex
 
 	struct IPhysicsColliderComponent
 	{
-		float friction = 0.6f;
-		float staticFriction = 0.6f;
-		float restitution = 0.6f;
-		float density = 1.0f;
+		glm::vec3 offset = { 0.0f, 0.0f, 0.0f };
+        float density = 1.0f;
 		void* shape = nullptr;
 	};
 
 	struct BoxColliderComponent : public IPhysicsColliderComponent
 	{
 		glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-		glm::vec3 offset = { 0.0f, 0.0f, 0.0f };
-
         BoxColliderComponent() = default;
 	};
 
     struct CapsuleColliderComponent : public IPhysicsColliderComponent
     {
-        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-        glm::vec3 offset = { 0.0f, 0.0f, 0.0f };
-
+        float radius = 0.5f;
         float height = 1.0f;
-
         CapsuleColliderComponent() = default;
+    };
+
+    struct SphereColliderComponent : public IPhysicsColliderComponent
+    {
+        float radius = 0.5f;
+        SphereColliderComponent() = default;
+    };
+
+    struct PlaneColliderComponent : public IPhysicsColliderComponent
+    {
+        PlaneColliderComponent() = default;
     };
 
     struct MeshComponent

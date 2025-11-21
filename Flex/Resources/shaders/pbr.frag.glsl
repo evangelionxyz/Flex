@@ -204,12 +204,12 @@ void main()
     vec3 viewDirection = normalize(u_Camera.position.xyz - _input.worldPosition);
     
     // Calculate sun direction from azimuth and elevation angles
-    float azimuth = u_Scene.lightAngle.x;
-    float elevation = u_Scene.lightAngle.y;
+    float elevation = u_Scene.lightAngle.x;
+    float azimuth = u_Scene.lightAngle.y;
     vec3 sunDirection = vec3(
-        cos(elevation) * cos(azimuth),
-        sin(elevation),
-        cos(elevation) * sin(azimuth)
+        cos(azimuth) * cos(elevation),
+        sin(azimuth),
+        cos(azimuth) * sin(elevation)
     );
 
     // lightDirection = surface -> light

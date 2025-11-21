@@ -214,6 +214,9 @@ namespace flex
             rbJson["AllowSleeping"] = rb.allowSleeping;
             rbJson["RetainAcceleration"] = rb.retainAcceleration;
             rbJson["GravityFactor"] = rb.gravityFactor;
+            rbJson["Friction"] = rb.friction;
+            rbJson["StaticFriction"] = rb.staticFriction;
+            rbJson["Restitution"] = rb.restitution;
             rbJson["CenterOfMass"] = SerializeVec3(rb.centerOfMass);
             rbJson["MotionQuality"] = static_cast<int>(rb.MotionQuality);
             rbJson["RotateX"] = rb.rotateX;
@@ -229,12 +232,9 @@ namespace flex
         {
             const BoxColliderComponent& box = m_Scene->GetComponent<BoxColliderComponent>(entity);
             json boxJson;
-            boxJson["Scale"] = SerializeVec3(box.scale);
             boxJson["Offset"] = SerializeVec3(box.offset);
-            boxJson["Friction"] = box.friction;
-            boxJson["StaticFriction"] = box.staticFriction;
-            boxJson["Restitution"] = box.restitution;
             boxJson["Density"] = box.density;
+            boxJson["Scale"] = SerializeVec3(box.scale);
             entityJson["BoxCollider"] = boxJson;
         }
 
@@ -242,14 +242,29 @@ namespace flex
         {
             const CapsuleColliderComponent &capsule = m_Scene->GetComponent<CapsuleColliderComponent>(entity);
             json capsuleJson;
-            capsuleJson["Scale"] = SerializeVec3(capsule.scale);
             capsuleJson["Offset"] = SerializeVec3(capsule.offset);
-            capsuleJson["Height"] = capsule.height;
-            capsuleJson["Friction"] = capsule.friction;
-            capsuleJson["StaticFriction"] = capsule.staticFriction;
-            capsuleJson["Restitution"] = capsule.restitution;
             capsuleJson["Density"] = capsule.density;
+            capsuleJson["Radius"] = capsule.radius;
+            capsuleJson["Height"] = capsule.height;
             entityJson["CapsuleCollider"] = capsuleJson;
+        }
+
+        if (m_Scene->HasComponent<SphereColliderComponent>(entity))
+        {
+            const SphereColliderComponent &sphere = m_Scene->GetComponent<SphereColliderComponent>(entity);
+            json sphereJson;
+            sphereJson["Offset"] = SerializeVec3(sphere.offset);
+            sphereJson["Density"] = sphere.density;
+            sphereJson["Radius"] = sphere.radius;
+            entityJson["SphereCollider"] = sphereJson;
+        }
+
+        if (m_Scene->HasComponent<PlaneColliderComponent>(entity))
+        {
+            const PlaneColliderComponent& plane = m_Scene->GetComponent<PlaneColliderComponent>(entity);
+            json planeJson;
+            planeJson["Offset"] = SerializeVec3(plane.offset);
+            entityJson["PlaneCollider"] = planeJson;
         }
 
         if (m_Scene->HasComponent<CameraComponent>(entity))
@@ -353,6 +368,9 @@ namespace flex
             rb.allowSleeping = rbJson.value("AllowSleeping", true);
             rb.retainAcceleration = rbJson.value("RetainAcceleration", false);
             rb.gravityFactor = rbJson.value("GravityFactor", 1.0f);
+            rb.friction = rbJson.value("Friction", 0.6f);
+            rb.staticFriction = rbJson.value("StaticFriction", 0.6f);
+            rb.restitution = rbJson.value("Restitution", 0.6f);
             rb.centerOfMass = DeserializeVec3(rbJson.value("CenterOfMass", json::array()));
             rb.MotionQuality = static_cast<RigidbodyComponent::EMotionQuality>(rbJson.value("MotionQuality", 0));
             rb.rotateX = rbJson.value("RotateX", true);
@@ -370,9 +388,6 @@ namespace flex
             BoxColliderComponent& box = m_Scene->AddComponent<BoxColliderComponent>(entity);
             box.scale = DeserializeVec3(boxJson.value("Scale", json::array()));
             box.offset = DeserializeVec3(boxJson.value("Offset", json::array()));
-            box.friction = boxJson.value("Friction", 0.6f);
-            box.staticFriction = boxJson.value("StaticFriction", 0.6f);
-            box.restitution = boxJson.value("Restitution", 0.6f);
             box.density = boxJson.value("Density", 1.0f);
             box.shape = nullptr;
         }
@@ -381,14 +396,29 @@ namespace flex
         {
             const json& capsuleJson = entityData["CapsuleCollider"];
             CapsuleColliderComponent& capsule = m_Scene->AddComponent<CapsuleColliderComponent>(entity);
-            capsule.scale = DeserializeVec3(capsuleJson.value("Scale", json::array()));
             capsule.offset = DeserializeVec3(capsuleJson.value("Offset", json::array()));
-            capsule.height = capsuleJson.value("Height", 1.0f);
-            capsule.friction = capsuleJson.value("Friction", 0.6f);
-            capsule.staticFriction = capsuleJson.value("StaticFriction", 0.6f);
-            capsule.restitution = capsuleJson.value("Restitution", 0.6f);
             capsule.density = capsuleJson.value("Density", 1.0f);
+            capsule.radius = capsuleJson.value("Radius", 0.5f);
+            capsule.height = capsuleJson.value("Height", 1.0f);
             capsule.shape = nullptr;
+        }
+
+        if (entityData.contains("SphereCollider"))
+        {
+            const json& sphereJson = entityData["SphereCollider"];
+            SphereColliderComponent& sphere = m_Scene->AddComponent<SphereColliderComponent>(entity);
+            sphere.offset = DeserializeVec3(sphereJson.value("Offset", json::array()));
+            sphere.density = sphereJson.value("Density", 1.0f);
+            sphere.radius = sphereJson.value("Radius", 0.5f);
+            sphere.shape = nullptr;
+        }
+
+        if (entityData.contains("PlaneCollider"))
+        {
+            const json& planeJson = entityData["PlaneCollider"];
+            PlaneColliderComponent& plane = m_Scene->AddComponent<PlaneColliderComponent>(entity);
+            plane.offset = DeserializeVec3(planeJson.value("Offset", json::array()));
+            plane.shape = nullptr;
         }
 
         if (entityData.contains("Camera"))

@@ -18,7 +18,8 @@ namespace flex
     
         assert(m_Handle != 0 && "Failed to create Uniform buffer!");
 
-        assert(glGetError() == GL_NO_ERROR);
+        // GLenum err = glGetError();
+        // assert(err == GL_NO_ERROR);
     }
     
     UniformBuffer::~UniformBuffer()

@@ -23,6 +23,9 @@ namespace flex
                 ShaderData{"resources/shaders/pbr.frag.glsl", GL_FRAGMENT_SHADER, 0}
             }, "MaterialPBR");
 
+        // GLenum err = glGetError();
+        // assert(err == GL_NO_ERROR);
+
         m_Buffer = UniformBuffer::Create(sizeof(Material::Params), UNIFORM_BINDING_LOC_MATERIAL);
     }
 

@@ -101,6 +101,8 @@ namespace flex
             ok = loader.LoadBinaryFromFile(&gltfModel, &err, &warn, filename);
         else
             ok = loader.LoadASCIIFromFile(&gltfModel, &err, &warn, filename);
+
+        assert(ok && "Failed to load Model");
         
         if (!ok)
             return scene;

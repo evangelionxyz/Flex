@@ -190,6 +190,12 @@ namespace flex
         void UISceneHierarchy();
         void UISceneProperties();
 
+        void DrawHierarchyNode(entt::entity entity);
+        void DrawEntityContextMenu(entt::entity entity);
+        void HandleHierarchyWindowContextMenu();
+        entt::entity CreateEmptyEntity(const std::string& baseName, entt::entity parent = entt::null);
+        std::string GenerateUniqueEntityName(const std::string& baseName) const;
+
         void OnMouseScroll(float xoffset, float yoffset);
         void OnMouseMotion(const glm::vec2 &position, const glm::vec2 &delta);
         void OnKeyPressed(SDL_Keycode key, SDL_Scancode scancode, SDL_EventType type, SDL_Keymod mod);
@@ -206,6 +212,7 @@ namespace flex
         void SaveSceneToPath(const std::filesystem::path &filepath);
         void OpenSceneFromPath(const std::filesystem::path &filepath);
         void ProcessPendingSceneActions();
+        void ProcessPendingMeshImports();
         glm::vec2 GetSceneViewportSize() const;
         bool ApplyRuntimeCamera();
 
@@ -239,11 +246,14 @@ namespace flex
         std::string m_SaveDialogDefaultLocation;
         std::optional<std::filesystem::path> m_PendingSceneOpenPath;
         std::mutex m_SceneDialogMutex;
+        std::vector<std::filesystem::path> m_PendingMeshImportQueue;
+        std::mutex m_MeshImportMutex;
 
         ImGuizmo::OPERATION m_GizmoOperation = ImGuizmo::TRANSLATE;
         ImGuizmo::MODE m_GizmoMode = ImGuizmo::LOCAL;
 
         bool m_SaveRuntime = false;
+        std::vector<entt::entity> m_PendingHierarchyDeletion;
     };
 }
 

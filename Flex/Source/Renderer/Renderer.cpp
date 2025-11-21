@@ -127,6 +127,10 @@ namespace flex
 		Ref<Shader> shader = CreateRef<Shader>();
 		shader->CreateFromFile(shaders).Compile();
 		s_Data->shaderCache[name] = shader;
+
+        GLenum err = glGetError();
+        assert(err == GL_NO_ERROR);
+        
         return shader;
 	}
 

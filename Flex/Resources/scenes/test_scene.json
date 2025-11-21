@@ -1,0 +1,620 @@
+{
+    "Entities": [
+        {
+            "Entity": 3436369889581239374,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "",
+                    "OcclusionStrength": 0.0,
+                    "RoughnessFactor": 1.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\capsule.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Capsule.001",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 3320586782394931880,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.001",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 1.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 1,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "PlaneCollider": {
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": true,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Plane",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    -2.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    12.774489402770996,
+                    12.774489402770996,
+                    12.774489402770996
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Entity": 15606357254747572952,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.23039215803146362,
+                        0.38884079456329346,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (1)",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    -1.0653876066207886,
+                    0.7202283143997192,
+                    1.1543315649032593
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.16409039497375488,
+                    0.17594797909259796,
+                    0.7446922063827515
+                ]
+            }
+        },
+        {
+            "Entity": 1488533007692988683,
+            "Tag": {
+                "Children": [
+                    3320586782394931880,
+                    6017708798629895783,
+                    7468875464964434150,
+                    8052262753548644969,
+                    11390560753085648777,
+                    16661405826085057804
+                ],
+                "Name": "Scene",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 7468875464964434150,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.800000011920929,
+                        0.800000011920929,
+                        0.800000011920929,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 5,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "SphereCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Radius": 1.0
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere.001",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    4.916757583618164,
+                    2.2632522583007813,
+                    -6.627710342407227
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Entity": 16661405826085057804,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.23039215803146362,
+                        0.38884079456329346,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    1.127193570137024,
+                    1.6937453746795654,
+                    -0.05862593650817871
+                ],
+                "Rotation": [
+                    44.25632095336914,
+                    25.193777084350586,
+                    -27.08357810974121
+                ],
+                "Scale": [
+                    0.9999997615814209,
+                    0.9999991655349731,
+                    0.9999997019767761
+                ]
+            }
+        },
+        {
+            "Entity": 11390560753085648777,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.3995848596096039,
+                        0.8005527257919312,
+                        0.26906394958496094,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.0,
+                    "Name": "Blue",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.5,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 2,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Torus.002",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    -10.323297500610352,
+                    -1.0732146501541138,
+                    9.174237251281738
+                ],
+                "Rotation": [
+                    -33.74121856689453,
+                    8.673473358154297,
+                    -20.8054141998291
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "Entity": 6017708798629895783,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.8004403114318848,
+                        0.4813193678855896,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Orange",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.20078739523887634,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 3,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.004",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    -7.996333599090576,
+                    0.3598824739456177,
+                    -4.7909770011901855
+                ],
+                "Rotation": [
+                    0.0,
+                    -55.972110748291016,
+                    0.0
+                ],
+                "Scale": [
+                    0.9999999403953552,
+                    1.0,
+                    0.9999999403953552
+                ]
+            }
+        },
+        {
+            "CapsuleCollider": {
+                "Density": 1.0,
+                "Height": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Radius": 0.5
+            },
+            "Entity": 12095583481052254625,
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [
+                    3436369889581239374,
+                    15606357254747572952
+                ],
+                "Name": "Player",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -1.8106781244277954,
+                    1.0,
+                    -0.09945683181285858
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0000001192092896,
+                    1.0000001192092896
+                ]
+            }
+        },
+        {
+            "Entity": 8052262753548644969,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.800000011920929,
+                        0.800000011920929,
+                        0.800000011920929,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 4,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    9.701255798339844,
+                    -0.06102481111884117,
+                    6.846649646759033
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        }
+    ],
+    "SceneGravity": [
+        0.0,
+        -9.800000190734863,
+        0.0
+    ]
+}

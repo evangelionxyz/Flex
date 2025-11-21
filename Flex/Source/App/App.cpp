@@ -5,6 +5,7 @@
 #include "Scene/Components.h"
 #include "Renderer/Material.h"
 #include "Renderer/Renderer2D.h"
+#include "Math/Math.hpp"
 
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_events.h"
@@ -27,6 +28,8 @@ namespace flex
             { "Flex Scene", "json" },
             { "All Files", "*" }
         };
+
+        constexpr const char* kHierarchyEntityPayload = "FLEX_ENTITY_HIERARCHY";
     }
 
     App::App(int argc, char** argv)
@@ -173,6 +176,7 @@ namespace flex
             }
 
             ProcessPendingSceneActions();
+            ProcessPendingMeshImports();
 
             const uint64_t currentCount = SDL_GetPerformanceCounter();
             m_FrameData.deltaTime = static_cast<float>(currentCount - prevCount) / freq;
@@ -469,6 +473,226 @@ namespace flex
         }
     }
 
+     void App::DrawHierarchyNode(entt::entity entity)
+    {
+        if (!m_ActiveScene || !m_ActiveScene->IsValid(entity))
+        {
+            return;
+        }
+
+        TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(entity);
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanFullWidth;
+        if (m_SelectedEntity == entity)
+        {
+            flags |= ImGuiTreeNodeFlags_Selected;
+        }
+        if (tag.children.empty())
+        {
+            flags |= ImGuiTreeNodeFlags_Leaf;
+        }
+
+        const std::string label = tag.name.empty()
+            ? std::format("Entity - {}", static_cast<uint64_t>(tag.uuid)) : tag.name;
+        const bool opened = ImGui::TreeNodeEx(reinterpret_cast<void*>(static_cast<uintptr_t>(entity)), flags, "%s", label.c_str());
+
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+        {
+            m_SelectedEntity = entity;
+        }
+
+        if (ImGui::BeginDragDropSource())
+        {
+            const uint64_t uuidValue = static_cast<uint64_t>(tag.uuid);
+            ImGui::SetDragDropPayload(kHierarchyEntityPayload, &uuidValue, sizeof(uuidValue));
+            ImGui::TextUnformatted(tag.name.empty() ? "Entity" : tag.name.c_str());
+            ImGui::EndDragDropSource();
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kHierarchyEntityPayload))
+            {
+                if (payload->DataSize == sizeof(uint64_t))
+                {
+                    const uint64_t droppedUUID = *static_cast<const uint64_t*>(payload->Data);
+                    entt::entity droppedEntity = m_ActiveScene->GetEntityByUUID(UUID(droppedUUID));
+                    if (droppedEntity != entt::null)
+                    {
+                        m_ActiveScene->ReparentEntity(droppedEntity, entity);
+                    }
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        DrawEntityContextMenu(entity);
+
+        if (opened)
+        {
+            std::vector<entt::entity> childEntities;
+            childEntities.reserve(tag.children.size());
+            for (const UUID& childUUID : tag.children)
+            {
+                entt::entity childEntity = m_ActiveScene->GetEntityByUUID(childUUID);
+                if (childEntity != entt::null)
+                {
+                    childEntities.push_back(childEntity);
+                }
+            }
+
+            auto sortByName = [&](entt::entity lhs, entt::entity rhs)
+            {
+                const std::string& lhsName = m_ActiveScene->GetComponent<TagComponent>(lhs).name;
+                const std::string& rhsName = m_ActiveScene->GetComponent<TagComponent>(rhs).name;
+                return lhsName < rhsName;
+            };
+            std::sort(childEntities.begin(), childEntities.end(), sortByName);
+
+            for (entt::entity childEntity : childEntities)
+            {
+                DrawHierarchyNode(childEntity);
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
+    void App::DrawEntityContextMenu(entt::entity entity)
+    {
+        if (!m_ActiveScene || !m_ActiveScene->IsValid(entity))
+        {
+            return;
+        }
+
+        const TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(entity);
+        const std::string popupId = std::format("EntityContext{}", static_cast<uint64_t>(tag.uuid));
+        if (ImGui::BeginPopupContextItem(popupId.c_str()))
+        {
+            if (ImGui::MenuItem("Create Empty Child"))
+            {
+                entt::entity child = CreateEmptyEntity("Entity", entity);
+                if (child != entt::null)
+                {
+                    m_SelectedEntity = child;
+                }
+            }
+
+            const bool hasParent = m_ActiveScene->GetParentEntity(entity) != entt::null;
+            if (ImGui::MenuItem("Unparent", nullptr, false, hasParent))
+            {
+                m_ActiveScene->ReparentEntity(entity, entt::null);
+            }
+
+            if (ImGui::MenuItem("Duplicate"))
+            {
+                entt::entity duplicate = m_ActiveScene->DuplicateEntity(entity);
+                if (duplicate != entt::null)
+                {
+                    const glm::mat4 world = m_ActiveScene->GetWorldTransform(entity);
+                    m_ActiveScene->SetWorldTransform(duplicate, world);
+                    m_SelectedEntity = duplicate;
+                }
+            }
+
+            if (ImGui::MenuItem("Delete"))
+            {
+                m_PendingHierarchyDeletion.push_back(entity);
+            }
+
+            if (m_ActiveScene->HasComponent<CameraComponent>(entity))
+            {
+                const bool isPrimary = m_ActiveScene->GetPrimaryCamera() == entity;
+                if (ImGui::MenuItem("Set As Primary Camera", nullptr, false, !isPrimary))
+                {
+                    m_ActiveScene->SetPrimaryCamera(entity);
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+    }
+
+    void App::HandleHierarchyWindowContextMenu()
+    {
+        if (!m_ActiveScene)
+        {
+            return;
+        }
+
+        if (ImGui::BeginPopupContextWindow("HierarchyContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+        {
+            if (ImGui::MenuItem("Create Empty Entity"))
+            {
+                entt::entity entity = CreateEmptyEntity("Entity");
+                m_SelectedEntity = entity;
+            }
+
+            const bool hasSelection = m_SelectedEntity != entt::null && m_ActiveScene->IsValid(m_SelectedEntity);
+            if (ImGui::MenuItem("Create Child Of Selection", nullptr, false, hasSelection))
+            {
+                entt::entity entity = CreateEmptyEntity("Entity", m_SelectedEntity);
+                m_SelectedEntity = entity;
+            }
+
+            if (ImGui::MenuItem("Unparent Selection", nullptr, false, hasSelection))
+            {
+                m_ActiveScene->ReparentEntity(m_SelectedEntity, entt::null);
+            }
+
+            ImGui::EndPopup();
+        }
+    }
+
+    entt::entity App::CreateEmptyEntity(const std::string& baseName, entt::entity parent)
+    {
+        if (!m_ActiveScene)
+        {
+            return entt::null;
+        }
+
+        const std::string uniqueName = GenerateUniqueEntityName(baseName);
+        entt::entity entity = m_ActiveScene->CreateEntity(uniqueName);
+        m_ActiveScene->AddComponent<TransformComponent>(entity);
+        if (parent != entt::null)
+        {
+            m_ActiveScene->ReparentEntity(entity, parent);
+        }
+        return entity;
+    }
+
+    std::string App::GenerateUniqueEntityName(const std::string& baseName) const
+    {
+        if (!m_ActiveScene)
+        {
+            return baseName;
+        }
+
+        auto nameExists = [&](const std::string& candidate)
+        {
+            for (const auto& [uuid, entity] : m_ActiveScene->entities)
+            {
+                if (!m_ActiveScene->HasComponent<TagComponent>(entity))
+                {
+                    continue;
+                }
+                if (m_ActiveScene->GetComponent<TagComponent>(entity).name == candidate)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        std::string uniqueName = baseName;
+        int suffix = 1;
+        while (nameExists(uniqueName))
+        {
+            uniqueName = std::format("{} ({})", baseName, suffix++);
+        }
+        return uniqueName;
+    }
+
+
     void App::OnImGuiRender()
     {
         UIViewport();
@@ -603,8 +827,7 @@ namespace flex
 
                 if (m_SelectedEntity != entt::null && m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
                 {
-                    auto& transform = m_ActiveScene->GetComponent<TransformComponent>(m_SelectedEntity);
-                    glm::mat4 model = math::ComposeTransform(transform);
+                    glm::mat4 model = m_ActiveScene->GetWorldTransform(m_SelectedEntity);
                     glm::mat4 view = m_Camera.view;
                     glm::mat4 projection = m_Camera.projection;
 
@@ -616,7 +839,7 @@ namespace flex
 
                     if (ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(projection), m_GizmoOperation, m_GizmoMode, glm::value_ptr(model)))
                     {
-                        math::DecomposeTransform(model, transform);
+                        m_ActiveScene->SetWorldTransform(m_SelectedEntity, model);
                     }
                 }
             }
@@ -777,56 +1000,66 @@ namespace flex
 
     void App::UISceneHierarchy()
     {
+        if (!m_ActiveScene)
+        {
+            return;
+        }
+
         if (ImGui::Begin("Hierarchy", nullptr))
         {
+            std::vector<entt::entity> roots;
+            roots.reserve(m_ActiveScene->entities.size());
             for (const auto& [uuid, entity] : m_ActiveScene->entities)
             {
-                TagComponent& tag = m_ActiveScene->GetComponent<TagComponent>(entity);
-                if (ImGui::TreeNodeEx(tag.name.c_str()))
+                if (m_ActiveScene->GetParentEntity(entity) == entt::null)
                 {
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-                    {
-                        m_SelectedEntity = entity;
-                    }
-
-                    ImGui::TreePop();
+                    roots.push_back(entity);
                 }
             }
 
-            if (ImGui::BeginPopupContextWindow("HierarchyContext", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+            auto sortByName = [&](entt::entity lhs, entt::entity rhs)
             {
-                if (ImGui::MenuItem("Create Empty Entity"))
-                {
-                    std::string baseName = "Entity";
-                    std::string candidate = baseName;
-                    int suffix = 1;
+                const bool valid = m_ActiveScene->IsValid(lhs) && m_ActiveScene->IsValid(rhs);
+                if (!valid)
+                    return false;
+                    
+                const std::string& lhsName = m_ActiveScene->GetComponent<TagComponent>(lhs).name;
+                const std::string& rhsName = m_ActiveScene->GetComponent<TagComponent>(rhs).name;
+                return lhsName < rhsName;
+            };
 
-                    auto nameExists = [&](const std::string& name)
-                        {
-                            for (const auto& [existingUUID, existingEntity] : m_ActiveScene->entities)
-                            {
-                                if (m_ActiveScene->GetComponent<TagComponent>(existingEntity).name == name)
-                                {
-                                    return true;
-                                }
-                            }
-                            return false;
-                        };
-
-                    while (nameExists(candidate))
-                    {
-                        candidate = std::format("{} ({})", baseName, suffix);
-                        ++suffix;
-                    }
-
-                    entt::entity newEntity = m_ActiveScene->CreateEntity(candidate);
-                    m_ActiveScene->AddComponent<TransformComponent>(newEntity);
-                    m_SelectedEntity = newEntity;
-                }
-                ImGui::EndPopup();
+            if (m_PendingHierarchyDeletion.empty())
+            {
+                std::sort(roots.begin(), roots.end(), sortByName);
             }
+
+            for (entt::entity entity : roots)
+            {
+                DrawHierarchyNode(entity);
+            }
+
+            HandleHierarchyWindowContextMenu();
         }
         ImGui::End();
+
+        if (!m_PendingHierarchyDeletion.empty())
+        {
+            for (entt::entity entity : m_PendingHierarchyDeletion)
+            {
+                if (!m_ActiveScene->IsValid(entity))
+                {
+                    continue;
+                }
+
+                if (m_SelectedEntity == entity)
+                {
+                    m_SelectedEntity = entt::null;
+                }
+
+                m_ActiveScene->DestroyEntity(entity);
+            }
+            m_PendingHierarchyDeletion.clear();
+        }
     }
 
     void App::UISceneProperties()
@@ -942,6 +1175,9 @@ namespace flex
                     ImGui::DragFloat("Mass", &rb.mass, 0.025f);
                     ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.01f);
                     ImGui::DragFloat("Gravity Factor", &rb.gravityFactor, 0.25f, 0.0f, 100.0f);
+                    ImGui::DragFloat("Friction", &rb.friction, 0.1f, 0.0f, 100.0f);
+                    ImGui::DragFloat("Static Friction", &rb.staticFriction, 100.0f);
+                    ImGui::DragFloat("Restitution", &rb.restitution, 0.1f, 0.0f, 100.0f);
 
                     ImGui::Checkbox("Is Static", &rb.isStatic);
                     ImGui::Checkbox("Use Gravity", &rb.useGravity);
@@ -956,13 +1192,47 @@ namespace flex
                 auto& box = m_ActiveScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
                 if (ImGui::TreeNodeEx("Box Collider", treeNodeFlags))
                 {
-                    ImGui::DragFloat3("Size", &box.scale.x, 0.01f);
                     ImGui::DragFloat3("Offset", &box.offset.x, 0.01f);
-
                     ImGui::DragFloat("Density", &box.density, 0.1f, 0.0f, 100.0f);
-                    ImGui::DragFloat("Friction", &box.friction, 0.1f, 0.0f, 100.0f);
-                    ImGui::DragFloat("Static Friction", &box.staticFriction, 100.0f);
-                    ImGui::DragFloat("Restitution", &box.restitution, 0.1f, 0.0f, 100.0f);
+                    ImGui::DragFloat3("Scale", &box.scale.x, 0.01f);
+                    
+                    ImGui::TreePop();
+                }
+            }
+
+            if (m_ActiveScene->HasComponent<CapsuleColliderComponent>(m_SelectedEntity))
+            {
+                auto &capsule = m_ActiveScene->GetComponent<CapsuleColliderComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Capsule Collider", treeNodeFlags))
+                {
+                    ImGui::DragFloat3("Offset", &capsule.offset.x, 0.01f);
+                    ImGui::DragFloat("Density", &capsule.density, 0.1f, 0.0f, 100.0f);
+                    ImGui::DragFloat("Radius", &capsule.radius, 0.01f);
+                    ImGui::DragFloat("Height", &capsule.height, 0.01f);
+
+                    ImGui::TreePop();
+                }
+            }
+
+            if (m_ActiveScene->HasComponent<SphereColliderComponent>(m_SelectedEntity))
+            {
+                auto &sphere = m_ActiveScene->GetComponent<SphereColliderComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Sphere Collider", treeNodeFlags))
+                {
+                    ImGui::DragFloat3("Offset", &sphere.offset.x, 0.01f);
+                    ImGui::DragFloat("Density", &sphere.density, 0.1f, 0.0f, 100.0f);
+                    ImGui::DragFloat("Radius", &sphere.radius, 0.01f);
+
+                    ImGui::TreePop();
+                }
+            }
+
+            if (m_ActiveScene->HasComponent<PlaneColliderComponent>(m_SelectedEntity))
+            {
+                auto &plane = m_ActiveScene->GetComponent<PlaneColliderComponent>(m_SelectedEntity);
+                if (ImGui::TreeNodeEx("Plane Collider", treeNodeFlags))
+                {
+                    ImGui::DragFloat3("Offset", &plane.offset.x, 0.01f);
 
                     ImGui::TreePop();
                 }
@@ -1121,6 +1391,22 @@ namespace flex
                     if (ImGui::MenuItem("Capsule Collider"))
                     {
                         m_ActiveScene->AddComponent<CapsuleColliderComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<SphereColliderComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Sphere Collider"))
+                    {
+                        m_ActiveScene->AddComponent<SphereColliderComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<PlaneColliderComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Plane Collider"))
+                    {
+                        m_ActiveScene->AddComponent<PlaneColliderComponent>(m_SelectedEntity);
                         ImGui::CloseCurrentPopup();
                     }
                 }
@@ -1422,6 +1708,48 @@ namespace flex
         }
     }
 
+    void App::ProcessPendingMeshImports()
+    {
+        std::vector<std::filesystem::path> meshRequests;
+        {
+            std::lock_guard<std::mutex> lock(m_MeshImportMutex);
+            if (m_PendingMeshImportQueue.empty())
+            {
+                return;
+            }
+            meshRequests.swap(m_PendingMeshImportQueue);
+        }
+
+        for (const std::filesystem::path& meshPath : meshRequests)
+        {
+            if (!m_ActiveScene)
+            {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Cannot import mesh %s because no active scene is loaded", meshPath.string().c_str());
+                continue;
+            }
+
+            entt::entity rootEntity = entt::null;
+            glm::mat4 rootTransform = glm::mat4(1.0f);
+            if (m_SelectedEntity != entt::null && m_ActiveScene->IsValid(m_SelectedEntity))
+            {
+                rootEntity = m_SelectedEntity;
+                if (m_ActiveScene->HasComponent<TransformComponent>(rootEntity))
+                {
+                    const TransformComponent& transform = m_ActiveScene->GetComponent<TransformComponent>(rootEntity);
+                    rootTransform = math::ComposeTransform(transform);
+                }
+            }
+
+            m_PendingMeshFilepath = meshPath.string();
+            const auto createdEntities = m_ActiveScene->LoadModel(m_PendingMeshFilepath, rootTransform, rootEntity);
+            if (!createdEntities.empty())
+            {
+                m_SelectedEntity = createdEntities.front();
+            }
+            SDL_Log("Mesh import processed: %s", meshPath.string().c_str());
+        }
+    }
+
     glm::vec2 App::GetSceneViewportSize() const
     {
         if (m_Vp.viewport.width > 0 && m_Vp.viewport.height > 0)
@@ -1543,14 +1871,17 @@ namespace flex
         }
 
         App* app = static_cast<App*>(userData);
-        app->m_PendingMeshFilepath = std::string(filelist[0]);
-        const auto createdEntities = app->m_ActiveScene->LoadModel(app->m_PendingMeshFilepath);
-        if (!createdEntities.empty())
+        if (!app)
         {
-            app->m_SelectedEntity = createdEntities.front();
+            return;
         }
-        
-        SDL_Log("File selected: %s", filelist[0]);
+
+        {
+            std::lock_guard<std::mutex> lock(app->m_MeshImportMutex);
+            app->m_PendingMeshImportQueue.emplace_back(filelist[0]);
+        }
+
+        SDL_Log("Mesh import queued: %s", filelist[0]);
 	}
 
 }

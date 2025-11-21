@@ -40,7 +40,9 @@ namespace flex
 
         bool IsPlaying() const { return m_IsPlaying; }
 
-        std::vector<entt::entity> LoadModel(const std::string& filepath, const glm::mat4& rootTransform = glm::mat4(1.0f));
+        std::vector<entt::entity> LoadModel(const std::string& filepath,
+            const glm::mat4& rootTransform = glm::mat4(1.0f),
+            entt::entity rootEntity = entt::null);
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
         entt::entity DuplicateEntity(entt::entity entity);
@@ -89,11 +91,18 @@ namespace flex
 
         entt::entity GetPrimaryCamera();
 
-        entt::entity GetEntityByUUID(const UUID& uuid);
+        entt::entity GetEntityByUUID(const UUID& uuid) const;
         entt::entity GetEntityByName(const std::string &name);
         const std::string &GetEntityName(entt::entity entity);
         const UUID GetEntityUUID(entt::entity entity);
         void SetPrimaryCamera(entt::entity entity);
+
+        entt::entity GetParentEntity(entt::entity entity) const;
+        bool ReparentEntity(entt::entity child, entt::entity newParent);
+        bool IsDescendant(entt::entity ancestor, entt::entity entity) const;
+
+        glm::mat4 GetWorldTransform(entt::entity entity) const;
+        void SetWorldTransform(entt::entity entity, const glm::mat4& worldTransform);
 
         entt::registry* registry = nullptr;
         std::unordered_map<UUID, entt::entity> entities;

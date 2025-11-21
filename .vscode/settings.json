@@ -85,6 +85,15 @@
         "xutility": "cpp",
         "set": "cpp",
         "valarray": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "any": "cpp",
+        "bitset": "cpp",
+        "coroutine": "cpp",
+        "csignal": "cpp",
+        "mutex": "cpp",
+        "ranges": "cpp",
+        "regex": "cpp",
+        "source_location": "cpp",
+        "unordered_set": "cpp"
     }
 }
