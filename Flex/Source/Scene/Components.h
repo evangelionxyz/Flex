@@ -22,6 +22,7 @@
 namespace flex
 {
     class Scene;
+    class ScriptableEntity;
     struct PhysicsContactData;
     struct PhysicsActivationData;
 
@@ -215,6 +216,31 @@ namespace flex
                 projection = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, nearPlane, farPlane);
             }
         }
+    };
+
+    struct NativeScriptComponent
+    {
+        ScriptableEntity *instance;
+        ScriptableEntity *(*InstantiateScript)(Scene *scene, entt::entity entity);
+
+        void (*DestroyScript)(NativeScriptComponent *nsc);
+
+        template<typename T>
+        void Bind()
+        {
+            InstantiateScript = [](Scene *scene, entt::entity entity)
+            {
+                return static_cast<ScriptableEntity *>(new T(scene, entity));
+            };
+
+            DestroyScript = [](NativeScriptComponent *nsc)
+            {
+                delete nsc->instance;
+                nsc->instance = nullptr;
+            };
+        }
+
+        NativeScriptComponent() = default;
     };
 }
 

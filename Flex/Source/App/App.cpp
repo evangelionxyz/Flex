@@ -1110,6 +1110,10 @@ namespace flex
                 {
                     m_CopiedPlaneCollider = m_ActiveScene->GetComponent<T>(entity);
                 }
+                else if constexpr (std::is_same_v<T, NativeScriptComponent>)
+                {
+                    m_CopiedNativeScript = m_ActiveScene->GetComponent<T>(entity);
+                }
             }
             
             bool canPaste = false;
@@ -1129,6 +1133,8 @@ namespace flex
                 canPaste = m_CopiedSphereCollider.has_value();
             else if constexpr (std::is_same_v<T, PlaneColliderComponent>)
                 canPaste = m_CopiedPlaneCollider.has_value();
+            else if constexpr (std::is_same_v<T, NativeScriptComponent>)
+                canPaste = m_CopiedNativeScript.has_value();
             
             if (!canPaste)
                 ImGui::BeginDisabled();
@@ -1174,6 +1180,11 @@ namespace flex
                 {
                     if (m_CopiedPlaneCollider.has_value())
                         m_ActiveScene->GetComponent<T>(entity) = m_CopiedPlaneCollider.value();
+                }
+                else if constexpr (std::is_same_v<T, NativeScriptComponent>)
+                {
+                    if (m_CopiedNativeScript.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedNativeScript.value();
                 }
             }
             
@@ -1386,6 +1397,28 @@ namespace flex
                 }
             }
 
+            if (m_ActiveScene->HasComponent<NativeScriptComponent>(m_SelectedEntity))
+            {
+                auto& nsc = m_ActiveScene->GetComponent<NativeScriptComponent>(m_SelectedEntity);
+                bool opened;
+                DrawComponentHeader<NativeScriptComponent>("Native Script", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
+                {
+                    if (nsc.instance)
+                    {
+                        ImGui::Text("Script Instance: Active");
+                        ImGui::Text("Type: C++ Native Script");
+                    }
+                    else
+                    {
+                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Script Instance: Not Bound");
+                        ImGui::TextWrapped("Bind a script class in code using Bind<YourScriptClass>()");
+                    }
+
+                    ImGui::TreePop();
+                }
+            }
+
             if (m_ActiveScene->HasComponent<MeshComponent>(m_SelectedEntity))
             {
                 auto& mc = m_ActiveScene->GetComponent<MeshComponent>(m_SelectedEntity);
@@ -1561,6 +1594,14 @@ namespace flex
                     if (ImGui::MenuItem("Plane Collider"))
                     {
                         m_ActiveScene->AddComponent<PlaneColliderComponent>(m_SelectedEntity);
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                if (!m_ActiveScene->HasComponent<NativeScriptComponent>(m_SelectedEntity))
+                {
+                    if (ImGui::MenuItem("Native Script"))
+                    {
+                        m_ActiveScene->AddComponent<NativeScriptComponent>(m_SelectedEntity);
                         ImGui::CloseCurrentPopup();
                     }
                 }

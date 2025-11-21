@@ -12,6 +12,8 @@
 #include "Renderer/Renderer2D.h"
 #include "Math/Math.hpp"
 
+#include "ScriptableEntity.h"
+
 #include <filesystem>
 #include <unordered_map>
 #include <type_traits>
@@ -117,6 +119,7 @@ namespace flex
             CapsuleColliderComponent,
             SphereColliderComponent,
             PlaneColliderComponent,
+            NativeScriptComponent,
             CameraComponent>;
     }
 
@@ -135,12 +138,31 @@ namespace flex
     void Scene::Start()
     {
         m_IsPlaying = true;
+        // TODO: Start Native Script
+        auto nscView = registry->view<NativeScriptComponent>();
+        nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+        {
+            if (!nsc.instance && nsc.InstantiateScript)
+            {
+                nsc.instance = nsc.InstantiateScript(this, entity);
+            }
+        });
+
         joltPhysicsScene->SimulationStart();
     }
 
     void Scene::Stop()
     {
         m_IsPlaying = false;
+
+        // TODO: Stop Native Script
+        auto nscView = registry->view<NativeScriptComponent>();
+        nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+        {
+            if (nsc.DestroyScript)
+                nsc.DestroyScript(&nsc);
+        });
+
         joltPhysicsScene->SimulationStop();
     }
 
@@ -148,6 +170,15 @@ namespace flex
     {
         if (m_IsPlaying)
         {
+            auto nscView = registry->view<NativeScriptComponent>();
+            nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+            {
+                if (nsc.instance)
+                {
+                    nsc.instance->OnUpdate(deltaTime);
+                }
+            });
+
             joltPhysicsScene->Simulate(deltaTime);
         }
         else // Editor Update
@@ -161,10 +192,10 @@ namespace flex
 
         auto cameraView = registry->view<TransformComponent, CameraComponent>();
         cameraView.each([&](entt::entity entity, const TransformComponent&, CameraComponent& camera)
-            {
-                const glm::mat4 worldTransform = GetWorldTransform(entity);
-                camera.view = glm::inverse(worldTransform);
-            });
+        {
+            const glm::mat4 worldTransform = GetWorldTransform(entity);
+            camera.view = glm::inverse(worldTransform);
+        });
     }
 
     void Scene::ResizeViewport(const glm::vec2& size)

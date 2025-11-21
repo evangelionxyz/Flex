@@ -267,6 +267,7 @@ namespace flex
         std::optional<CapsuleColliderComponent> m_CopiedCapsuleCollider;
         std::optional<SphereColliderComponent> m_CopiedSphereCollider;
         std::optional<PlaneColliderComponent> m_CopiedPlaneCollider;
+        std::optional<NativeScriptComponent> m_CopiedNativeScript;
     };
 }
 

@@ -23,7 +23,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 0,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\capsule.glb"
+                "MeshPath": "Resources/models/capsule.glb"
             },
             "Tag": {
                 "Children": [],
@@ -71,7 +71,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 1,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "PlaneCollider": {
                 "Offset": [
@@ -149,7 +149,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 0,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Tag": {
                 "Children": [],
@@ -197,7 +197,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 0,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Tag": {
                 "Children": [],
@@ -277,7 +277,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 5,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Rigidbody": {
                 "AllowSleeping": true,
@@ -370,7 +370,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 0,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Rigidbody": {
                 "AllowSleeping": true,
@@ -441,7 +441,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 2,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Tag": {
                 "Children": [],
@@ -489,7 +489,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 3,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Tag": {
                 "Children": [],
@@ -601,7 +601,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 4,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Tag": {
                 "Children": [],
@@ -688,7 +688,7 @@
                     "Type": "Opaque"
                 },
                 "MeshIndex": 0,
-                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+                "MeshPath": "Resources/models/scene.glb"
             },
             "Tag": {
                 "Children": [],
