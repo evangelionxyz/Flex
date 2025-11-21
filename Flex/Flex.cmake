@@ -5,3 +5,9 @@ file(GLOB_RECURSE FLEX_SOURCE
 )
 add_executable(Flex ${FLEX_SOURCE})
 target_link_libraries(Flex PRIVATE FlexEngine)
+
+if(WIN32)
+    target_link_libraries(FlexEngine PUBLIC
+        "${THIRDPARTY_DIR}/fmod/lib/windows/x64/fmod_vc.lib"
+    )
+endif()

@@ -11,6 +11,9 @@
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_events.h"
 
+#include "Audio/AudioEngine.h"
+#include "Audio/Sound.h"
+
 #include <ImGuizmo.h>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -63,6 +66,10 @@ namespace flex
         // Initialize font and text renderer
         Font font("Resources/fonts/Montserrat-Medium.ttf", 12);
         TextRenderer::Init();
+        FmodAudio::Init();
+
+        Ref<FmodSound> sound = FmodSound::Create("pistor-shot", "Resources/audio/pistol-shot.mp3");
+        sound->Play();
 
         JoltPhysics::Init();
         m_Screen = CreateRef<Screen>();
@@ -75,10 +82,12 @@ namespace flex
     {
         m_ActiveScene.reset();
         m_EditorScene.reset();
-
+        
         MeshLoader::ClearCache();
-
+        
         JoltPhysics::Shutdown();
+        FmodAudio::Shutdown();
+
         ImGuiContext::Shutdown();
         TextRenderer::Shutdown();
         Renderer2D::Shutdown();
@@ -176,6 +185,7 @@ namespace flex
                 ImGuiContext::PollEvents(&event);
             }
 
+            
             ProcessPendingSceneActions();
             ProcessPendingMeshImports();
 
@@ -188,6 +198,8 @@ namespace flex
             {
                 m_ActiveScene->Update(m_FrameData.deltaTime);
             }
+
+            FmodAudio::Update(m_FrameData.deltaTime);
 
             const float aspect = static_cast<float>(m_Vp.viewport.width) / static_cast<float>(m_Vp.viewport.height);
             const bool usingRuntimeCamera = ApplyRuntimeCamera();

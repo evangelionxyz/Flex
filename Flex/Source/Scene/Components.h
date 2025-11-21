@@ -13,6 +13,9 @@
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyID.h>
 
+#include "Audio/AudioEngine.h"
+#include "Audio/Sound.h"
+
 #include "Scene.h"
 #include "Renderer/Mesh.h"
 #include "Core/Types.h"
@@ -241,6 +244,13 @@ namespace flex
         }
 
         NativeScriptComponent() = default;
+    };
+
+    struct AudioComponent
+    {
+        Ref<FmodSound> sound;
+
+        AudioComponent() = default;
     };
 }
 
