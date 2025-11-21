@@ -1062,6 +1062,140 @@ namespace flex
         }
     }
 
+    template<typename T>
+    void App::DrawComponentHeader(const char* label, entt::entity entity, ImGuiTreeNodeFlags flags, bool& opened)
+    {
+        opened = ImGui::TreeNodeEx(label, flags);
+        
+        ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 20.0f);
+        ImGui::PushID(label);
+        if (ImGui::Button("...", ImVec2(24.0f, 0.0f)))
+        {
+            ImGui::OpenPopup("ComponentContextMenu");
+        }
+        
+        if (ImGui::BeginPopup("ComponentContextMenu"))
+        {
+            if (ImGui::MenuItem("Copy"))
+            {
+                if constexpr (std::is_same_v<T, TransformComponent>)
+                {
+                    m_CopiedTransform = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, CameraComponent>)
+                {
+                    m_CopiedCamera = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, MeshComponent>)
+                {
+                    m_CopiedMesh = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, RigidbodyComponent>)
+                {
+                    m_CopiedRigidbody = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, BoxColliderComponent>)
+                {
+                    m_CopiedBoxCollider = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, CapsuleColliderComponent>)
+                {
+                    m_CopiedCapsuleCollider = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, SphereColliderComponent>)
+                {
+                    m_CopiedSphereCollider = m_ActiveScene->GetComponent<T>(entity);
+                }
+                else if constexpr (std::is_same_v<T, PlaneColliderComponent>)
+                {
+                    m_CopiedPlaneCollider = m_ActiveScene->GetComponent<T>(entity);
+                }
+            }
+            
+            bool canPaste = false;
+            if constexpr (std::is_same_v<T, TransformComponent>)
+                canPaste = m_CopiedTransform.has_value();
+            else if constexpr (std::is_same_v<T, CameraComponent>)
+                canPaste = m_CopiedCamera.has_value();
+            else if constexpr (std::is_same_v<T, MeshComponent>)
+                canPaste = m_CopiedMesh.has_value();
+            else if constexpr (std::is_same_v<T, RigidbodyComponent>)
+                canPaste = m_CopiedRigidbody.has_value();
+            else if constexpr (std::is_same_v<T, BoxColliderComponent>)
+                canPaste = m_CopiedBoxCollider.has_value();
+            else if constexpr (std::is_same_v<T, CapsuleColliderComponent>)
+                canPaste = m_CopiedCapsuleCollider.has_value();
+            else if constexpr (std::is_same_v<T, SphereColliderComponent>)
+                canPaste = m_CopiedSphereCollider.has_value();
+            else if constexpr (std::is_same_v<T, PlaneColliderComponent>)
+                canPaste = m_CopiedPlaneCollider.has_value();
+            
+            if (!canPaste)
+                ImGui::BeginDisabled();
+            
+            if (ImGui::MenuItem("Paste"))
+            {
+                if constexpr (std::is_same_v<T, TransformComponent>)
+                {
+                    if (m_CopiedTransform.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedTransform.value();
+                }
+                else if constexpr (std::is_same_v<T, CameraComponent>)
+                {
+                    if (m_CopiedCamera.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedCamera.value();
+                }
+                else if constexpr (std::is_same_v<T, MeshComponent>)
+                {
+                    if (m_CopiedMesh.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedMesh.value();
+                }
+                else if constexpr (std::is_same_v<T, RigidbodyComponent>)
+                {
+                    if (m_CopiedRigidbody.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedRigidbody.value();
+                }
+                else if constexpr (std::is_same_v<T, BoxColliderComponent>)
+                {
+                    if (m_CopiedBoxCollider.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedBoxCollider.value();
+                }
+                else if constexpr (std::is_same_v<T, CapsuleColliderComponent>)
+                {
+                    if (m_CopiedCapsuleCollider.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedCapsuleCollider.value();
+                }
+                else if constexpr (std::is_same_v<T, SphereColliderComponent>)
+                {
+                    if (m_CopiedSphereCollider.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedSphereCollider.value();
+                }
+                else if constexpr (std::is_same_v<T, PlaneColliderComponent>)
+                {
+                    if (m_CopiedPlaneCollider.has_value())
+                        m_ActiveScene->GetComponent<T>(entity) = m_CopiedPlaneCollider.value();
+                }
+            }
+            
+            if (!canPaste)
+                ImGui::EndDisabled();
+            
+            // Don't allow removing Transform component as it's essential
+            if constexpr (!std::is_same_v<T, TransformComponent>)
+            {
+                ImGui::Separator();
+                if (ImGui::MenuItem("Remove"))
+                {
+                    m_ActiveScene->RemoveComponent<T>(entity);
+                }
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        ImGui::PopID();
+    }
+
     void App::UISceneProperties()
     {
         ImGui::Begin("Properties", nullptr);
@@ -1095,7 +1229,9 @@ namespace flex
             {
                 auto& tr = m_ActiveScene->GetComponent<TransformComponent>(m_SelectedEntity);
 
-                if (ImGui::TreeNodeEx("Transform", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<TransformComponent>("Transform", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     ImGui::DragFloat3("Position", &tr.position.x, 0.025);
                     ImGui::DragFloat3("Rotation", &tr.rotation.x, 0.025);
@@ -1108,7 +1244,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<CameraComponent>(m_SelectedEntity))
             {
                 auto& cc = m_ActiveScene->GetComponent<CameraComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Camera", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<CameraComponent>("Camera", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     bool projectionDirty = false;
                     static const std::array<const char*, 2> projLabels = { "Perspective", "Orthographic" };
@@ -1170,7 +1308,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<RigidbodyComponent>(m_SelectedEntity))
             {
                 auto& rb = m_ActiveScene->GetComponent<RigidbodyComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Rigidbody", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<RigidbodyComponent>("Rigidbody", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     ImGui::DragFloat("Mass", &rb.mass, 0.025f);
                     ImGui::DragFloat3("Center Mass", &rb.centerOfMass.x, 0.01f);
@@ -1190,7 +1330,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<BoxColliderComponent>(m_SelectedEntity))
             {
                 auto& box = m_ActiveScene->GetComponent<BoxColliderComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Box Collider", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<BoxColliderComponent>("Box Collider", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     ImGui::DragFloat3("Offset", &box.offset.x, 0.01f);
                     ImGui::DragFloat("Density", &box.density, 0.1f, 0.0f, 100.0f);
@@ -1203,7 +1345,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<CapsuleColliderComponent>(m_SelectedEntity))
             {
                 auto &capsule = m_ActiveScene->GetComponent<CapsuleColliderComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Capsule Collider", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<CapsuleColliderComponent>("Capsule Collider", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     ImGui::DragFloat3("Offset", &capsule.offset.x, 0.01f);
                     ImGui::DragFloat("Density", &capsule.density, 0.1f, 0.0f, 100.0f);
@@ -1217,7 +1361,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<SphereColliderComponent>(m_SelectedEntity))
             {
                 auto &sphere = m_ActiveScene->GetComponent<SphereColliderComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Sphere Collider", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<SphereColliderComponent>("Sphere Collider", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     ImGui::DragFloat3("Offset", &sphere.offset.x, 0.01f);
                     ImGui::DragFloat("Density", &sphere.density, 0.1f, 0.0f, 100.0f);
@@ -1230,7 +1376,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<PlaneColliderComponent>(m_SelectedEntity))
             {
                 auto &plane = m_ActiveScene->GetComponent<PlaneColliderComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Plane Collider", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<PlaneColliderComponent>("Plane Collider", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     ImGui::DragFloat3("Offset", &plane.offset.x, 0.01f);
 
@@ -1241,7 +1389,9 @@ namespace flex
             if (m_ActiveScene->HasComponent<MeshComponent>(m_SelectedEntity))
             {
                 auto& mc = m_ActiveScene->GetComponent<MeshComponent>(m_SelectedEntity);
-                if (ImGui::TreeNodeEx("Mesh", treeNodeFlags))
+                bool opened;
+                DrawComponentHeader<MeshComponent>("Mesh", m_SelectedEntity, treeNodeFlags, opened);
+                if (opened)
                 {
                     if (ImGui::Button("Load Mesh"))
                     {
@@ -1327,11 +1477,15 @@ namespace flex
                             ImGui::PopID();
                         };
 
-                        drawTexturePreview("Base Color", material->baseColorTexture);
-                        drawTexturePreview("Emissive", material->emissiveTexture);
-                        drawTexturePreview("Metallic/Roughness", material->metallicRoughnessTexture);
-                        drawTexturePreview("Normal", material->normalTexture);
-                        drawTexturePreview("Occlusion", material->occlusionTexture);
+                        if (ImGui::TreeNodeEx("Textures"))
+                        {
+                            drawTexturePreview("Base Color", material->baseColorTexture);
+                            drawTexturePreview("Emissive", material->emissiveTexture);
+                            drawTexturePreview("Metallic/Roughness", material->metallicRoughnessTexture);
+                            drawTexturePreview("Normal", material->normalTexture);
+                            drawTexturePreview("Occlusion", material->occlusionTexture);
+                        }
+
                     }
 
                     ImGui::TreePop();

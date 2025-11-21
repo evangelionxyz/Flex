@@ -11,8 +11,8 @@
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.0,
-                        0.0,
+                        0.9117647409439087,
+                        1.0,
                         0.0,
                         0.0
                     ],
@@ -120,26 +120,61 @@
                     0.0
                 ],
                 "Scale": [
+                    100.0,
                     12.774489402770996,
-                    12.774489402770996,
-                    12.774489402770996
+                    100.0
                 ]
             }
         },
         {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Offset": [
+            "Entity": 8210504663731644374,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        0.0,
+                        0.8529410362243652,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        0.23039215803146362,
+                        0.5699253678321838,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Glasses",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
                     0.0,
+                    0.666246771812439,
+                    -0.6311752200126648
+                ],
+                "Rotation": [
                     0.0,
+                    -0.0,
                     0.0
                 ],
                 "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
+                    0.6992034912109375,
+                    0.29132604598999023,
+                    0.9999997019767761
                 ]
-            },
+            }
+        },
+        {
             "Entity": 15606357254747572952,
             "Mesh": {
                 "Material": {
@@ -164,39 +199,16 @@
                 "MeshIndex": 0,
                 "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
             },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
             "Tag": {
                 "Children": [],
-                "Name": "Cube.001 (1)",
+                "Name": "Weapon",
                 "Parent": 12095583481052254625
             },
             "Transform": {
                 "Position": [
-                    -1.0653876066207886,
-                    0.7202283143997192,
-                    1.1543315649032593
+                    -1.0322476625442505,
+                    -0.000643312931060791,
+                    -0.9768574833869934
                 ],
                 "Rotation": [
                     0.0,
@@ -340,15 +352,15 @@
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
                         1.0,
+                        0.0,
+                        0.8529410362243652,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.23039215803146362,
-                        0.38884079456329346,
                         1.0,
+                        0.23039215803146362,
+                        0.5699253678321838,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -390,13 +402,13 @@
             },
             "Transform": {
                 "Position": [
-                    1.127193570137024,
-                    1.6937453746795654,
-                    -0.05862593650817871
+                    5.1935601234436035,
+                    2.602179527282715,
+                    0.5556561350822449
                 ],
                 "Rotation": [
-                    44.25632095336914,
-                    25.193777084350586,
+                    44.256324768066406,
+                    25.19377899169922,
                     -27.08357810974121
                 ],
                 "Scale": [
@@ -539,7 +551,10 @@
             },
             "Tag": {
                 "Children": [
+                    3288233108845053696,
+                    3435492865839286066,
                     3436369889581239374,
+                    8210504663731644374,
                     15606357254747572952
                 ],
                 "Name": "Player",
@@ -608,6 +623,93 @@
                     1.0,
                     1.0,
                     1.0
+                ]
+            }
+        },
+        {
+            "Camera": {
+                "AspectMode": 0,
+                "FarPlane": 550.0,
+                "FixedAspectRatio": 1.7777777910232544,
+                "Fov": 90.0,
+                "NearPlane": 0.10000000149011612,
+                "OrthoSize": 10.0,
+                "Primary": true,
+                "ProjectionType": 0,
+                "ViewportSize": [
+                    1465.0,
+                    824.0
+                ]
+            },
+            "Entity": 3288233108845053696,
+            "Tag": {
+                "Children": [],
+                "Name": "Camera",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    -2.9897074699401855,
+                    2.0226731300354004,
+                    4.635760307312012
+                ],
+                "Rotation": [
+                    0.0,
+                    -11.82686710357666,
+                    0.0
+                ],
+                "Scale": [
+                    0.9999999403953552,
+                    1.0,
+                    0.9999998211860657
+                ]
+            }
+        },
+        {
+            "Entity": 3435492865839286066,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.23039215803146362,
+                        0.38884079456329346,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "C:\\Dev\\Flex\\Flex\\Resources\\models\\scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Weapon (1)",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    1.0221233367919922,
+                    -0.000643312931060791,
+                    -0.9768574833869934
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.16409039497375488,
+                    0.17594797909259796,
+                    0.7446922063827515
                 ]
             }
         }

@@ -190,6 +190,9 @@ namespace flex
         void UISceneHierarchy();
         void UISceneProperties();
 
+        template<typename T>
+        void DrawComponentHeader(const char* label, entt::entity entity, ImGuiTreeNodeFlags flags, bool& opened);
+
         void DrawHierarchyNode(entt::entity entity);
         void DrawEntityContextMenu(entt::entity entity);
         void HandleHierarchyWindowContextMenu();
@@ -254,6 +257,16 @@ namespace flex
 
         bool m_SaveRuntime = false;
         std::vector<entt::entity> m_PendingHierarchyDeletion;
+
+        // Component clipboard
+        std::optional<TransformComponent> m_CopiedTransform;
+        std::optional<CameraComponent> m_CopiedCamera;
+        std::optional<MeshComponent> m_CopiedMesh;
+        std::optional<RigidbodyComponent> m_CopiedRigidbody;
+        std::optional<BoxColliderComponent> m_CopiedBoxCollider;
+        std::optional<CapsuleColliderComponent> m_CopiedCapsuleCollider;
+        std::optional<SphereColliderComponent> m_CopiedSphereCollider;
+        std::optional<PlaneColliderComponent> m_CopiedPlaneCollider;
     };
 }
 
