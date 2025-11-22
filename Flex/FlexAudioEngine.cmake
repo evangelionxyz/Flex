@@ -47,12 +47,6 @@ elseif(UNIX AND NOT APPLE)
     )
 endif()
 
-add_custom_command(TARGET FlexAudioEngine POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR} $<TARGET_FILE_DIR:FlexAudioEngine>/Resources
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL3::SDL3> $<TARGET_FILE_DIR:FlexAudioEngine>
-    COMMENT "Copying SDL3.dll to output directory"
-)
-
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     target_compile_definitions(FlexAudioEngine PUBLIC FLEX_DEBUG)
 else()
