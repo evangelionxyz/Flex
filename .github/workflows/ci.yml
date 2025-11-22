@@ -2,7 +2,7 @@ name: Flex Build
 
 on:
   push:
-    branches: [ "master", "dev" ]
+    branches: [ "master", "dev", "net" ]
   pull_request:
     branches: [ "master" ]
 
