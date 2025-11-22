@@ -308,10 +308,10 @@ namespace flex
 
             m_ActiveScene->Render(PBRShader, m_EnvMap);
 
-            if (m_ActiveScene)
-            {
-                m_ActiveScene->DebugDrawColliders();
-            }
+            // if (m_ActiveScene)
+            // {
+            //     m_ActiveScene->DebugDrawColliders();
+            // }
 
             Renderer2D::EndBatch();
 
@@ -969,7 +969,8 @@ namespace flex
                 ImGui::SetCursorPos(renderPos);
                 ImGui::Image(colorTex, renderSize, ImVec2(0, 1), ImVec2(1, 0));
 
-                if (m_SelectedEntity != entt::null && m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
+                const bool allowGizmo = m_ActiveScene && !m_ActiveScene->IsPlaying();
+                if (allowGizmo && m_SelectedEntity != entt::null && m_ActiveScene->HasComponent<TransformComponent>(m_SelectedEntity))
                 {
                     glm::mat4 model = m_ActiveScene->GetWorldTransform(m_SelectedEntity);
                     glm::mat4 view = m_Camera.view;

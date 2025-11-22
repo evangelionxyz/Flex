@@ -12,7 +12,7 @@ target_include_directories(FlexServer PRIVATE
     "${CMAKE_SOURCE_DIR}/thirdparty/igniteserver/ThirdParty/GameNetworkingSockets/include"
 )
 
-target_link_libraries(FlexServer PRIVATE FlexEngine IgniteNet)
+target_link_libraries(FlexServer PRIVATE FlexEngine FlexAudioEngine IgniteNet)
 
 if(WIN32)
 target_link_libraries(FlexServer PUBLIC

@@ -8,7 +8,7 @@ target_include_directories(Flex PRIVATE
     "${THIRDPARTY_DIR}/igniteserver/Networking/source"
     "${THIRDPARTY_DIR}/igniteserver/ThirdParty/GameNetworkingSockets/include"
 )
-target_link_libraries(Flex PRIVATE FlexEngine IgniteNet)
+target_link_libraries(Flex PRIVATE FlexEngine FlexAudioEngine IgniteNet)
 
 if(WIN32)
     target_link_libraries(FlexEngine PUBLIC

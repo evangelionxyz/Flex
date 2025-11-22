@@ -47,6 +47,7 @@ namespace flex
 
         entt::entity CreateEntity(const std::string& name, const UUID &uuid = UUID());
         entt::entity DuplicateEntity(entt::entity entity);
+        entt::entity DuplicateEntityWithUUID(entt::entity entity, const UUID& uuid);
         void DestroyEntity(const entt::entity entity);
 
         Ref<Scene> Clone() const;
@@ -122,6 +123,10 @@ namespace flex
         bool m_IsPlaying = false;
         bool m_ScriptsEnabled = true;
         bool m_PhysicsEnabled = true;
+
+        std::string GenerateDuplicateName(const std::string& baseName);
+        entt::entity DuplicateEntityRecursive(entt::entity source, entt::entity parentDuplicate, bool ensureUniqueName, const UUID* forcedUUID);
+        void InitializeRuntimeEntity(entt::entity entity);
     };
 }
 

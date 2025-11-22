@@ -24,11 +24,11 @@ namespace flex
             return m_Scene->GetComponent<T>(m_Entity);
         }
 
-    protected:
         virtual void OnStart() {};
         virtual void OnStop() {};
         virtual void OnUpdate(float deltaTime) {};
-
+        
+    protected:
         Scene *m_Scene = nullptr;
         entt::entity m_Entity;
 

@@ -2,11 +2,11 @@
 #include <filesystem>
 #include <iostream>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 #include "net/BufferStream.hpp"
 #include "net/Server.hpp"
@@ -20,6 +20,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 using namespace ignite;
 using namespace flex;
@@ -29,21 +30,273 @@ namespace
     constexpr uint16_t kDefaultPort = 8192;
     constexpr double kFixedDeltaSeconds = 1.0 / 60.0;
 
-    struct ClientInputState
+    struct ClientRuntimeState
     {
         PlayerController::NetworkInputState input;
+        entt::entity playerEntity = entt::null;
+        PlayerController* controller = nullptr;
     };
 
     std::mutex g_InputMutex;
-    std::unordered_map<uint32_t, ClientInputState> g_ClientInputs;
+    std::unordered_map<uint32_t, ClientRuntimeState> g_ClientStates;
+
+    std::mutex g_AssignmentMutex;
+    std::vector<uint32_t> g_PendingSpawnRequests;
+    std::vector<uint32_t> g_PendingReleaseRequests;
+
+    std::vector<entt::entity> g_AvailablePlayers;
+
+    struct BulletSpawnEvent
+    {
+        uint64_t bulletUUID = 0;
+        uint64_t templateUUID = 0;
+        glm::vec3 position{0.0f};
+        glm::vec3 velocity{0.0f};
+        uint64_t fireSoundUUID = 0;
+    };
+
+    std::mutex g_EventMutex;
+    std::vector<BulletSpawnEvent> g_PendingBulletEvents;
+
+    std::mutex g_EventBufferMutex;
+    net::Buffer g_EventBuffer;
 
     std::mutex g_ScratchMutex;
     net::Buffer g_ScratchBuffer;
 
     Ref<Scene> g_RuntimeScene;
-    entt::entity g_PlayerEntity = entt::null;
-    PlayerController* g_PlayerController = nullptr;
-    std::optional<uint32_t> g_ControlClient;
+    entt::entity g_PlayerTemplate = entt::null;
+    TransformComponent g_PlayerSpawnTransform{};
+    bool g_HasPlayerSpawnTransform = false;
+    uint32_t g_SpawnCounter = 0;
+
+    PlayerController* GetPlayerControllerForEntity(entt::entity entity)
+    {
+        if (!g_RuntimeScene || entity == entt::null)
+        {
+            return nullptr;
+        }
+
+        if (!g_RuntimeScene->HasComponent<NativeScriptComponent>(entity))
+        {
+            return nullptr;
+        }
+
+        auto& nsc = g_RuntimeScene->GetComponent<NativeScriptComponent>(entity);
+        if (!nsc.instance && nsc.InstantiateScript)
+        {
+            nsc.instance = nsc.InstantiateScript(g_RuntimeScene.get(), entity);
+            if (nsc.instance)
+            {
+                nsc.instance->OnStart();
+            }
+        }
+        return dynamic_cast<PlayerController*>(nsc.instance);
+    }
+
+    void ResetPlayerEntity(entt::entity entity)
+    {
+        if (!g_RuntimeScene || entity == entt::null || !g_HasPlayerSpawnTransform)
+        {
+            return;
+        }
+
+        if (g_RuntimeScene->HasComponent<TransformComponent>(entity))
+        {
+            g_RuntimeScene->GetComponent<TransformComponent>(entity) = g_PlayerSpawnTransform;
+        }
+
+        if (g_RuntimeScene->HasComponent<RigidbodyComponent>(entity) && g_RuntimeScene->joltPhysicsScene)
+        {
+            auto& rb = g_RuntimeScene->GetComponent<RigidbodyComponent>(entity);
+            if (!rb.bodyID.IsInvalid())
+            {
+                g_RuntimeScene->joltPhysicsScene->SetLinearVelocity(rb.bodyID, glm::vec3(0.0f));
+                g_RuntimeScene->joltPhysicsScene->SetAngularVelocity(rb.bodyID, glm::vec3(0.0f));
+                g_RuntimeScene->joltPhysicsScene->SetPosition(rb.bodyID, g_PlayerSpawnTransform.position, true);
+                const glm::quat rotation = glm::quat(glm::radians(g_PlayerSpawnTransform.rotation));
+                g_RuntimeScene->joltPhysicsScene->SetRotation(rb.bodyID, rotation, true);
+            }
+        }
+    }
+
+    void SetupPlayerSpawnTransform(entt::entity entity, uint32_t spawnIndex)
+    {
+        if (!g_RuntimeScene || entity == entt::null || !g_HasPlayerSpawnTransform)
+        {
+            return;
+        }
+
+        glm::vec3 spawnPosition = g_PlayerSpawnTransform.position;
+        constexpr float spacing = 2.5f;
+        const uint32_t row = spawnIndex / 4;
+        const uint32_t column = spawnIndex % 4;
+        spawnPosition += glm::vec3(static_cast<float>(column) * spacing, 0.0f, static_cast<float>(row) * spacing);
+
+        if (g_RuntimeScene->HasComponent<TransformComponent>(entity))
+        {
+            auto& transform = g_RuntimeScene->GetComponent<TransformComponent>(entity);
+            transform = g_PlayerSpawnTransform;
+            transform.position = spawnPosition;
+        }
+
+        if (g_RuntimeScene->HasComponent<RigidbodyComponent>(entity) && g_RuntimeScene->joltPhysicsScene)
+        {
+            auto& rb = g_RuntimeScene->GetComponent<RigidbodyComponent>(entity);
+            if (rb.bodyID.IsInvalid())
+            {
+                g_RuntimeScene->joltPhysicsScene->InstantiateEntity(entity);
+            }
+
+            if (!rb.bodyID.IsInvalid())
+            {
+                g_RuntimeScene->joltPhysicsScene->SetLinearVelocity(rb.bodyID, glm::vec3(0.0f));
+                g_RuntimeScene->joltPhysicsScene->SetAngularVelocity(rb.bodyID, glm::vec3(0.0f));
+                g_RuntimeScene->joltPhysicsScene->SetPosition(rb.bodyID, spawnPosition, true);
+                const glm::quat rotation = glm::quat(glm::radians(g_PlayerSpawnTransform.rotation));
+                g_RuntimeScene->joltPhysicsScene->SetRotation(rb.bodyID, rotation, true);
+            }
+        }
+    }
+
+    entt::entity AcquirePlayerEntity()
+    {
+        entt::entity entity = entt::null;
+        if (!g_AvailablePlayers.empty())
+        {
+            entity = g_AvailablePlayers.back();
+            g_AvailablePlayers.pop_back();
+        }
+        else if (g_RuntimeScene && g_PlayerTemplate != entt::null)
+        {
+            entity = g_RuntimeScene->DuplicateEntity(g_PlayerTemplate);
+        }
+
+        if (entity != entt::null)
+        {
+            SetupPlayerSpawnTransform(entity, g_SpawnCounter++);
+        }
+
+        return entity;
+    }
+
+    void AssignClientPlayer(uint32_t clientId)
+    {
+        entt::entity playerEntity = AcquirePlayerEntity();
+        if (playerEntity == entt::null)
+        {
+            std::cerr << "No player entity available for client " << clientId << std::endl;
+            return;
+        }
+
+        PlayerController* controller = GetPlayerControllerForEntity(playerEntity);
+        if (controller)
+        {
+            controller->EnableNetworkInput(true);
+        }
+        else
+        {
+            std::cerr << "PlayerController missing for entity assigned to client " << clientId << std::endl;
+        }
+
+        std::lock_guard lock(g_InputMutex);
+        auto it = g_ClientStates.find(clientId);
+        if (it == g_ClientStates.end())
+        {
+            if (controller)
+            {
+                controller->EnableNetworkInput(false);
+            }
+            g_AvailablePlayers.push_back(playerEntity);
+            return;
+        }
+
+        it->second.playerEntity = playerEntity;
+        it->second.controller = controller;
+        it->second.input = {};
+    }
+
+    void ReleaseClientPlayer(uint32_t clientId)
+    {
+        entt::entity playerEntity = entt::null;
+        PlayerController* controller = nullptr;
+
+        {
+            std::lock_guard lock(g_InputMutex);
+            auto it = g_ClientStates.find(clientId);
+            if (it == g_ClientStates.end())
+            {
+                return;
+            }
+
+            playerEntity = it->second.playerEntity;
+            controller = it->second.controller;
+            g_ClientStates.erase(it);
+        }
+
+        if (controller)
+        {
+            controller->EnableNetworkInput(false);
+        }
+
+        if (playerEntity != entt::null)
+        {
+            ResetPlayerEntity(playerEntity);
+            g_AvailablePlayers.push_back(playerEntity);
+        }
+    }
+
+    void ProcessPendingAssignments()
+    {
+        std::vector<uint32_t> spawnRequests;
+        std::vector<uint32_t> releaseRequests;
+        {
+            std::lock_guard lock(g_AssignmentMutex);
+            if (g_PendingSpawnRequests.empty() && g_PendingReleaseRequests.empty())
+            {
+                return;
+            }
+            spawnRequests.swap(g_PendingSpawnRequests);
+            releaseRequests.swap(g_PendingReleaseRequests);
+        }
+
+        for (uint32_t clientId : releaseRequests)
+        {
+            ReleaseClientPlayer(clientId);
+        }
+
+        for (uint32_t clientId : spawnRequests)
+        {
+            AssignClientPlayer(clientId);
+        }
+    }
+
+    void BroadcastSpawnEvents(net::Server& server)
+    {
+        std::vector<BulletSpawnEvent> events;
+        {
+            std::lock_guard lock(g_EventMutex);
+            if (g_PendingBulletEvents.empty())
+            {
+                return;
+            }
+            events.swap(g_PendingBulletEvents);
+        }
+
+        for (const BulletSpawnEvent& event : events)
+        {
+            std::lock_guard bufferLock(g_EventBufferMutex);
+            net::BufferStreamWriter writer(g_EventBuffer);
+            writer.SetStreamPosition(0);
+            writer.WriteRaw(net::PacketType::EntitySpawn);
+            writer.WriteRaw(event.bulletUUID);
+            writer.WriteRaw(event.templateUUID);
+            writer.WriteRaw(event.position);
+            writer.WriteRaw(event.velocity);
+            writer.WriteRaw(event.fireSoundUUID);
+            server.SendBufferToAllClients(writer.GetBuffer(), 0, false);
+        }
+    }
 
     void BroadcastPhysicsState(net::Server& server)
     {
@@ -106,13 +359,14 @@ namespace
 
     void OnClientConnected(const net::ClientInfo& clientInfo)
     {
+        const uint32_t clientId = static_cast<uint32_t>(clientInfo.ID);
         {
             std::lock_guard lock(g_InputMutex);
-            g_ClientInputs[static_cast<uint32_t>(clientInfo.ID)] = ClientInputState{};
-            if (!g_ControlClient.has_value())
-            {
-                g_ControlClient = static_cast<uint32_t>(clientInfo.ID);
-            }
+            g_ClientStates[clientId] = ClientRuntimeState{};
+        }
+        {
+            std::lock_guard lock(g_AssignmentMutex);
+            g_PendingSpawnRequests.push_back(clientId);
         }
 
         std::cout << "Client connected: " << clientInfo.ID << std::endl;
@@ -120,11 +374,10 @@ namespace
 
     void OnClientDisconnected(const net::ClientInfo& clientInfo)
     {
-        std::lock_guard lock(g_InputMutex);
-        g_ClientInputs.erase(static_cast<uint32_t>(clientInfo.ID));
-        if (g_ControlClient == static_cast<uint32_t>(clientInfo.ID))
+        const uint32_t clientId = static_cast<uint32_t>(clientInfo.ID);
         {
-            g_ControlClient.reset();
+            std::lock_guard lock(g_AssignmentMutex);
+            g_PendingReleaseRequests.push_back(clientId);
         }
 
         std::cout << "Client disconnected: " << clientInfo.ID << std::endl;
@@ -164,9 +417,10 @@ namespace
             input.fireLeft = fireLeft != 0;
             input.fireRight = fireRight != 0;
 
+            const uint32_t clientId = static_cast<uint32_t>(clientInfo.ID);
             std::lock_guard lock(g_InputMutex);
-            auto it = g_ClientInputs.find(static_cast<uint32_t>(clientInfo.ID));
-            if (it != g_ClientInputs.end())
+            auto it = g_ClientStates.find(clientId);
+            if (it != g_ClientStates.end())
             {
                 auto& state = it->second.input;
                 state.moveAxes = input.moveAxes;
@@ -198,6 +452,7 @@ int main(int argc, char** argv)
     scenePath = std::filesystem::weakly_canonical(scenePath);
 
     g_ScratchBuffer.Allocate(64 * 1024);
+    g_EventBuffer.Allocate(4 * 1024);
 
     JoltPhysics::Init();
 
@@ -227,19 +482,43 @@ int main(int argc, char** argv)
         }
         auto& nsc = g_RuntimeScene->GetComponent<NativeScriptComponent>(playerEntity);
         nsc.Bind<PlayerController>();
-        g_PlayerEntity = playerEntity;
+        g_PlayerTemplate = playerEntity;
+
+        if (g_RuntimeScene->HasComponent<TransformComponent>(playerEntity))
+        {
+            g_PlayerSpawnTransform = g_RuntimeScene->GetComponent<TransformComponent>(playerEntity);
+            g_HasPlayerSpawnTransform = true;
+        }
     }
 
     g_RuntimeScene->Start();
 
-    if (g_PlayerEntity != entt::null)
+    PlayerController::SetBulletSpawnCallback([](const PlayerController::BulletSpawnInfo& info)
     {
-        auto& nsc = g_RuntimeScene->GetComponent<NativeScriptComponent>(g_PlayerEntity);
-        g_PlayerController = dynamic_cast<PlayerController*>(nsc.instance);
-        if (g_PlayerController)
+        if (static_cast<uint64_t>(info.bulletUUID) == 0 || static_cast<uint64_t>(info.templateUUID) == 0)
         {
-            g_PlayerController->EnableNetworkInput(true);
+            return;
         }
+
+        BulletSpawnEvent event;
+        event.bulletUUID = static_cast<uint64_t>(info.bulletUUID);
+        event.templateUUID = static_cast<uint64_t>(info.templateUUID);
+        event.position = info.spawnPosition;
+        event.velocity = info.spawnVelocity;
+        event.fireSoundUUID = static_cast<uint64_t>(info.fireSoundUUID);
+
+        std::lock_guard lock(g_EventMutex);
+        g_PendingBulletEvents.push_back(event);
+    });
+
+    if (g_PlayerTemplate != entt::null)
+    {
+        PlayerController* templateController = GetPlayerControllerForEntity(g_PlayerTemplate);
+        if (templateController)
+        {
+            templateController->EnableNetworkInput(false);
+        }
+        g_AvailablePlayers.push_back(g_PlayerTemplate);
     }
 
     net::Server server(kDefaultPort);
@@ -258,34 +537,40 @@ int main(int argc, char** argv)
         previousTime = now;
         accumulator += frameTime;
 
-        PlayerController::NetworkInputState pendingInput;
-        bool hasInput = false;
-        {
-            std::lock_guard lock(g_InputMutex);
-            if (g_ControlClient && g_PlayerController)
-            {
-                auto it = g_ClientInputs.find(*g_ControlClient);
-                if (it != g_ClientInputs.end())
-                {
-                    pendingInput = it->second.input;
-                    it->second.input.yawDelta = 0.0f;
-                    hasInput = true;
-                }
-            }
-        }
+        ProcessPendingAssignments();
 
         while (accumulator >= kFixedDeltaSeconds)
         {
-            if (g_PlayerController && hasInput)
+            std::vector<std::pair<PlayerController*, PlayerController::NetworkInputState>> stepInputs;
             {
-                g_PlayerController->ApplyNetworkInput(pendingInput);
-                pendingInput.yawDelta = 0.0f;
+                std::lock_guard lock(g_InputMutex);
+                stepInputs.reserve(g_ClientStates.size());
+                for (auto& [clientId, state] : g_ClientStates)
+                {
+                    if (!state.controller)
+                    {
+                        continue;
+                    }
+
+                    stepInputs.emplace_back(state.controller, state.input);
+                    state.input.yawDelta = 0.0f;
+                }
+            }
+
+            for (auto& [controller, input] : stepInputs)
+            {
+                if (controller)
+                {
+                    controller->ApplyNetworkInput(input);
+                }
             }
 
             g_RuntimeScene->Update(static_cast<float>(kFixedDeltaSeconds));
             BroadcastPhysicsState(server);
             accumulator -= kFixedDeltaSeconds;
         }
+
+        BroadcastSpawnEvents(server);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -294,6 +579,8 @@ int main(int argc, char** argv)
     {
         g_RuntimeScene->Stop();
     }
+
+    PlayerController::SetBulletSpawnCallback(nullptr);
 
     g_RuntimeScene.reset();
 

@@ -3,10 +3,6 @@ file(GLOB_RECURSE FLEX_ENGINE_SOURCES
     "Source/Core/**.hpp"
     "Source/Core/**.h"
 
-    "Source/Audio/**.cpp"
-    "Source/Audio/**.hpp"
-    "Source/Audio/**.h"
-
     "Source/Math/**.cpp"
     "Source/Math/**.hpp"
     "Source/Math/**.h"
@@ -45,23 +41,6 @@ target_include_directories(FlexEngine PUBLIC
 )
 
 target_link_libraries(FlexEngine PUBLIC SDL3::SDL3 Jolt imgui MSDF_ATLAS_GEN MSDFGEN FREETYPE)
-
-if(WIN32)
-    target_link_libraries(FlexEngine PUBLIC
-        "${THIRDPARTY_DIR}/fmod/lib/windows/x64/fmod_vc.lib"
-    )
-
-    add_custom_command(TARGET FlexEngine POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy "${THIRDPARTY_DIR}/fmod/lib/windows/x64/fmod.dll" $<TARGET_FILE_DIR:FlexEngine>/fmod.dll
-        COMMENT "Copying fmod.dll to output directory"
-    )
-endif()
-
-add_custom_command(TARGET FlexEngine POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_DIR} $<TARGET_FILE_DIR:FlexEngine>/Resources
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL3::SDL3> $<TARGET_FILE_DIR:FlexEngine>
-    COMMENT "Copying SDL3.dll to output directory"
-)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     target_compile_definitions(FlexEngine PUBLIC FLEX_DEBUG)
