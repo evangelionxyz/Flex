@@ -107,6 +107,8 @@ namespace flex
 
     void NetworkClient::ApplyPendingSnapshot(Scene& scene)
     {
+        ApplyPendingEntitySpawns(scene);
+
         std::optional<PhysicsSnapshot> snapshot;
         {
             std::lock_guard lock(m_SnapshotMutex);
@@ -158,6 +160,73 @@ namespace flex
             m_PendingSnapshot->entries.clear();
         }
         m_PendingSnapshot.reset();
+
+        std::lock_guard spawnLock(m_SpawnMutex);
+        m_PendingSpawns.clear();
+    }
+
+    void NetworkClient::ApplyPendingEntitySpawns(Scene& scene)
+    {
+        std::vector<EntitySpawnEvent> spawns;
+        {
+            std::lock_guard lock(m_SpawnMutex);
+            if (m_PendingSpawns.empty())
+            {
+                return;
+            }
+            spawns.swap(m_PendingSpawns);
+        }
+
+        for (const EntitySpawnEvent& spawn : spawns)
+        {
+            if (spawn.entityUUID == 0 || spawn.templateUUID == 0)
+            {
+                continue;
+            }
+
+            const UUID templateUUID(spawn.templateUUID);
+            entt::entity templateEntity = scene.GetEntityByUUID(templateUUID);
+            if (templateEntity == entt::null)
+            {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "[NetworkClient] Template entity %llu not found for spawn", static_cast<unsigned long long>(spawn.templateUUID));
+                continue;
+            }
+
+            const UUID spawnUUID(spawn.entityUUID);
+            if (entt::entity existing = scene.GetEntityByUUID(spawnUUID); existing != entt::null)
+            {
+                scene.DestroyEntity(existing);
+            }
+
+            entt::entity spawnedEntity = scene.DuplicateEntityWithUUID(templateEntity, spawnUUID);
+            if (spawnedEntity == entt::null)
+            {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "[NetworkClient] Failed to spawn entity %llu", static_cast<unsigned long long>(spawn.entityUUID));
+                continue;
+            }
+
+            if (scene.HasComponent<TransformComponent>(spawnedEntity))
+            {
+                auto& transform = scene.GetComponent<TransformComponent>(spawnedEntity);
+                transform.position = spawn.position;
+            }
+
+            if (spawn.fireSoundUUID != 0)
+            {
+                const UUID soundUUID(spawn.fireSoundUUID);
+                entt::entity soundEntity = scene.GetEntityByUUID(soundUUID);
+                if (soundEntity != entt::null && scene.HasComponent<AudioComponent>(soundEntity))
+                {
+                    auto& audio = scene.GetComponent<AudioComponent>(soundEntity);
+                    if (audio.sound)
+                    {
+                        audio.sound->Play();
+                        audio.sound->SetVolume(audio.volume);
+                        audio.sound->SetPan(audio.panning);
+                    }
+                }
+            }
+        }
     }
 
     void NetworkClient::OnDataReceived(const ignite::net::Buffer buffer)
@@ -198,6 +267,19 @@ namespace flex
 
             std::lock_guard lock(m_SnapshotMutex);
             m_PendingSnapshot = std::move(snapshot);
+            break;
+        }
+        case ignite::net::PacketType::EntitySpawn:
+        {
+            EntitySpawnEvent spawn{};
+            reader.ReadRaw(spawn.entityUUID);
+            reader.ReadRaw(spawn.templateUUID);
+            reader.ReadRaw(spawn.position);
+            reader.ReadRaw(spawn.velocity);
+            reader.ReadRaw(spawn.fireSoundUUID);
+
+            std::lock_guard lock(m_SpawnMutex);
+            m_PendingSpawns.push_back(spawn);
             break;
         }
         default:

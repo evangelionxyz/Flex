@@ -61,6 +61,17 @@ namespace flex
             std::vector<Entry> entries;
         };
 
+        struct EntitySpawnEvent
+        {
+            uint64_t entityUUID = 0;
+            uint64_t templateUUID = 0;
+            glm::vec3 position{0.0f};
+            glm::vec3 velocity{0.0f};
+            uint64_t fireSoundUUID = 0;
+        };
+
+        void ApplyPendingEntitySpawns(Scene& scene);
+
         void OnDataReceived(const ignite::net::Buffer buffer);
 
         ignite::net::Client m_Client;
@@ -69,6 +80,8 @@ namespace flex
         std::mutex m_SendBufferMutex;
         std::mutex m_SnapshotMutex;
         std::optional<PhysicsSnapshot> m_PendingSnapshot;
+        std::mutex m_SpawnMutex;
+        std::vector<EntitySpawnEvent> m_PendingSpawns;
 
         bool m_InitializedCallbacks = false;
     };

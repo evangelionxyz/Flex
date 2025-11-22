@@ -43,6 +43,12 @@ namespace flex
                 copy.shape = nullptr;
                 return copy;
             }
+            else if constexpr (std::is_same_v<Component, NativeScriptComponent>)
+            {
+                Component copy = component;
+                copy.instance = nullptr;
+                return copy;
+            }
             else
             {
                 return component;
@@ -543,50 +549,147 @@ namespace flex
 
     entt::entity Scene::DuplicateEntity(entt::entity entity)
     {
+        return DuplicateEntityWithUUID(entity, UUID(0));
+    }
+
+    entt::entity Scene::DuplicateEntityWithUUID(entt::entity entity, const UUID& uuid)
+    {
         if (!IsValid(entity))
         {
             return entt::null;
         }
 
-        const TagComponent& sourceTag = GetComponent<TagComponent>(entity);
+        entt::entity originalParent = GetParentEntity(entity);
+        const bool hasForcedUUID = static_cast<uint64_t>(uuid) != 0;
 
-        std::string baseName = sourceTag.name;
-        if (baseName.empty())
+        entt::entity duplicatedRoot = DuplicateEntityRecursive(entity, entt::null, true, hasForcedUUID ? &uuid : nullptr);
+        if (duplicatedRoot != entt::null && originalParent != entt::null)
         {
-            baseName = "Entity";
+            ReparentEntity(duplicatedRoot, originalParent);
         }
 
-        std::string duplicateName = baseName;
+        return duplicatedRoot;
+    }
+
+    std::string Scene::GenerateDuplicateName(const std::string& baseName)
+    {
+        std::string sanitizedName = baseName.empty() ? "Entity" : baseName;
+        std::string candidate = sanitizedName;
         int suffix = 1;
-        while (true)
+
+        auto nameExists = [&](const std::string& name)
         {
-            bool exists = false;
             for (const auto& [uuid, existingEntity] : entities)
             {
-                if (GetComponent<TagComponent>(existingEntity).name == duplicateName)
+                if (!registry || !registry->valid(existingEntity) || !registry->all_of<TagComponent>(existingEntity))
                 {
-                    exists = true;
-                    break;
+                    continue;
+                }
+
+                const TagComponent& tag = registry->get<TagComponent>(existingEntity);
+                if (tag.name == name)
+                {
+                    return true;
                 }
             }
+            return false;
+        };
 
-            if (!exists)
-            {
-                break;
-            }
-
-            duplicateName = std::format("{} ({})", baseName, suffix);
-            ++suffix;
+        while (nameExists(candidate))
+        {
+            candidate = std::format("{} ({})", sanitizedName, suffix++);
         }
 
-        entt::entity duplicateEntity = CreateEntity(duplicateName);
-        TagComponent& duplicateTag = GetComponent<TagComponent>(duplicateEntity);
+        return candidate;
+    }
+
+    entt::entity Scene::DuplicateEntityRecursive(entt::entity source, entt::entity parentDuplicate, bool ensureUniqueName, const UUID* forcedUUID)
+    {
+        if (!registry || !registry->valid(source) || !registry->all_of<TagComponent>(source))
+        {
+            return entt::null;
+        }
+
+        const TagComponent& sourceTag = registry->get<TagComponent>(source);
+        const std::string baseName = sourceTag.name.empty() ? "Entity" : sourceTag.name;
+        const std::string newName = ensureUniqueName ? GenerateDuplicateName(baseName) : baseName;
+
+        entt::entity existing = entt::null;
+        if (forcedUUID && parentDuplicate == entt::null)
+        {
+            existing = GetEntityByUUID(*forcedUUID);
+            if (existing != entt::null)
+            {
+                DestroyEntity(existing);
+            }
+        }
+
+        entt::entity duplicate = (forcedUUID && parentDuplicate == entt::null)
+            ? CreateEntity(newName, *forcedUUID)
+            : CreateEntity(newName);
+        TagComponent& duplicateTag = GetComponent<TagComponent>(duplicate);
         duplicateTag.parent = UUID(0);
         duplicateTag.children.clear();
 
-        detail::CopyComponentToEntityGroup(*this, entity, *this, duplicateEntity, detail::AllComponents{});
+        detail::CopyComponentToEntityGroup(*this, source, *this, duplicate, detail::AllComponents{});
 
-        return duplicateEntity;
+        if (parentDuplicate != entt::null)
+        {
+            ReparentEntity(duplicate, parentDuplicate);
+        }
+
+        InitializeRuntimeEntity(duplicate);
+
+        for (const UUID& childUUID : sourceTag.children)
+        {
+            entt::entity childSource = GetEntityByUUID(childUUID);
+            if (childSource == entt::null)
+            {
+                continue;
+            }
+
+            DuplicateEntityRecursive(childSource, duplicate, false, nullptr);
+        }
+
+        return duplicate;
+    }
+
+    void Scene::InitializeRuntimeEntity(entt::entity entity)
+    {
+        if (!m_IsPlaying || !registry || !registry->valid(entity))
+        {
+            return;
+        }
+
+        if (m_ScriptsEnabled && HasComponent<NativeScriptComponent>(entity))
+        {
+            auto& nsc = GetComponent<NativeScriptComponent>(entity);
+            if (!nsc.instance && nsc.InstantiateScript)
+            {
+                nsc.instance = nsc.InstantiateScript(this, entity);
+                if (nsc.instance)
+                {
+                    nsc.instance->OnStart();
+                }
+            }
+        }
+
+        if (m_PhysicsEnabled && joltPhysicsScene && HasComponent<RigidbodyComponent>(entity))
+        {
+            joltPhysicsScene->InstantiateEntity(entity);
+        }
+
+        if (HasComponent<AudioComponent>(entity))
+        {
+            auto& audio = GetComponent<AudioComponent>(entity);
+            if (audio.sound && audio.playOnStart)
+            {
+                audio.sound->Stop();
+                audio.sound->Play();
+                audio.sound->SetVolume(audio.volume);
+                audio.sound->SetPan(audio.panning);
+            }
+        }
     }
 
     Ref<Scene> Scene::Clone() const
@@ -616,10 +719,12 @@ namespace flex
         if (registry->valid(entity))
         {
             TagComponent& tag = GetComponent<TagComponent>(entity);
+            const UUID entityUUID = tag.uuid;
+
             if (entt::entity parentEntity = GetParentEntity(entity); parentEntity != entt::null)
             {
                 TagComponent& parentTag = GetComponent<TagComponent>(parentEntity);
-                parentTag.children.erase(tag.uuid);
+                parentTag.children.erase(entityUUID);
             }
 
             std::vector<UUID> childrenToDetach(tag.children.begin(), tag.children.end());
@@ -634,8 +739,35 @@ namespace flex
             }
             tag.children.clear();
 
+            if (m_IsPlaying)
+            {
+                if (m_ScriptsEnabled && HasComponent<NativeScriptComponent>(entity))
+                {
+                    auto& nsc = GetComponent<NativeScriptComponent>(entity);
+                    if (nsc.instance && nsc.DestroyScript)
+                    {
+                        nsc.instance->OnStop();
+                        nsc.DestroyScript(&nsc);
+                    }
+                }
+
+                if (m_PhysicsEnabled && joltPhysicsScene && HasComponent<RigidbodyComponent>(entity))
+                {
+                    joltPhysicsScene->DestroyEntity(entity);
+                }
+
+                if (HasComponent<AudioComponent>(entity))
+                {
+                    auto& audio = GetComponent<AudioComponent>(entity);
+                    if (audio.sound)
+                    {
+                        audio.sound->Stop();
+                    }
+                }
+            }
+
             registry->destroy(entity);
-            entities.erase(tag.uuid);
+            entities.erase(entityUUID);
         }
     }
 

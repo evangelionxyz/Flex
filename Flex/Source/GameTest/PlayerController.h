@@ -11,6 +11,8 @@
 #include "Renderer/Window.h"
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#include <functional>
+#include <utility>
 
 namespace flex
 {
@@ -23,6 +25,22 @@ namespace flex
         }
 
         ~PlayerController() override = default;
+
+        struct BulletSpawnInfo
+        {
+            UUID bulletUUID = UUID(0);
+            UUID templateUUID = UUID(0);
+            glm::vec3 spawnPosition = glm::vec3(0.0f);
+            glm::vec3 spawnVelocity = glm::vec3(0.0f);
+            UUID fireSoundUUID = UUID(0);
+        };
+
+        using BulletSpawnCallback = std::function<void(const BulletSpawnInfo&)>;
+
+        static void SetBulletSpawnCallback(BulletSpawnCallback callback)
+        {
+            s_BulletSpawnCallback = std::move(callback);
+        }
 
         void OnMouseMotion(const glm::vec2& delta)
         {
@@ -286,6 +304,26 @@ namespace flex
                         "PlayerController: Fired bullet at (%.2f, %.2f, %.2f) with velocity (%.2f, %.2f, %.2f)",
                         spawnPosition.x, spawnPosition.y, spawnPosition.z,
                         bulletVelocity.x, bulletVelocity.y, bulletVelocity.z);
+
+                    if (s_BulletSpawnCallback)
+                    {
+                        BulletSpawnInfo info;
+                        if (m_Scene->HasComponent<TagComponent>(bullet))
+                        {
+                            info.bulletUUID = m_Scene->GetComponent<TagComponent>(bullet).uuid;
+                        }
+                        if (m_Scene->IsValid(m_BulletTemplate) && m_Scene->HasComponent<TagComponent>(m_BulletTemplate))
+                        {
+                            info.templateUUID = m_Scene->GetComponent<TagComponent>(m_BulletTemplate).uuid;
+                        }
+                        info.spawnPosition = spawnPosition;
+                        info.spawnVelocity = bulletVelocity;
+                        if (m_FireSound != entt::null && m_Scene->IsValid(m_FireSound) && m_Scene->HasComponent<TagComponent>(m_FireSound))
+                        {
+                            info.fireSoundUUID = m_Scene->GetComponent<TagComponent>(m_FireSound).uuid;
+                        }
+                        s_BulletSpawnCallback(info);
+                    }
                 }
 
                 // Play Fire Sound
@@ -320,6 +358,8 @@ namespace flex
         entt::entity m_FirePointR = entt::null;
         entt::entity m_BulletTemplate = entt::null;
         entt::entity m_FireSound = entt::null;
+
+        inline static BulletSpawnCallback s_BulletSpawnCallback = nullptr;
     };
 }
 

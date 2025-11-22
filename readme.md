@@ -113,49 +113,6 @@ cmake --build build -j$(nproc)
 
 Switch configuration by changing `-DCMAKE_BUILD_TYPE=Release` or building with `--config Release`.
 
-## Project Structure
-
-```
-Flex/
-├── CMakeLists.txt              # Root build configuration
-├── readme.md                   # This file
-├── Documentation.md            # Detailed engine documentation
-├── Flex/                       # Main engine project
-│   ├── CMakeLists.txt
-│   ├── Source/
-│   │   ├── Core/              # App, Window, Camera, ImGuiContext
-│   │   ├── Renderer/          # Rendering systems (Shader, Mesh, Material, Bloom, SSAO, Shadows)
-│   │   ├── Scene/             # ECS, Components, Serialization
-│   │   ├── Physics/           # Jolt Physics integration
-│   │   └── Math/              # Math utilities and helpers
-│   └── Resources/
-│       ├── shaders/           # GLSL vertex/fragment/compute shaders
-│       ├── models/            # glTF test assets
-│       ├── textures/          # Test textures and PBR maps
-│       ├── hdr/               # HDR environment maps
-│       ├── fonts/             # TrueType fonts for text rendering
-│       └── screenshots/       # Captured frames
-├── Tests/                     # Unit tests (Google Test)
-│   ├── CMakeLists.txt
-│   └── Source/
-└── thirdparty/                # Third-party dependencies (as submodules)
-    ├── sdl3/                  # SDL3 windowing library
-    ├── glad/                  # OpenGL loader
-    ├── glm/                   # Math library
-    ├── imgui/                 # ImGui UI library
-    ├── imguizmo/              # Transform gizmos
-    ├── entt/                  # Entity-component-system
-    ├── tinygltf/              # glTF loader
-    ├── stb/                   # Image loading (stb_image)
-    ├── freetype/              # Font rasterization
-    ├── msdfgen/               # Multi-channel SDF generation
-    ├── msdfatlasgen/          # SDF atlas generation
-    ├── jolt/                  # Jolt Physics engine
-    ├── json/                  # nlohmann/json
-    └── googletest/            # Google Test framework
-```
-
-
 ## Learning Objectives
 
 This engine is designed as an educational resource for:
