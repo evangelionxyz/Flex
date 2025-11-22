@@ -291,8 +291,9 @@ namespace flex
             audioJson["SoundPath"] = audio.filepath;
             audioJson["Volume"] = audio.volume;
             audioJson["Panning"] = audio.panning;
-            entityJson["Loop"] = audio.loop;
-            entityJson["PlayOnStart"] = audio.playOnStart;
+            audioJson["Loop"] = audio.loop;
+            audioJson["PlayOnStart"] = audio.playOnStart;
+            
             entityJson["Audio"] = audioJson;
         }
 

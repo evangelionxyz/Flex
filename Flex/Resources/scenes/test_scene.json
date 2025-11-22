@@ -1,6 +1,136 @@
 {
     "Entities": [
         {
+            "Entity": 8210504663731644374,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        0.0,
+                        0.8529410362243652,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        0.23039215803146362,
+                        0.5699253678321838,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Glasses",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.666246771812439,
+                    -0.6311752200126648
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.6992034912109375,
+                    0.29132604598999023,
+                    0.9999997019767761
+                ]
+            }
+        },
+        {
+            "Entity": 15606357254747572952,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.23039215803146362,
+                        0.38884079456329346,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [
+                    13563543711386628842
+                ],
+                "Name": "Weapon L",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    -1.0322476625442505,
+                    -0.000643312931060791,
+                    -0.9768574833869934
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.16409039497375488,
+                    0.17594797909259796,
+                    0.7446922063827515
+                ]
+            }
+        },
+        {
+            "Entity": 1488533007692988683,
+            "Tag": {
+                "Children": [
+                    3320586782394931880,
+                    6017708798629895783,
+                    7468875464964434150,
+                    8052262753548644969,
+                    11390560753085648777,
+                    16661405826085057804
+                ],
+                "Name": "Scene",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Offset": [
@@ -211,145 +341,15 @@
             }
         },
         {
-            "Entity": 8210504663731644374,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        1.0,
-                        0.0,
-                        0.8529410362243652,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        1.0,
-                        0.23039215803146362,
-                        0.5699253678321838,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Glasses",
-                "Parent": 12095583481052254625
-            },
-            "Transform": {
-                "Position": [
-                    0.0,
-                    0.666246771812439,
-                    -0.6311752200126648
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    0.6992034912109375,
-                    0.29132604598999023,
-                    0.9999997019767761
-                ]
-            }
-        },
-        {
-            "Entity": 15606357254747572952,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.23039215803146362,
-                        0.38884079456329346,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [
-                    13563543711386628842
-                ],
-                "Name": "Weapon L",
-                "Parent": 12095583481052254625
-            },
-            "Transform": {
-                "Position": [
-                    -1.0322476625442505,
-                    -0.000643312931060791,
-                    -0.9768574833869934
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    0.16409039497375488,
-                    0.17594797909259796,
-                    0.7446922063827515
-                ]
-            }
-        },
-        {
-            "Entity": 1488533007692988683,
-            "Tag": {
-                "Children": [
-                    3320586782394931880,
-                    6017708798629895783,
-                    7468875464964434150,
-                    8052262753548644969,
-                    11390560753085648777,
-                    16661405826085057804
-                ],
-                "Name": "Scene",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Rotation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            }
-        },
-        {
             "Audio": {
+                "Loop": true,
                 "Name": "",
                 "Panning": 0.0,
+                "PlayOnStart": true,
                 "SoundPath": "Resources/audio/ambient-pad.mp3",
                 "Volume": 1.0
             },
             "Entity": 6421357948691578945,
-            "Loop": true,
-            "PlayOnStart": true,
             "Tag": {
                 "Children": [],
                 "Name": "ambient-1",
@@ -454,170 +454,6 @@
             }
         },
         {
-            "Entity": 15150477046289018609,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        1.0,
-                        0.9705882668495178,
-                        0.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        1.0,
-                        0.9705882668495178,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 1.0,
-                    "Name": "Material.002",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 5,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "SphereCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Radius": 1.0
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Sphere.001 (2)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -4.293813705444336,
-                    2.68691349029541,
-                    -6.627710342407227
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
-            "Entity": 13182549058101642891,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        1.0,
-                        0.0,
-                        0.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        1.0,
-                        0.0,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Cube.001 (1) (5) (3)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -5.81842041015625,
-                    0.6151643991470337,
-                    -21.323862075805664
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    0.9999991655349731,
-                    0.9999997019767761
-                ]
-            }
-        },
-        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Offset": [
@@ -715,19 +551,19 @@
                     1.0
                 ]
             },
-            "Entity": 14942083574909957598,
+            "Entity": 13182549058101642891,
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.058823466300964355,
                         1.0,
+                        0.0,
                         0.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.1418684720993042,
                         1.0,
-                        0.08823531866073608,
+                        0.0,
+                        0.0,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -764,14 +600,14 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "Cube.001 (1) (6)",
+                "Name": "Cube.001 (1) (5) (3)",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    -9.362547874450684,
-                    1.537104845046997,
-                    -12.13742446899414
+                    -5.81842041015625,
+                    0.6151643991470337,
+                    -21.323862075805664
                 ],
                 "Rotation": [
                     0.0,
@@ -779,9 +615,89 @@
                     0.0
                 ],
                 "Scale": [
-                    0.6899999976158142,
-                    0.6899994015693665,
-                    0.6899998188018799
+                    1.0,
+                    0.9999991655349731,
+                    0.9999997019767761
+                ]
+            }
+        },
+        {
+            "Entity": 15150477046289018609,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        0.9705882668495178,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        0.9705882668495178,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 5,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "SphereCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Radius": 1.0
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere.001 (2)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -4.293813705444336,
+                    2.68691349029541,
+                    -6.627710342407227
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
                 ]
             }
         },
@@ -931,19 +847,19 @@
                     1.0
                 ]
             },
-            "Entity": 6318762696671212197,
+            "Entity": 14942083574909957598,
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
+                        0.058823466300964355,
                         1.0,
+                        0.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.08823490142822266,
-                        0.0,
+                        0.1418684720993042,
                         1.0,
+                        0.08823531866073608,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -980,14 +896,14 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "Cube.001 (1) (4) (7)",
+                "Name": "Cube.001 (1) (6)",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    -9.764229774475098,
-                    3.6238160133361816,
-                    -5.337255954742432
+                    -9.362547874450684,
+                    1.537104845046997,
+                    -12.13742446899414
                 ],
                 "Rotation": [
                     0.0,
@@ -995,9 +911,9 @@
                     0.0
                 ],
                 "Scale": [
-                    0.4100000262260437,
-                    0.40999969840049744,
-                    0.40999990701675415
+                    0.6899999976158142,
+                    0.6899994015693665,
+                    0.6899998188018799
                 ]
             }
         },
@@ -1170,6 +1086,90 @@
             }
         },
         {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Entity": 6318762696671212197,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (1) (4) (7)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -9.764229774475098,
+                    3.6238160133361816,
+                    -5.337255954742432
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.4100000262260437,
+                    0.40999969840049744,
+                    0.40999990701675415
+                ]
+            }
+        },
+        {
             "CapsuleCollider": {
                 "Density": 1.0,
                 "Height": 1.0,
@@ -1233,6 +1233,54 @@
                     1.0,
                     1.0000001192092896,
                     1.0000001192092896
+                ]
+            }
+        },
+        {
+            "Entity": 8052262753548644969,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.800000011920929,
+                        0.800000011920929,
+                        0.800000011920929,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 4,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere",
+                "Parent": 1488533007692988683
+            },
+            "Transform": {
+                "Position": [
+                    9.701255798339844,
+                    -0.06102481111884117,
+                    6.846649646759033
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
                 ]
             }
         },
@@ -1321,54 +1369,6 @@
             }
         },
         {
-            "Entity": 8052262753548644969,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.800000011920929,
-                        0.800000011920929,
-                        0.800000011920929,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 1.0,
-                    "Name": "Material.002",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 4,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Sphere",
-                "Parent": 1488533007692988683
-            },
-            "Transform": {
-                "Position": [
-                    9.701255798339844,
-                    -0.06102481111884117,
-                    6.846649646759033
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            }
-        },
-        {
             "Camera": {
                 "AspectMode": 0,
                 "FarPlane": 550.0,
@@ -1379,8 +1379,8 @@
                 "Primary": true,
                 "ProjectionType": 0,
                 "ViewportSize": [
-                    1223.0,
-                    1071.0
+                    939.0,
+                    662.0
                 ]
             },
             "Entity": 3288233108845053696,
@@ -1404,6 +1404,56 @@
                     0.9999999403953552,
                     1.0,
                     0.9999998211860657
+                ]
+            }
+        },
+        {
+            "Entity": 3435492865839286066,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.23039215803146362,
+                        0.38884079456329346,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Tag": {
+                "Children": [
+                    16066182971231386871
+                ],
+                "Name": "Weapon R",
+                "Parent": 12095583481052254625
+            },
+            "Transform": {
+                "Position": [
+                    1.0221233367919922,
+                    -0.000643312931060791,
+                    -0.9768574833869934
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.16409039497375488,
+                    0.17594797909259796,
+                    0.7446922063827515
                 ]
             }
         },
@@ -1492,136 +1542,6 @@
             }
         },
         {
-            "Entity": 3435492865839286066,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.23039215803146362,
-                        0.38884079456329346,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Tag": {
-                "Children": [
-                    16066182971231386871
-                ],
-                "Name": "Weapon R",
-                "Parent": 12095583481052254625
-            },
-            "Transform": {
-                "Position": [
-                    1.0221233367919922,
-                    -0.000643312931060791,
-                    -0.9768574833869934
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    0.16409039497375488,
-                    0.17594797909259796,
-                    0.7446922063827515
-                ]
-            }
-        },
-        {
-            "Entity": 7557183366791545232,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        1.0,
-                        0.9705882668495178,
-                        0.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        1.0,
-                        0.9705882668495178,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 1.0,
-                    "Name": "Material.002",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 5,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "SphereCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Radius": 1.0
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Sphere.001 (3)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -7.244804859161377,
-                    2.68691349029541,
-                    -6.627710342407227
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            }
-        },
-        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Offset": [
@@ -1635,19 +1555,19 @@
                     1.0
                 ]
             },
-            "Entity": 15578737826525453834,
+            "Entity": 6879253088258687198,
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.058823466300964355,
                         1.0,
+                        0.9411764740943909,
                         0.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.1418684720993042,
+                        0.970588207244873,
                         1.0,
-                        0.08823531866073608,
+                        0.0,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -1684,24 +1604,24 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "Cube.001 (1) (16)",
+                "Name": "bullet",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    -8.40762996673584,
-                    3.346698760986328,
-                    -12.137296676635742
+                    0.510800302028656,
+                    1.0244369506835938,
+                    -2.8021984100341797
                 ],
                 "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
+                    44.25634002685547,
+                    25.19384002685547,
+                    -27.083498001098633
                 ],
                 "Scale": [
-                    0.6899999976158142,
-                    0.6899994015693665,
-                    0.6899998188018799
+                    0.3599998950958252,
+                    0.3599996566772461,
+                    0.3599998950958252
                 ]
             }
         },
@@ -1887,19 +1807,19 @@
                     1.0
                 ]
             },
-            "Entity": 6879253088258687198,
+            "Entity": 15578737826525453834,
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
+                        0.058823466300964355,
                         1.0,
-                        0.9411764740943909,
                         0.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.970588207244873,
+                        0.1418684720993042,
                         1.0,
-                        0.0,
+                        0.08823531866073608,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -1936,24 +1856,104 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "bullet",
+                "Name": "Cube.001 (1) (16)",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    0.510800302028656,
-                    1.0244369506835938,
-                    -2.8021984100341797
+                    -8.40762996673584,
+                    3.346698760986328,
+                    -12.137296676635742
                 ],
                 "Rotation": [
-                    44.25634002685547,
-                    25.19384002685547,
-                    -27.083498001098633
+                    0.0,
+                    -0.0,
+                    0.0
                 ],
                 "Scale": [
-                    0.3599998950958252,
-                    0.3599996566772461,
-                    0.3599998950958252
+                    0.6899999976158142,
+                    0.6899994015693665,
+                    0.6899998188018799
+                ]
+            }
+        },
+        {
+            "Entity": 7557183366791545232,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        1.0,
+                        0.9705882668495178,
+                        0.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        1.0,
+                        0.9705882668495178,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Material.002",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 5,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "SphereCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Radius": 1.0
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Sphere.001 (3)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -7.244804859161377,
+                    2.68691349029541,
+                    -6.627710342407227
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
                 ]
             }
         },
@@ -2139,90 +2139,6 @@
                     1.0
                 ]
             },
-            "Entity": 6079837299516783549,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Cube.001 (1) (4) (11)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -12.898578643798828,
-                    4.642354965209961,
-                    -5.337255954742432
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    0.4100000262260437,
-                    0.40999969840049744,
-                    0.40999990701675415
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
             "Entity": 16539958739631711148,
             "Mesh": {
                 "Material": {
@@ -2290,6 +2206,90 @@
                     0.9999997615814209,
                     0.9999991655349731,
                     0.9999997019767761
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Entity": 6079837299516783549,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (1) (4) (11)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -12.898578643798828,
+                    4.642354965209961,
+                    -5.337255954742432
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.4100000262260437,
+                    0.40999969840049744,
+                    0.40999990701675415
                 ]
             }
         },
@@ -2441,19 +2441,19 @@
                     1.0
                 ]
             },
-            "Entity": 5503108981976086176,
+            "Entity": 8119048124844007574,
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
+                        0.058823466300964355,
                         1.0,
+                        0.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.08823490142822266,
-                        0.0,
+                        0.1418684720993042,
                         1.0,
+                        0.08823531866073608,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -2490,14 +2490,14 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "Cube.001 (1) (4) (8)",
+                "Name": "Cube.001 (1) (1)",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    -10.770974159240723,
-                    3.6238160133361816,
-                    -5.337255954742432
+                    -0.8424826860427856,
+                    -0.8564890623092651,
+                    -12.13742446899414
                 ],
                 "Rotation": [
                     0.0,
@@ -2505,9 +2505,9 @@
                     0.0
                 ],
                 "Scale": [
-                    0.4100000262260437,
-                    0.40999969840049744,
-                    0.40999990701675415
+                    1.0,
+                    0.9999991655349731,
+                    0.9999997019767761
                 ]
             }
         },
@@ -2693,19 +2693,19 @@
                     1.0
                 ]
             },
-            "Entity": 8119048124844007574,
+            "Entity": 5503108981976086176,
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.058823466300964355,
-                        1.0,
+                        0.08823490142822266,
                         0.0,
+                        1.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.1418684720993042,
+                        0.08823490142822266,
+                        0.0,
                         1.0,
-                        0.08823531866073608,
                         1.0
                     ],
                     "MetallicFactor": 0.8897637724876404,
@@ -2742,14 +2742,14 @@
             },
             "Tag": {
                 "Children": [],
-                "Name": "Cube.001 (1) (1)",
+                "Name": "Cube.001 (1) (4) (8)",
                 "Parent": 0
             },
             "Transform": {
                 "Position": [
-                    -0.8424826860427856,
-                    -0.8564890623092651,
-                    -12.13742446899414
+                    -10.770974159240723,
+                    3.6238160133361816,
+                    -5.337255954742432
                 ],
                 "Rotation": [
                     0.0,
@@ -2757,9 +2757,9 @@
                     0.0
                 ],
                 "Scale": [
-                    1.0,
-                    0.9999991655349731,
-                    0.9999997019767761
+                    0.4100000262260437,
+                    0.40999969840049744,
+                    0.40999990701675415
                 ]
             }
         },
@@ -3197,90 +3197,6 @@
                     1.0
                 ]
             },
-            "Entity": 589417218832596273,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Cube.001 (1) (4) (3)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -3.375702381134033,
-                    4.864444732666016,
-                    -12.869504928588867
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    0.9999991655349731,
-                    0.9999997019767761
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
             "Entity": 14063388730031330883,
             "Mesh": {
                 "Material": {
@@ -3348,6 +3264,90 @@
                     0.6899999976158142,
                     0.6899994015693665,
                     0.6899998188018799
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Entity": 589417218832596273,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (1) (4) (3)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -3.375702381134033,
+                    4.864444732666016,
+                    -12.869504928588867
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    0.9999991655349731,
+                    0.9999997019767761
                 ]
             }
         },
@@ -3688,6 +3688,119 @@
             }
         },
         {
+            "Entity": 14428220437092028031,
+            "Tag": {
+                "Children": [
+                    6421357948691578945,
+                    8964175523987381304,
+                    15570294062564284532
+                ],
+                "Name": "Sounds",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "Entity": 1166112763320989145,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.0,
+                        1.0,
+                        0.8235292434692383,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 1.0,
+                    "Name": "Orange",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.20078739523887634,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 3,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": true,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.004 (1)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -17.295957565307617,
+                    1.2618741989135742,
+                    -18.563766479492188
+                ],
+                "Rotation": [
+                    0.0,
+                    -55.972110748291016,
+                    0.0
+                ],
+                "Scale": [
+                    0.9999999403953552,
+                    3.0742897987365723,
+                    4.465012073516846
+                ]
+            }
+        },
+        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Offset": [
@@ -3785,119 +3898,6 @@
                     1.0
                 ]
             },
-            "Entity": 1166112763320989145,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.0,
-                        1.0,
-                        0.8235292434692383,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 1.0,
-                    "Name": "Orange",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.20078739523887634,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 3,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": true,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Cube.004 (1)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -17.295957565307617,
-                    1.2618741989135742,
-                    -18.563766479492188
-                ],
-                "Rotation": [
-                    0.0,
-                    -55.972110748291016,
-                    0.0
-                ],
-                "Scale": [
-                    0.9999999403953552,
-                    3.0742897987365723,
-                    4.465012073516846
-                ]
-            }
-        },
-        {
-            "Entity": 14428220437092028031,
-            "Tag": {
-                "Children": [
-                    6421357948691578945,
-                    8964175523987381304,
-                    15570294062564284532
-                ],
-                "Name": "Sounds",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Rotation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
             "Entity": 13428056708234420041,
             "Mesh": {
                 "Material": {
@@ -3970,14 +3970,14 @@
         },
         {
             "Audio": {
+                "Loop": false,
                 "Name": "",
                 "Panning": 0.0,
+                "PlayOnStart": true,
                 "SoundPath": "Resources/audio/pistol-shot.mp3",
                 "Volume": 0.42399999499320984
             },
             "Entity": 15570294062564284532,
-            "Loop": false,
-            "PlayOnStart": false,
             "Tag": {
                 "Children": [],
                 "Name": "bulletSound",
@@ -4086,6 +4086,31 @@
             }
         },
         {
+            "Entity": 2844185099143633188,
+            "Tag": {
+                "Children": [],
+                "Name": "Entity",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Offset": [
@@ -4166,31 +4191,6 @@
                     1.0,
                     0.9999991655349731,
                     0.9999997019767761
-                ]
-            }
-        },
-        {
-            "Entity": 2844185099143633188,
-            "Tag": {
-                "Children": [],
-                "Name": "Entity",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Rotation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
                 ]
             }
         },
@@ -4696,14 +4696,14 @@
         },
         {
             "Audio": {
+                "Loop": true,
                 "Name": "",
                 "Panning": 0.0,
+                "PlayOnStart": true,
                 "SoundPath": "Resources/audio/rain.mp3",
                 "Volume": 0.38600000739097595
             },
             "Entity": 8964175523987381304,
-            "Loop": true,
-            "PlayOnStart": true,
             "Tag": {
                 "Children": [],
                 "Name": "rain",
