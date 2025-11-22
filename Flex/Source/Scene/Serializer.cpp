@@ -87,8 +87,8 @@ namespace flex
 
     }
 
-    SceneSerializer::SceneSerializer(const Ref<Scene>& scene)
-        : m_Scene(scene)
+    SceneSerializer::SceneSerializer(const Ref<Scene>& scene, SceneLoadOptions options)
+        : m_Scene(scene), m_Options(options)
     {
     }
 
@@ -335,7 +335,7 @@ namespace flex
             transform.scale = DeserializeVec3(transformJson.value("Scale", json::array()));
         }
 
-        if (entityData.contains("Mesh"))
+        if (m_Options.loadGraphics && entityData.contains("Mesh"))
         {
             const json& meshJson = entityData["Mesh"];
             std::string meshPath = meshJson.value("MeshPath", std::string());
@@ -463,7 +463,7 @@ namespace flex
             cam.RecalculateProjection(m_Scene->GetViewportSize());
         }
 
-        if (entityData.contains("Audio"))
+        if (m_Options.loadAudio && entityData.contains("Audio"))
         {
             const json &audioJson = entityData["Audio"];
             AudioComponent &audio = m_Scene->AddComponent<AudioComponent>(entity);

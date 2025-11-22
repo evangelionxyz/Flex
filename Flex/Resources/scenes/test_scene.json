@@ -89,18 +89,18 @@
             "Mesh": {
                 "Material": {
                     "BaseColorFactor": [
-                        0.9411765336990356,
                         1.0,
-                        0.0,
+                        1.0,
+                        1.0,
                         1.0
                     ],
                     "EmissiveFactor": [
-                        0.9238754510879517,
                         1.0,
-                        0.13725489377975464,
+                        1.0,
+                        1.0,
                         0.0
                     ],
-                    "MetallicFactor": 1.0,
+                    "MetallicFactor": 0.5479999780654907,
                     "Name": "",
                     "OcclusionStrength": 0.0,
                     "RoughnessFactor": 1.0,
@@ -344,16 +344,16 @@
             "Audio": {
                 "Name": "",
                 "Panning": 0.0,
-                "SoundPath": "Resources/audio/11. Mick Gordon - Bfg Division.mp3",
-                "Volume": 0.4740000069141388
+                "SoundPath": "Resources/audio/ambient-pad.mp3",
+                "Volume": 1.0
             },
             "Entity": 6421357948691578945,
-            "Loop": false,
+            "Loop": true,
             "PlayOnStart": true,
             "Tag": {
                 "Children": [],
-                "Name": "music",
-                "Parent": 0
+                "Name": "ambient-1",
+                "Parent": 14428220437092028031
             },
             "Transform": {
                 "Position": [
@@ -1379,8 +1379,8 @@
                 "Primary": true,
                 "ProjectionType": 0,
                 "ViewportSize": [
-                    1438.0,
-                    684.0
+                    1223.0,
+                    1071.0
                 ]
             },
             "Entity": 3288233108845053696,
@@ -1538,90 +1538,6 @@
                     0.16409039497375488,
                     0.17594797909259796,
                     0.7446922063827515
-                ]
-            }
-        },
-        {
-            "BoxCollider": {
-                "Density": 1.0,
-                "Offset": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Scale": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
-            "Entity": 10865833491212014987,
-            "Mesh": {
-                "Material": {
-                    "BaseColorFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "EmissiveFactor": [
-                        0.08823490142822266,
-                        0.0,
-                        1.0,
-                        1.0
-                    ],
-                    "MetallicFactor": 0.8897637724876404,
-                    "Name": "Red",
-                    "OcclusionStrength": 1.0,
-                    "RoughnessFactor": 0.0,
-                    "Type": "Opaque"
-                },
-                "MeshIndex": 0,
-                "MeshPath": "Resources/models/scene.glb"
-            },
-            "Rigidbody": {
-                "AllowSleeping": true,
-                "CenterOfMass": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "Friction": 0.6000000238418579,
-                "GravityFactor": 1.0,
-                "IsStatic": false,
-                "Mass": 1.0,
-                "MotionQuality": 0,
-                "MoveX": true,
-                "MoveY": true,
-                "MoveZ": true,
-                "Restitution": 0.6000000238418579,
-                "RetainAcceleration": false,
-                "RotateX": true,
-                "RotateY": true,
-                "RotateZ": true,
-                "StaticFriction": 0.6000000238418579,
-                "UseGravity": true
-            },
-            "Tag": {
-                "Children": [],
-                "Name": "Cube.001 (1) (4) (9)",
-                "Parent": 0
-            },
-            "Transform": {
-                "Position": [
-                    -11.755467414855957,
-                    3.6238160133361816,
-                    -5.337255954742432
-                ],
-                "Rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "Scale": [
-                    0.4100000262260437,
-                    0.40999969840049744,
-                    0.40999990701675415
                 ]
             }
         },
@@ -1803,6 +1719,90 @@
                     1.0
                 ]
             },
+            "Entity": 10865833491212014987,
+            "Mesh": {
+                "Material": {
+                    "BaseColorFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "EmissiveFactor": [
+                        0.08823490142822266,
+                        0.0,
+                        1.0,
+                        1.0
+                    ],
+                    "MetallicFactor": 0.8897637724876404,
+                    "Name": "Red",
+                    "OcclusionStrength": 1.0,
+                    "RoughnessFactor": 0.0,
+                    "Type": "Opaque"
+                },
+                "MeshIndex": 0,
+                "MeshPath": "Resources/models/scene.glb"
+            },
+            "Rigidbody": {
+                "AllowSleeping": true,
+                "CenterOfMass": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Friction": 0.6000000238418579,
+                "GravityFactor": 1.0,
+                "IsStatic": false,
+                "Mass": 1.0,
+                "MotionQuality": 0,
+                "MoveX": true,
+                "MoveY": true,
+                "MoveZ": true,
+                "Restitution": 0.6000000238418579,
+                "RetainAcceleration": false,
+                "RotateX": true,
+                "RotateY": true,
+                "RotateZ": true,
+                "StaticFriction": 0.6000000238418579,
+                "UseGravity": true
+            },
+            "Tag": {
+                "Children": [],
+                "Name": "Cube.001 (1) (4) (9)",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    -11.755467414855957,
+                    3.6238160133361816,
+                    -5.337255954742432
+                ],
+                "Rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "Scale": [
+                    0.4100000262260437,
+                    0.40999969840049744,
+                    0.40999990701675415
+                ]
+            }
+        },
+        {
+            "BoxCollider": {
+                "Density": 1.0,
+                "Offset": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
             "Entity": 1257601689436054981,
             "Mesh": {
                 "Material": {
@@ -1892,13 +1892,13 @@
                 "Material": {
                     "BaseColorFactor": [
                         1.0,
-                        0.0,
+                        0.9411764740943909,
                         0.0,
                         1.0
                     ],
                     "EmissiveFactor": [
+                        0.970588207244873,
                         1.0,
-                        0.0,
                         0.0,
                         1.0
                     ],
@@ -3856,6 +3856,35 @@
             }
         },
         {
+            "Entity": 14428220437092028031,
+            "Tag": {
+                "Children": [
+                    6421357948691578945,
+                    8964175523987381304,
+                    15570294062564284532
+                ],
+                "Name": "Sounds",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
+        },
+        {
             "BoxCollider": {
                 "Density": 1.0,
                 "Offset": [
@@ -3944,7 +3973,7 @@
                 "Name": "",
                 "Panning": 0.0,
                 "SoundPath": "Resources/audio/pistol-shot.mp3",
-                "Volume": 0.5440000295639038
+                "Volume": 0.42399999499320984
             },
             "Entity": 15570294062564284532,
             "Loop": false,
@@ -3952,7 +3981,7 @@
             "Tag": {
                 "Children": [],
                 "Name": "bulletSound",
-                "Parent": 0
+                "Parent": 14428220437092028031
             },
             "Transform": {
                 "Position": [
@@ -3962,11 +3991,11 @@
                 ],
                 "Rotation": [
                     0.0,
-                    0.0,
+                    -0.0,
                     0.0
                 ],
                 "Scale": [
-                    1.0,
+                    0.0010000000474974513,
                     1.0,
                     1.0
                 ]
@@ -4137,6 +4166,31 @@
                     1.0,
                     0.9999991655349731,
                     0.9999997019767761
+                ]
+            }
+        },
+        {
+            "Entity": 2844185099143633188,
+            "Tag": {
+                "Children": [],
+                "Name": "Entity",
+                "Parent": 0
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
                 ]
             }
         },
@@ -4637,6 +4691,39 @@
                     0.4100000262260437,
                     0.40999969840049744,
                     0.40999990701675415
+                ]
+            }
+        },
+        {
+            "Audio": {
+                "Name": "",
+                "Panning": 0.0,
+                "SoundPath": "Resources/audio/rain.mp3",
+                "Volume": 0.38600000739097595
+            },
+            "Entity": 8964175523987381304,
+            "Loop": true,
+            "PlayOnStart": true,
+            "Tag": {
+                "Children": [],
+                "Name": "rain",
+                "Parent": 14428220437092028031
+            },
+            "Transform": {
+                "Position": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "Scale": [
+                    1.0,
+                    1.0,
+                    1.0
                 ]
             }
         }

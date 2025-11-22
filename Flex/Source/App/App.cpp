@@ -7,9 +7,11 @@
 #include "Renderer/Material.h"
 #include "Renderer/Renderer2D.h"
 #include "Math/Math.hpp"
+#include "NetworkClient.h"
 
 #include "SDL3/SDL_dialog.h"
 #include "SDL3/SDL_events.h"
+#include "SDL3/SDL_keyboard.h"
 
 #include "Audio/AudioEngine.h"
 #include "Audio/Sound.h"
@@ -17,11 +19,15 @@
 #include <ImGuizmo.h>
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/geometric.hpp>
 #include <algorithm>
 #include <iterator>
 #include <cstring>
 #include <cstdint>
 #include <cfloat>
+#include <string_view>
+#include <utility>
+#include <cstdio>
 
 namespace flex
 {
@@ -38,6 +44,10 @@ namespace flex
 
     App::App(int argc, char** argv)
     {
+        ParseCommandLine(argc, argv);
+
+        std::snprintf(m_ServerAddressBuffer.data(), m_ServerAddressBuffer.size(), "%s", m_ServerAddress.c_str());
+
         WindowCreateInfo windowCI;
         windowCI.fullscreen = false;
         windowCI.title = "Flex Engine - OpenGL 4.6 Renderer";
@@ -74,10 +84,17 @@ namespace flex
 
         m_EditorScene = CreateRef<Scene>();
         m_ActiveScene = m_EditorScene;
+
+        if (m_EnableNetworkPlay)
+        {
+            EnsureNetworkClient();
+        }
     }
 
     App::~App()
     {
+        ShutdownNetworkClient();
+
         m_ActiveScene.reset();
         m_EditorScene.reset();
         
@@ -90,6 +107,24 @@ namespace flex
         TextRenderer::Shutdown();
         Renderer2D::Shutdown();
         Renderer::Shutdown();
+    }
+
+    void App::ParseCommandLine(int argc, char** argv)
+    {
+        for (int i = 1; i < argc; ++i)
+        {
+            std::string_view arg(argv[i]);
+            if (arg.starts_with("--connect="))
+            {
+                m_ServerAddress = std::string(arg.substr(std::string_view("--connect=").length()));
+                if (m_ServerAddress.empty())
+                {
+                    m_ServerAddress = "127.0.0.1:8192";
+                }
+                m_EnableNetworkPlay = true;
+                std::snprintf(m_ServerAddressBuffer.data(), m_ServerAddressBuffer.size(), "%s", m_ServerAddress.c_str());
+            }
+        }
     }
 
     void App::Run()
@@ -191,6 +226,8 @@ namespace flex
             m_FrameData.deltaTime = static_cast<float>(currentCount - prevCount) / freq;
             prevCount = currentCount;
             m_FrameData.fps = 1.0f / m_FrameData.deltaTime;
+
+            HandleNetworkPlay(m_FrameData.deltaTime);
 
             if (m_ActiveScene)
             {
@@ -393,6 +430,80 @@ namespace flex
         }
     }
 
+    void App::HandleNetworkPlay(float deltaTime)
+    {
+        (void)deltaTime;
+
+        if (!m_EnableNetworkPlay || !m_NetworkClient)
+        {
+            m_PendingMouseDelta = glm::vec2(0.0f);
+            return;
+        }
+
+        if (!m_ActiveScene)
+        {
+            m_PendingMouseDelta = glm::vec2(0.0f);
+            return;
+        }
+
+        if (!m_ActiveScene->IsPlaying())
+        {
+            m_NetworkClient->ClearSnapshots();
+            m_PendingMouseDelta = glm::vec2(0.0f);
+            return;
+        }
+
+        m_NetworkClient->ApplyPendingSnapshot(*m_ActiveScene);
+
+        if (!m_NetworkClient->IsConnected())
+        {
+            return;
+        }
+
+        NetworkClient::PlayerInputMessage input;
+        if (auto* window = Window::Get())
+        {
+            input.moveAxes.y += window->IsKeyPressed(SDLK_W) ? 1.0f : 0.0f;
+            input.moveAxes.y -= window->IsKeyPressed(SDLK_S) ? 1.0f : 0.0f;
+            input.moveAxes.x += window->IsKeyPressed(SDLK_D) ? 1.0f : 0.0f;
+            input.moveAxes.x -= window->IsKeyPressed(SDLK_A) ? 1.0f : 0.0f;
+            input.jump = window->IsKeyPressed(SDLK_SPACE) != 0;
+
+            input.fireLeft = window->IsMouseButtonPressed(SDL_BUTTON_LEFT);
+            input.fireRight = window->IsMouseButtonPressed(SDL_BUTTON_RIGHT);
+        }
+
+        if (glm::length(input.moveAxes) > 1.0f)
+        {
+            input.moveAxes = glm::normalize(input.moveAxes);
+        }
+
+        input.yawDelta = std::exchange(m_PendingMouseDelta.x, 0.0f);
+        m_PendingMouseDelta.y = 0.0f;
+
+        m_NetworkClient->SendPlayerInput(input);
+    }
+
+    void App::EnsureNetworkClient()
+    {
+        if (!m_NetworkClient)
+        {
+            m_NetworkClient = std::make_unique<NetworkClient>();
+        }
+    }
+
+    void App::ShutdownNetworkClient()
+    {
+        if (m_NetworkClient)
+        {
+            m_NetworkClient->Disconnect();
+            m_NetworkClient.reset();
+        }
+
+        m_NetworkSessionActive = false;
+        m_PendingMouseDelta = glm::vec2(0.0f);
+    }
+
     void App::OnScenePlay()
     {
         if (!m_ActiveScene || m_ActiveScene->IsPlaying())
@@ -423,6 +534,15 @@ namespace flex
         }
 
         Ref<Scene> runtimeScene = m_EditorScene->Clone();
+        if (m_EnableNetworkPlay)
+        {
+            EnsureNetworkClient();
+            if (m_NetworkClient)
+            {
+                runtimeScene->SetScriptExecutionEnabled(false);
+                runtimeScene->SetPhysicsSimulationEnabled(false);
+            }
+        }
         m_ActiveScene = runtimeScene;
         m_ActiveScene->Start();
         m_ActiveScene->ResizeViewport(GetSceneViewportSize());
@@ -434,6 +554,17 @@ namespace flex
         else
         {
             m_SelectedEntity = entt::null;
+        }
+
+        if (m_EnableNetworkPlay)
+        {
+            EnsureNetworkClient();
+            if (m_NetworkClient)
+            {
+                m_NetworkClient->Connect(m_ServerAddress);
+                m_NetworkSessionActive = true;
+                m_PendingMouseDelta = glm::vec2(0.0f);
+            }
         }
     }
 
@@ -476,6 +607,14 @@ namespace flex
         {
             m_SelectedEntity = entt::null;
         }
+
+        if (m_NetworkSessionActive && m_NetworkClient)
+        {
+            m_NetworkClient->Disconnect();
+            m_NetworkSessionActive = false;
+        }
+
+        m_PendingMouseDelta = glm::vec2(0.0f);
     }
 
      void App::DrawHierarchyNode(entt::entity entity)
@@ -864,6 +1003,110 @@ namespace flex
 
             ImGui::Text("FPS: %.1f", m_FrameData.fps);
             ImGui::Text("Delta ms: %.3f", m_FrameData.deltaTime * 1000.0);
+
+            // ============ Networking ============
+            if (ImGui::TreeNodeEx("Networking"))
+            {
+                bool networkEnabled = m_EnableNetworkPlay;
+                if (ImGui::Checkbox("Enable Network Play", &networkEnabled))
+                {
+                    if (networkEnabled)
+                    {
+                        m_EnableNetworkPlay = true;
+                        EnsureNetworkClient();
+                    }
+                    else
+                    {
+                        m_EnableNetworkPlay = false;
+                        ShutdownNetworkClient();
+                    }
+                }
+
+                if (ImGui::InputText("Server Address", m_ServerAddressBuffer.data(), m_ServerAddressBuffer.size()))
+                {
+                    m_ServerAddress = m_ServerAddressBuffer.data();
+                    if (m_ServerAddress.empty())
+                    {
+                        m_ServerAddress = "127.0.0.1:8192";
+                        std::snprintf(m_ServerAddressBuffer.data(), m_ServerAddressBuffer.size(), "%s", m_ServerAddress.c_str());
+                    }
+                }
+
+                const bool controlsDisabled = !m_EnableNetworkPlay;
+                if (controlsDisabled)
+                {
+                    ImGui::BeginDisabled();
+                }
+
+                if (m_EnableNetworkPlay && !m_NetworkClient)
+                {
+                    EnsureNetworkClient();
+                }
+
+                if (m_NetworkClient)
+                {
+                    const auto status = m_NetworkClient->GetStatus();
+                    const char* statusLabel = "Disconnected";
+                    switch (status)
+                    {
+                    case ignite::net::Client::ConnectionStatus::Connected: statusLabel = "Connected"; break;
+                    case ignite::net::Client::ConnectionStatus::Connecting: statusLabel = "Connecting"; break;
+                    case ignite::net::Client::ConnectionStatus::FailedToConnect: statusLabel = "Failed"; break;
+                    default: break;
+                    }
+                    ImGui::Text("Status: %s", statusLabel);
+
+                    const std::string& debug = m_NetworkClient->GetDebugMessage();
+                    if (!debug.empty())
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.6f, 0.2f, 1.0f));
+                        ImGui::TextWrapped("%s", debug.c_str());
+                        ImGui::PopStyleColor();
+                    }
+                }
+                else
+                {
+                    ImGui::TextUnformatted("Status: Not initialized");
+                }
+
+                if (ImGui::Button("Connect"))
+                {
+                    m_ServerAddress = m_ServerAddressBuffer.data();
+                    if (m_ServerAddress.empty())
+                    {
+                        m_ServerAddress = "127.0.0.1:8192";
+                        std::snprintf(m_ServerAddressBuffer.data(), m_ServerAddressBuffer.size(), "%s", m_ServerAddress.c_str());
+                    }
+
+                    EnsureNetworkClient();
+                    if (m_NetworkClient)
+                    {
+                        m_NetworkClient->Connect(m_ServerAddress);
+                        if (m_ActiveScene && m_ActiveScene->IsPlaying())
+                        {
+                            m_NetworkSessionActive = true;
+                            m_PendingMouseDelta = glm::vec2(0.0f);
+                        }
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Disconnect"))
+                {
+                    if (m_NetworkClient)
+                    {
+                        m_NetworkClient->Disconnect();
+                    }
+                    m_NetworkSessionActive = false;
+                    m_PendingMouseDelta = glm::vec2(0.0f);
+                }
+
+                if (controlsDisabled)
+                {
+                    ImGui::EndDisabled();
+                }
+
+                ImGui::TreePop();
+            }
 
             // ============ Camera Settings ============
             if (ImGui::TreeNodeEx("Camera Settings", treeFlags))
@@ -1738,6 +1981,11 @@ namespace flex
     {
         if (ImGuizmo::IsUsing())
             return;
+
+        if (m_EnableNetworkPlay && m_NetworkSessionActive)
+        {
+            m_PendingMouseDelta += delta;
+        }
 
         // Forward mouse motion to scripts during play mode
         if (m_ActiveScene && m_ActiveScene->IsPlaying())

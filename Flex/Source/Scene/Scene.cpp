@@ -154,16 +154,29 @@ namespace flex
         });
 
         auto nscView = registry->view<NativeScriptComponent>();
-        nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+        if (m_ScriptsEnabled)
         {
-            if (!nsc.instance && nsc.InstantiateScript)
+            nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
             {
-                nsc.instance = nsc.InstantiateScript(this, entity);
-                nsc.instance->OnStart();
-            }
-        });
+                if (!nsc.instance && nsc.InstantiateScript)
+                {
+                    nsc.instance = nsc.InstantiateScript(this, entity);
+                    nsc.instance->OnStart();
+                }
+            });
+        }
+        else
+        {
+            nscView.each([](entt::entity, NativeScriptComponent &nsc)
+            {
+                nsc.instance = nullptr;
+            });
+        }
 
-        joltPhysicsScene->SimulationStart();
+        if (m_PhysicsEnabled && joltPhysicsScene)
+        {
+            joltPhysicsScene->SimulationStart();
+        }
     }
 
     void Scene::Stop()
@@ -178,33 +191,45 @@ namespace flex
             }
         });
 
-        auto nscView = registry->view<NativeScriptComponent>();
-        nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+        if (m_ScriptsEnabled)
         {
-            if (nsc.DestroyScript)
+            auto nscView = registry->view<NativeScriptComponent>();
+            nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
             {
-                nsc.instance->OnStop();
-                nsc.DestroyScript(&nsc);
-            }
-        });
+                if (nsc.instance && nsc.DestroyScript)
+                {
+                    nsc.instance->OnStop();
+                    nsc.DestroyScript(&nsc);
+                }
+            });
+        }
 
-        joltPhysicsScene->SimulationStop();
+        if (m_PhysicsEnabled && joltPhysicsScene)
+        {
+            joltPhysicsScene->SimulationStop();
+        }
     }
 
     void Scene::Update(float deltaTime)
     {
         if (m_IsPlaying)
         {
-            auto nscView = registry->view<NativeScriptComponent>();
-            nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
+            if (m_ScriptsEnabled)
             {
-                if (nsc.instance)
+                auto nscView = registry->view<NativeScriptComponent>();
+                nscView.each([&](entt::entity entity, NativeScriptComponent &nsc)
                 {
-                    nsc.instance->OnUpdate(deltaTime);
-                }
-            });
+                    if (nsc.instance)
+                    {
+                        nsc.instance->OnUpdate(deltaTime);
+                    }
+                });
+            }
 
-            joltPhysicsScene->Simulate(deltaTime);
+            if (m_PhysicsEnabled && joltPhysicsScene)
+            {
+                joltPhysicsScene->Simulate(deltaTime);
+            }
         }
         else // Editor Update
         {
@@ -225,7 +250,7 @@ namespace flex
 
     void Scene::OnMouseMotion(const glm::vec2& delta)
     {
-        if (!m_IsPlaying || !registry)
+        if (!m_IsPlaying || !registry || !m_ScriptsEnabled)
             return;
 
         auto nscView = registry->view<NativeScriptComponent>();
@@ -568,6 +593,8 @@ namespace flex
     {
         Ref<Scene> clonedScene = CreateRef<Scene>();
         clonedScene->sceneGravity = sceneGravity;
+        clonedScene->m_ScriptsEnabled = m_ScriptsEnabled;
+        clonedScene->m_PhysicsEnabled = m_PhysicsEnabled;
 
         for (const auto& [uuid, entity] : entities)
         {

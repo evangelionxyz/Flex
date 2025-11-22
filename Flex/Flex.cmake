@@ -4,7 +4,11 @@ file(GLOB_RECURSE FLEX_SOURCE
     "Source/App/**.h"
 )
 add_executable(Flex ${FLEX_SOURCE})
-target_link_libraries(Flex PRIVATE FlexEngine)
+target_include_directories(Flex PRIVATE
+    "${THIRDPARTY_DIR}/igniteserver/Networking/source"
+    "${THIRDPARTY_DIR}/igniteserver/ThirdParty/GameNetworkingSockets/include"
+)
+target_link_libraries(Flex PRIVATE FlexEngine IgniteNet)
 
 if(WIN32)
     target_link_libraries(FlexEngine PUBLIC

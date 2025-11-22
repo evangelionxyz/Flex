@@ -16,6 +16,7 @@ include("${THIRDPARTY_DIR}/imgui.cmake")
 
 
 add_subdirectory("${THIRDPARTY_DIR}/sdl3")
+add_subdirectory(thirdparty/igniteserver)
 
 # Configure Jolt Physics as a static library
 set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "Disable warnings as errors for Jolt" FORCE)
@@ -32,4 +33,5 @@ add_subdirectory("${THIRDPARTY_DIR}/jolt/Build")
 add_subdirectory(Flex)
 add_subdirectory(Scripting)
 add_subdirectory(Runtime)
+add_subdirectory(FlexServer)
 # add_subdirectory(Tests)

@@ -29,6 +29,29 @@ namespace flex
             m_MouseDelta = delta;
         }
 
+        struct NetworkInputState
+        {
+            glm::vec2 moveAxes = glm::vec2(0.0f); // x = strafe, y = forward
+            float yawDelta = 0.0f;
+            bool jump = false;
+            bool fireLeft = false;
+            bool fireRight = false;
+        };
+
+        void EnableNetworkInput(bool enabled)
+        {
+            m_NetworkInputEnabled = enabled;
+        }
+
+        void ApplyNetworkInput(const NetworkInputState& input)
+        {
+            m_NetworkInput.moveAxes = input.moveAxes;
+            m_NetworkInput.jump = input.jump;
+            m_NetworkInput.fireLeft = input.fireLeft;
+            m_NetworkInput.fireRight = input.fireRight;
+            m_NetworkInput.yawDelta += input.yawDelta;
+        }
+
     protected:
         void OnStart() override
         {
@@ -87,6 +110,15 @@ namespace flex
             auto& transform = m_Scene->GetComponent<TransformComponent>(m_Entity);
 
             // Handle mouse rotation
+            if (m_NetworkInputEnabled)
+            {
+                if (std::abs(m_NetworkInput.yawDelta) > 0.0f)
+                {
+                    m_MouseDelta.x += m_NetworkInput.yawDelta;
+                    m_NetworkInput.yawDelta = 0.0f;
+                }
+            }
+
             if (glm::length(m_MouseDelta) > 0.0f)
             {
                 m_Yaw += m_MouseDelta.x * m_MouseSensitivity;
@@ -111,20 +143,42 @@ namespace flex
             if (glm::length(right) > 0.0f)
                 right = glm::normalize(right);
 
-            // Get input
-            const bool* keyState = SDL_GetKeyboardState(nullptr);
             glm::vec3 moveDirection(0.0f);
+            bool jumpHeld = false;
+            bool leftMousePressed = false;
+            bool rightMousePressed = false;
 
-            if (keyState[SDL_SCANCODE_W])
-                moveDirection += forward;
-            if (keyState[SDL_SCANCODE_S])
-                moveDirection -= forward;
-            if (keyState[SDL_SCANCODE_A])
-                moveDirection -= right;
-            if (keyState[SDL_SCANCODE_D])
-                moveDirection += right;
+            if (m_NetworkInputEnabled)
+            {
+                moveDirection += forward * m_NetworkInput.moveAxes.y;
+                moveDirection += right * m_NetworkInput.moveAxes.x;
+                jumpHeld = m_NetworkInput.jump;
+                leftMousePressed = m_NetworkInput.fireLeft;
+                rightMousePressed = m_NetworkInput.fireRight;
+            }
+            else
+            {
+                const bool* keyState = SDL_GetKeyboardState(nullptr);
+                if (keyState)
+                {
+                    if (keyState[SDL_SCANCODE_W])
+                        moveDirection += forward;
+                    if (keyState[SDL_SCANCODE_S])
+                        moveDirection -= forward;
+                    if (keyState[SDL_SCANCODE_A])
+                        moveDirection -= right;
+                    if (keyState[SDL_SCANCODE_D])
+                        moveDirection += right;
+                    jumpHeld = keyState[SDL_SCANCODE_SPACE];
+                }
 
-            // Normalize movement direction
+                if (auto* window = Window::Get())
+                {
+                    leftMousePressed = window->IsMouseButtonPressed(SDL_BUTTON_LEFT);
+                    rightMousePressed = window->IsMouseButtonPressed(SDL_BUTTON_RIGHT);
+                }
+            }
+
             if (glm::length(moveDirection) > 0.0f)
             {
                 moveDirection = glm::normalize(moveDirection);
@@ -150,7 +204,7 @@ namespace flex
             m_IsGrounded = std::abs(currentVelocity.y) < 0.1f && transform.position.y <= 1.0f;
 
             // Jump
-            if (keyState[SDL_SCANCODE_SPACE] && !m_WasSpacePressed && m_IsGrounded)
+            if (jumpHeld && !m_WasSpacePressed && m_IsGrounded)
             {
                 // Apply upward impulse for jumping
                 glm::vec3 jumpImpulse(0.0f, m_JumpForce * rb.mass, 0.0f);
@@ -158,36 +212,29 @@ namespace flex
                 
                 SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "PlayerController: Jump!");
             }
-            m_WasSpacePressed = keyState[SDL_SCANCODE_SPACE];
+            m_WasSpacePressed = jumpHeld;
 
             // Shooting
-            HandleShooting(forward);
+            HandleShooting(forward, leftMousePressed, rightMousePressed);
+
+            m_LeftMouseWasPressed = leftMousePressed;
+            m_RightMouseWasPressed = rightMousePressed;
         }
 
     private:
-        void HandleShooting(const glm::vec3& forward)
+        void HandleShooting(const glm::vec3& forward, bool leftMousePressed, bool rightMousePressed)
         {
-            // Check mouse buttons
-            auto* window = Window::Get();
-            if (!window)
-                return;
-
-            bool leftMousePressed = window->IsMouseButtonPressed(SDL_BUTTON_LEFT);
-            bool rightMousePressed = window->IsMouseButtonPressed(SDL_BUTTON_RIGHT);
-
             // Fire from left weapon
             if (leftMousePressed && !m_LeftMouseWasPressed)
             {
                 FireBullet(m_FirePointL, forward);
             }
-            m_LeftMouseWasPressed = leftMousePressed;
 
             // Fire from right weapon
             if (rightMousePressed && !m_RightMouseWasPressed)
             {
                 FireBullet(m_FirePointR, forward);
             }
-            m_RightMouseWasPressed = rightMousePressed;
         }
 
         void FireBullet(entt::entity firePoint, const glm::vec3& forward)
@@ -266,6 +313,8 @@ namespace flex
         bool m_WasSpacePressed = false;
         bool m_LeftMouseWasPressed = false;
         bool m_RightMouseWasPressed = false;
+        bool m_NetworkInputEnabled = false;
+        NetworkInputState m_NetworkInput;
         
         entt::entity m_FirePointL = entt::null;
         entt::entity m_FirePointR = entt::null;

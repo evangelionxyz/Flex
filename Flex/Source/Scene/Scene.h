@@ -105,6 +105,12 @@ namespace flex
         glm::mat4 GetWorldTransform(entt::entity entity) const;
         void SetWorldTransform(entt::entity entity, const glm::mat4& worldTransform);
 
+        void SetScriptExecutionEnabled(bool enabled) { m_ScriptsEnabled = enabled; }
+        bool AreScriptsEnabled() const { return m_ScriptsEnabled; }
+
+        void SetPhysicsSimulationEnabled(bool enabled) { m_PhysicsEnabled = enabled; }
+        bool IsPhysicsSimulationEnabled() const { return m_PhysicsEnabled; }
+
         entt::registry* registry = nullptr;
         std::unordered_map<UUID, entt::entity> entities;
 
@@ -114,6 +120,8 @@ namespace flex
     private:
         glm::vec2 m_Viewport = { 1.0f, 1.0f };
         bool m_IsPlaying = false;
+        bool m_ScriptsEnabled = true;
+        bool m_PhysicsEnabled = true;
     };
 }
 

@@ -172,6 +172,8 @@ namespace flex
         float deltaTime = 0.0f;
     };
 
+    class NetworkClient;
+
     class App
     {
     public:
@@ -219,6 +221,10 @@ namespace flex
         void ProcessPendingMeshImports();
         glm::vec2 GetSceneViewportSize() const;
         bool ApplyRuntimeCamera();
+        void HandleNetworkPlay(float deltaTime);
+        void ParseCommandLine(int argc, char** argv);
+        void EnsureNetworkClient();
+        void ShutdownNetworkClient();
 
     private:
         Ref<Window> m_Window;
@@ -270,6 +276,13 @@ namespace flex
         std::optional<PlaneColliderComponent> m_CopiedPlaneCollider;
         std::optional<NativeScriptComponent> m_CopiedNativeScript;
         std::optional<AudioComponent> m_CopiedAudio;
+
+        std::unique_ptr<NetworkClient> m_NetworkClient;
+        bool m_EnableNetworkPlay = false;
+        bool m_NetworkSessionActive = false;
+        std::string m_ServerAddress = "127.0.0.1:8192";
+        std::array<char, 128> m_ServerAddressBuffer{};
+        glm::vec2 m_PendingMouseDelta{0.0f};
     };
 }
 

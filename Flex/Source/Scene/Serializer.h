@@ -13,10 +13,16 @@ namespace nlohmann { using json = basic_json<>; }
 
 namespace flex
 {
+	struct SceneLoadOptions
+	{
+		bool loadGraphics = true;
+		bool loadAudio = true;
+	};
+
 	class SceneSerializer
 	{
 	public:
-		SceneSerializer(const Ref<Scene>& scene);
+		SceneSerializer(const Ref<Scene>& scene, SceneLoadOptions options = {});
 
 		bool Serialize(const std::filesystem::path& filepath) const;
 		bool Deserialize(const std::filesystem::path& filepath);
@@ -26,6 +32,7 @@ namespace flex
 		void DeserializeEntity(const nlohmann::json& entityData);
 
 		Ref<Scene> m_Scene;
+		SceneLoadOptions m_Options;
 	};
 }
 
