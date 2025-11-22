@@ -28,22 +28,27 @@ if(WIN32)
 elseif(UNIX AND NOT APPLE)
     set(FMOD_LIB_DIR "${THIRDPARTY_DIR}/fmod/lib/linux/x86_64")
 
+    # Link against the base .so file and let the linker resolve versioned files
     target_link_libraries(FlexAudioEngine PUBLIC
-        $<$<CONFIG:Debug>:${FMOD_LIB_DIR}/libfmodL.so>
-        $<$<NOT:$<CONFIG:Debug>>:${FMOD_LIB_DIR}/libfmod.so>
+        $<$<CONFIG:Debug>:${FMOD_LIB_DIR}/libfmodL.so.14.11>
+        $<$<NOT:$<CONFIG:Debug>>:${FMOD_LIB_DIR}/libfmod.so.14.11>
     )
 
     add_custom_command(TARGET FlexAudioEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:FlexAudioEngine>
+        # Copy the actual library files
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${FMOD_LIB_DIR}/libfmod.so
-            ${FMOD_LIB_DIR}/libfmod.so.14
             ${FMOD_LIB_DIR}/libfmod.so.14.11
-            ${FMOD_LIB_DIR}/libfmodL.so
-            ${FMOD_LIB_DIR}/libfmodL.so.14
+            $<TARGET_FILE_DIR:FlexAudioEngine>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${FMOD_LIB_DIR}/libfmodL.so.14.11
             $<TARGET_FILE_DIR:FlexAudioEngine>
-        COMMENT "Copying FMOD shared libraries to output directory"
+        # Create symlinks for versioned libraries
+        COMMAND ${CMAKE_COMMAND} -E create_symlink libfmod.so.14.11 $<TARGET_FILE_DIR:FlexAudioEngine>/libfmod.so.14
+        COMMAND ${CMAKE_COMMAND} -E create_symlink libfmod.so.14 $<TARGET_FILE_DIR:FlexAudioEngine>/libfmod.so
+        COMMAND ${CMAKE_COMMAND} -E create_symlink libfmodL.so.14.11 $<TARGET_FILE_DIR:FlexAudioEngine>/libfmodL.so.14
+        COMMAND ${CMAKE_COMMAND} -E create_symlink libfmodL.so.14 $<TARGET_FILE_DIR:FlexAudioEngine>/libfmodL.so
+        COMMENT "Copying FMOD shared libraries and creating symlinks"
     )
 endif()
 

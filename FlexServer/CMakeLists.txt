@@ -15,14 +15,6 @@ target_include_directories(FlexServer PRIVATE
 target_link_libraries(FlexServer PRIVATE FlexEngine FlexAudioEngine IgniteNet)
 
 if(WIN32)
-    # FMOD 
-    target_link_libraries(FlexServer PUBLIC "${THIRDPARTY_DIR}/fmod/lib/windows/x64/fmod_vc.lib")
-
-    add_custom_command(TARGET FlexServer POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy "${THIRDPARTY_DIR}/fmod/lib/windows/x64/fmod.dll" $<TARGET_FILE_DIR:FlexServer>/fmod.dll
-        COMMENT "Copying fmod.dll to output directory"
-    )
-
     # GameNetworkingSocets
     target_link_libraries(FlexServer PUBLIC
         $<$<CONFIG:Debug>:${CMAKE_SOURCE_DIR}/thirdparty/igniteserver/ThirdParty/GameNetworkingSockets/lib/Windows/Debug/GameNetworkingSockets.lib>
@@ -45,13 +37,6 @@ if(WIN32)
         "$<TARGET_FILE_DIR:FlexServer>/libprotobuf$<$<CONFIG:Debug>:d>.dll"
     )
 elseif(UNIX AND NOT APPLE)
-    # FMOD
-    set(FMOD_LIB_DIR "${THIRDPARTY_DIR}/fmod/lib/linux/x86_64")
-    target_link_libraries(FlexServer PUBLIC
-        $<$<CONFIG:Debug>:${FMOD_LIB_DIR}/libfmodL.so>
-        $<$<NOT:$<CONFIG:Debug>>:${FMOD_LIB_DIR}/libfmod.so>
-    )
-
     # GameNetworkingSockets
     target_link_libraries(FlexServer PUBLIC
         ${CMAKE_SOURCE_DIR}/thirdparty/igniteserver/ThirdParty/GameNetworkingSockets/lib/Linux/libGameNetworkingSockets.so
